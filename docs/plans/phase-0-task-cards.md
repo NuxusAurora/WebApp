@@ -4,12 +4,14 @@
 
 状态：三张卡已编写，均待领取；尚未分配给具体姓名或开始实现。A、B、C 是角色代号。B 兼任本阶段集成协调人，具体姓名领取时登记。三人共同完成 Phase 0 验收后进入 Phase 1。
 
+共同规格基线：固定本地 Git 标签 phase0-spec-v1，包含完整 mainbook.md、本任务卡及根目录交接记录。读取 HANDOFF.md 获取开工入口。该标签保持不变，后续规格变更使用新的明确基线。
+
 ## 共同目标与开工顺序
 
 交付可启动、可测试、可复现的前后端工程基础，使浏览器、API、PostgreSQL、Redis 和 Worker 连通。课程、登录、AI 模型调用、OCR、知识图谱属于后续阶段。
 
-1. B 先核对并组织保存共同规格基线。当前 mainbook.md 的完整正文仍在未提交修改中，而 HEAD 中该文件为空；各人创建 worktree 前必须确保修订规格已进入共同基线，不能丢弃或覆盖现有修改。Git 仓库已经初始化，无需重新初始化或更换远端。
-2. 三人使用同一基线提交号领取任务，分别建立 codex/phase0-a-frontend、codex/phase0-b-backend、codex/phase0-c-infra 分支和独立 worktree。仅在明确获得远端推送授权后推送。
+1. 共同规格已保存，原 mainbook 未入库的开工阻塞已解除。B 核对 git rev-parse phase0-spec-v1^{commit} 的结果并登记为共同基线 SHA；三人使用相同 SHA。Git 仓库已经初始化，无需重新初始化或更换远端。
+2. 三人从 phase0-spec-v1 领取任务，分别建立 codex/phase0-a-frontend、codex/phase0-b-backend、codex/phase0-c-infra 分支和独立 worktree；不要从之后变化的 master 随意选取不同起点。仅在明确获得远端推送授权后推送。
 3. B 先发布健康检查的响应示例及后端启动、测试、Worker 命令；A 发布前端启动、构建和测试命令。C 先提供可单独启动的 PostgreSQL、Redis 服务供 B 验证，再据 A、B 的入口完成整套容器与 CI，避免相互等待。三人可先按下列约定实现各自骨架。
 4. B 先集成后端基础，再集成 A 的前端和 C 的基础设施。每次集成均基于明确提交号验证；CI 必须跟随源码使用同一套命令。
 
@@ -70,7 +72,7 @@
 
 交付任务：
 
-1. 组织保存三人共同规格基线，记录基线 SHA；冻结本卡共享接口与最小环境配置，将示例和命令交给 A、C。
+1. 核对已保存的 phase0-spec-v1 并记录基线 SHA；冻结本卡共享接口与最小环境配置，将示例和命令交给 A、C。
 2. 建立 FastAPI 与配置入口，实现 health、ready；数据库与 Redis 检查采用有限超时。
 3. 配置 SQLAlchemy、数据库会话生命周期、Alembic 和最小迁移链；关闭时释放连接资源，数据库配置不散落到路由代码中。
 4. 建立 Celery 应用入口、可独立启动的 worker 和无业务副作用的 smoke 任务，明确任务结果和超时读取方式；不导入 Web 进程启动副作用。
@@ -87,7 +89,7 @@
 
 可转发指令：
 
-> 领取 docs/plans/phase-0-task-cards.md 中 P0-B，先组织共同规格基线并发布接口/启动命令，再在独立 worktree 完成 backend/ 的 API、数据库迁移和 Celery 基础。按卡验收并交 C 评审；兼任协调人，负责三卡集成和 Phase 0 验收记录。
+> 领取 docs/plans/phase-0-task-cards.md 中 P0-B，核对 phase0-spec-v1 共同规格基线并发布接口/启动命令，再在独立 worktree 完成 backend/ 的 API、数据库迁移和 Celery 基础。按卡验收并交 C 评审；兼任协调人，负责三卡集成和 Phase 0 验收记录。
 
 ## P0-C：容器、基础设施、CI 与运行文档
 
