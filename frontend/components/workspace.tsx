@@ -8,7 +8,7 @@ import { Profile } from './profile';
 import { Icon } from './icon';
 import { api, ApiError } from '../lib/api';
 
-export function Workspace() {
+export function Workspace({ testLoginEnabled = false }: { testLoginEnabled?: boolean }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -79,7 +79,7 @@ export function Workspace() {
         </div> : loadError ? <section className="account-panel">
           <h1>暂时无法连接</h1><p className="muted" role="alert">{loadError}</p>
           <button className="button primary" onClick={() => setRetry(value => value + 1)}>重新连接</button>
-        </section> : <Account notice={notice} onLogin={value => { setUser(value); setNotice(''); }} />}
+        </section> : <Account notice={notice} testLoginEnabled={testLoginEnabled} onLogin={value => { setUser(value); setNotice(''); }} />}
       </div>
     </main>
   </div>;

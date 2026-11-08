@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     storage_bucket: str = "learning-dev"
     dependency_timeout: float = Field(default=1.5, ge=0.05, le=10)
     cookie_secure: bool = False
+    test_login_enabled: bool = False
     public_origin: str = "http://localhost:3000"
     storage_public_endpoint: str = "http://127.0.0.1:9000"
     mail_outbox: str = "/tmp/learning-outbox"

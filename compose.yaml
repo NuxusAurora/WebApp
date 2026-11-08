@@ -12,6 +12,7 @@ x-backend-environment: &backend-environment
   STORAGE_BUCKET: ${STORAGE_BUCKET:-learning-dev}
   DEPENDENCY_TIMEOUT: ${DEPENDENCY_TIMEOUT:-1.5}
   COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  TEST_LOGIN_ENABLED: ${TEST_LOGIN_ENABLED:-false}
   PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
   STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ENDPOINT:-http://127.0.0.1:9000}
   SMTP_HOST: ${SMTP_HOST:-}
@@ -111,7 +112,11 @@ services:
   frontend:
     profiles: [app]
     image: ${COMPOSE_PROJECT_NAME:-structured-learning}-frontend
-    build: {context: ./frontend, target: runtime}
+    build:
+      context: ./frontend
+      target: runtime
+      args:
+        NEXT_PUBLIC_TEST_LOGIN_ENABLED: ${TEST_LOGIN_ENABLED:-false}
     environment:
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
       BACKEND_TIMEOUT_MS: ${BACKEND_TIMEOUT_MS:-3000}

@@ -8,6 +8,8 @@ COPY . .
 CMD ["sh", "-ec", "npm run check && npm test && npm run build"]
 
 FROM deps AS build
+ARG NEXT_PUBLIC_TEST_LOGIN_ENABLED=false
+ENV NEXT_PUBLIC_TEST_LOGIN_ENABLED=$NEXT_PUBLIC_TEST_LOGIN_ENABLED
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN npm run build

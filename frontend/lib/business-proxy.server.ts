@@ -1,4 +1,4 @@
-const allowed = /^(auth\/(register|login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
+const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
 
 export async function proxyBusiness(request: Request, segments: string[], fetcher: typeof fetch = fetch,
   environment: Record<string, string | undefined> = process.env) {

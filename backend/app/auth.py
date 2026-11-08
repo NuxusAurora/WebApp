@@ -1,5 +1,7 @@
 from datetime import timedelta
 from typing import Annotated
+from urllib.parse import urlsplit
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -14,6 +16,8 @@ from app.security import digest, hash_password, new_token, verify_password
 
 router = APIRouter(prefix="/api/v1")
 COOKIE = "learning_session"
+TEST_USER_ID = UUID("f798c3e8-d085-4c51-b748-bb5d90ae42a7")
+TEST_USER_EMAIL = "local-test@example.com"
 
 
 class Input(BaseModel):
@@ -205,6 +209,10 @@ async def login(body: Credentials, request: Request, response: Response, db: DB)
         raise AppError("INVALID_CREDENTIALS", "邮箱或密码错误", 401)
     if not user.email_verified:
         raise AppError("EMAIL_NOT_VERIFIED", "请先验证邮箱", 403)
+    return await session_response(request, response, db, user)
+
+
+async def session_response(request, response, db, user):
     await db.execute(
         delete(AuthToken).where(AuthToken.user_id == user.id, AuthToken.expires_at <= now())
     )
@@ -219,6 +227,41 @@ async def login(body: Credentials, request: Request, response: Response, db: DB)
         secure=request.app.state.settings.cookie_secure,
     )
     return ok(public_user(user))
+
+
+@router.post("/auth/test-login")
+async def test_login(request: Request, response: Response, db: DB):
+    settings = request.app.state.settings
+    if not settings.test_login_enabled or urlsplit(settings.public_origin).hostname not in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }:
+        raise AppError("NOT_FOUND", "页面不存在", 404)
+    await limit(request, "test-login", request.client.host)
+    user = await db.get(User, TEST_USER_ID, with_for_update=True)
+    if user is None:
+        user = User(
+            id=TEST_USER_ID,
+            email=TEST_USER_EMAIL,
+            display_name="测试账户",
+            email_verified=True,
+            password_hash=await run_in_threadpool(hash_password, new_token()),
+        )
+        db.add(user)
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            user = await db.get(User, TEST_USER_ID, with_for_update=True)
+    if (
+        user is None
+        or user.email != TEST_USER_EMAIL
+        or user.role != "user"
+        or not user.email_verified
+    ):
+        raise AppError("TEST_LOGIN_UNAVAILABLE", "测试账户不可用", 409)
+    return await session_response(request, response, db, user)
 
 
 @router.post("/auth/logout")

@@ -16,6 +16,62 @@ HEADERS = {"X-Requested-With": "structured-learning"}
 PASSWORD = "example-password-123"
 
 
+def test_test_login_requires_explicit_local_configuration(account_app):
+    app, client = account_app
+    assert client.post("/api/v1/auth/test-login").status_code == 404
+    app.state.settings.test_login_enabled = True
+    app.state.settings.public_origin = "https://learning.example.com"
+    assert client.post("/api/v1/auth/test-login").status_code == 404
+
+
+def test_test_login_uses_an_isolated_reusable_normal_session(account_app):
+    app, client = account_app
+    authenticate(client, app)
+    original_id = client.get("/api/v1/users/me").json()["data"]["id"]
+    client.post("/api/v1/courses", json={"title": "原账户课程"})
+    client.post("/api/v1/auth/logout")
+    app.state.settings.test_login_enabled = True
+    response = client.post(
+        "/api/v1/auth/test-login", json={"email": "one@example.com", "role": "admin"}
+    )
+    assert response.status_code == 200
+    actor = response.json()["data"]
+    assert actor["id"] != original_id
+    assert actor["role"] == "user" and actor["email_verified"]
+    assert actor["email"] == "local-test@example.com"
+    assert "HttpOnly" in response.headers["set-cookie"]
+    assert "SameSite=strict" in response.headers["set-cookie"]
+    assert client.get("/api/v1/courses").json()["data"] == []
+    assert client.post("/api/v1/courses", json={"title": "测试账户课程"}).status_code == 201
+    client.post("/api/v1/auth/logout")
+    assert client.get("/api/v1/users/me").status_code == 401
+    repeated = client.post("/api/v1/auth/test-login")
+    assert repeated.json()["data"]["id"] == actor["id"]
+    assert len(client.get("/api/v1/courses").json()["data"]) == 1
+
+
+def test_test_login_does_not_take_over_an_existing_email(account_app):
+    app, client = account_app
+    register(client, app, "local-test@example.com")
+    app.state.settings.test_login_enabled = True
+    response = client.post("/api/v1/auth/test-login")
+    assert response.status_code == 409
+    assert "set-cookie" not in response.headers
+    assert client.get("/api/v1/users/me").status_code == 401
+
+
+def test_test_login_uses_the_rate_limiter(account_app):
+    app, client = account_app
+    app.state.settings.test_login_enabled = True
+
+    class Blocked:
+        async def eval(self, *args):
+            return 11
+
+    app.state.resources.redis = Blocked()
+    assert client.post("/api/v1/auth/test-login").status_code == 429
+
+
 class MemoryMail:
     def __init__(self, settings):
         self.sent = []

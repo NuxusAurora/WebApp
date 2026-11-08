@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-08T14:03:00Z",
+  "generatedAt": "2026-11-08T14:47:00.700Z",
   "title": "学习工作台 · 深蓝索引",
   "extensions": {
     "colorMeta": {
@@ -34,6 +34,16 @@
         "name": "state",
         "value": "150ms ease",
         "purpose": "背景、文字和边界颜色；减少动态时关闭"
+      },
+      {
+        "name": "toast-cycle",
+        "value": "3s ease-in-out",
+        "purpose": "成功提示淡入、停留、淡出；减少动态时关闭动画"
+      },
+      {
+        "name": "toast-dismiss",
+        "value": "180ms ease-out",
+        "purpose": "手动关闭成功提示"
       }
     ],
     "breakpoints": [
@@ -63,7 +73,15 @@
       }
     ],
     "cornerShape": "squircle",
-    "cornerFallback": "ordinary-radius; continuous shape unverified in unsupported engines"
+    "cornerFallback": "ordinary-radius; continuous shape unverified in unsupported engines",
+    "systemTheme": {
+      "media": "prefers-color-scheme: dark",
+      "ground": "#101820",
+      "surface": "#172330",
+      "accent": "#8dbbff",
+      "toastBackground": "#d6eca5",
+      "toastInk": "#2c3e18"
+    }
   },
   "components": [
     {
@@ -126,9 +144,17 @@
       "name": "成功通知",
       "kind": "custom",
       "refersTo": "toast-success",
-      "description": "保存成功后浮动显示 3 秒，可关闭，不移动布局。此片段为静态设计预览。",
-      "html": "<div class=\"ds-toast\" role=\"status\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#256b53\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg><span class=\"ds-toast-message\">课程已保存</span><button class=\"ds-toast-close\" aria-label=\"关闭提示\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m6 6 12 12M18 6 6 18\"/></svg></button></div>",
-      "css": ".ds-toast{display:flex;align-items:center;gap:10px;min-width:220px;max-width:420px;padding:10px 12px 10px 16px;border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);color:var(--ink,#24354a);box-shadow:0 4px 18px #152d4b22;font:13px \"Microsoft YaHei\",sans-serif;line-height:1.6}.ds-toast-message{flex:1;min-width:0;overflow-wrap:anywhere}.ds-toast-close{display:grid;place-items:center;width:30px;height:30px;padding:5px;border:0;border-radius:7px;corner-shape:squircle;color:var(--muted,#536a83);background:transparent;cursor:pointer}.ds-toast-close:hover{color:var(--accent,#2869b0);background:var(--accent-soft,#eaf2fc)}.ds-toast-close:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
+      "description": "黄绿色成功气泡；此处静态展示，应用中 3 秒淡入淡出、手动关闭 180ms；减少动态时关闭动画。",
+      "html": "<div class=\"ds-toast\" role=\"status\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg><span class=\"ds-toast-message\">课程已保存</span><button class=\"ds-toast-close\" aria-label=\"关闭提示\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m6 6 12 12M18 6 6 18\"/></svg></button></div>",
+      "css": ".ds-toast{display:flex;align-items:center;gap:10px;min-width:220px;max-width:420px;padding:10px 12px 10px 16px;border-radius:18px;corner-shape:squircle;background:var(--toast-bg,#e8f5bc);color:var(--toast-ink,#344717);box-shadow:0 4px 18px #152d4b22;font:13px \"Microsoft YaHei\",sans-serif;line-height:1.6}.ds-toast-message{flex:1;min-width:0;overflow-wrap:anywhere}.ds-toast-close{display:grid;place-items:center;width:30px;height:30px;padding:5px;border:0;border-radius:7px;corner-shape:squircle;color:inherit;background:transparent;cursor:pointer}.ds-toast-close:hover{color:inherit;background:#34471712}.ds-toast-close:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
+    },
+    {
+      "name": "账户概览",
+      "kind": "custom",
+      "refersTo": "account-overview",
+      "description": "居中身份与五项真实统计槽位；无统计接口显示 —，修改邮箱待接入。",
+      "html": "<section class=\"ds-account\"><div class=\"ds-avatar\" aria-hidden=\"true\">学</div><h2>学习者</h2><p>learner@example.com</p><dl class=\"ds-stats\"><div><dt>消耗 Token</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>Token 使用峰值</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>最长学习项目用时</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>最长连续学习天数</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>当前连续学习天数</dt><dd aria-label=\"暂无统计\">—</dd></div></dl><p>学习统计待接入</p><div class=\"ds-actions\"><button>修改密码</button><button>修改昵称</button><button disabled>修改邮箱 · 待接入</button></div></section>",
+      "css": ".ds-account{text-align:center;padding:32px 20px;color:var(--ink,#24354a);font:14px \"Microsoft YaHei\",sans-serif}.ds-avatar{display:grid;place-items:center;width:76px;height:76px;margin:auto;border-radius:50%;background:var(--accent-soft,#eaf2fc);color:var(--accent,#2869b0);font-size:28px}.ds-account h2{margin:16px 0 8px;font-size:24px}.ds-account p{color:var(--muted,#536a83)}.ds-stats{display:grid;grid-template-columns:repeat(5,1fr);margin:36px 0 12px;padding:24px 0;border:1px solid var(--line,#d3dfeb);border-radius:12px;corner-shape:squircle}.ds-stats div+div{border-left:1px solid var(--line,#d3dfeb)}.ds-stats dt{font-size:12px;color:var(--muted,#536a83)}.ds-stats dd{margin:8px 0 0;font-size:24px}.ds-actions{display:flex;justify-content:center;gap:12px;margin-top:28px}.ds-actions button{padding:10px 16px;color:inherit;background:var(--surface,white);border:1px solid var(--line,#d3dfeb);border-radius:8px;corner-shape:squircle}.ds-actions button:disabled{opacity:.6}@media(max-width:600px){.ds-stats{grid-template-columns:1fr;gap:16px}.ds-stats div+div{border:0}.ds-actions{flex-wrap:wrap}}"
     }
   ],
   "narrative": {

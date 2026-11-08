@@ -11,7 +11,9 @@ const titles: Record<Mode, string> = {
   'forgot-password': '找回密码', 'reset-password': '重置密码', 'resend-verification': '重发验证邮件',
 };
 
-export function Account({ onLogin, notice = '' }: { onLogin: (user: User) => void; notice?: string }) {
+export function Account({ onLogin, notice = '', testLoginEnabled = false }: {
+  onLogin: (user: User) => void; notice?: string; testLoginEnabled?: boolean;
+}) {
   const [mode, setMode] = useState<Mode>('login');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -20,6 +22,15 @@ export function Account({ onLogin, notice = '' }: { onLogin: (user: User) => voi
 
   function changeMode(next: Mode) {
     setMode(next); setMessage(''); setError('');
+  }
+
+  async function testLogin() {
+    setBusy(true); setError(''); setMessage('');
+    try { onLogin(await api<User>('auth/test-login', { method: 'POST' })); }
+    catch (error) {
+      setError(error instanceof Error ? error.message : '测试登录失败，请重试');
+      requestAnimationFrame(() => errorElement.current?.focus());
+    } finally { setBusy(false); }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -79,6 +90,8 @@ export function Account({ onLogin, notice = '' }: { onLogin: (user: User) => voi
         {busy ? '处理中…' : titles[mode]}{!busy ? <Icon name="arrow" size={18} /> : null}
       </button>
     </form>
+    {testLoginEnabled && mode === 'login' ? <button className="button test-login" type="button" disabled={busy}
+      onClick={() => void testLogin()}>测试登录</button> : null}
     <div className="account-links">
       {(['verify-email', 'resend-verification', 'reset-password'] as Mode[]).filter(tab => tab !== mode).map(tab =>
         <button type="button" key={tab} className="text-button" disabled={busy}

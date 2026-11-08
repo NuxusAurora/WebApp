@@ -1,14 +1,22 @@
 # 运行手册
 
+## 账户页、主题与开发测试账户
+
+账户页入口仍为工作台“账户设置”：五项统计暂未接入，修改邮箱按用户确认禁用；昵称和密码通过短表单及原有 API 修改。主题通过 prefers-color-scheme 自动跟随系统；成功提示为黄绿色淡入淡出气泡，减少动态下保留提示时间。
+
+测试登录默认关闭。在仅供本地开发的 .env 中设置 `TEST_LOGIN_ENABLED=true`，重新构建前端并更新 backend/frontend 后，登录页显示“测试登录”，点击进入固定普通测试账户。后端还要求 PUBLIC_ORIGIN 的主机为 localhost/127.0.0.1/::1；关闭或非本地配置返回 404。入口不包含密码，复用正常 12 小时会话和隔离规则，不覆盖同名邮箱。此账户和其学习内容保留供用户开发测试；无需读取验证码。关闭开关后同样重建前端以隐藏入口。单独运行前端时还需构建变量 `NEXT_PUBLIC_TEST_LOGIN_ENABLED=true`。
+
+当前回归：前端 30 项、后端 30 项、工具 5 项。测试配置同时覆盖默认关闭、非本地拒绝、邮箱冲突、限流及测试账户隔离。视觉验收范围与限制见 HANDOFF.md。
+
 ## 前端工作台与学习目标
 
-保存成功通知由 frontend/components/toast.tsx 统一提供局部 hook 和展示组件：课程与个人资料保存成功显示 3 秒 toast，手动可关闭；错误保持原位。`npm test` 当前共 26 项，覆盖重复通知和定时器退出清理。
+保存成功通知由 frontend/components/toast.tsx 统一提供局部 hook 和展示组件：课程与个人资料保存成功显示 3 秒黄绿色气泡，淡入淡出，手动关闭经过 180ms 淡出；减少动态时关闭动画，错误保持原位。`npm test` 当前共 30 项，覆盖重复通知和定时器退出清理。
 
 用户当前主验收尺寸为 3200×2000、浏览器 100% 缩放。界面固定视口，长课程/资料只在列表内滚动；窄屏从目录进入详情并可返回，资料内容在“学习资料”页签，账户设置在“个人资料/登录安全”切换。登录页已移除介绍区。
 
 当前课程目录、详情/编辑及文件选择分别位于 frontend/components/course-space.tsx、course-editor.tsx、course-files.tsx；三档学习目标统一定义在 frontend/lib/learning-goals.ts，保存到现有 learning_goal。AI 难度策略实施与验收见 docs/plans/learning-difficulty-plan.md；目前没有模型请求。
 
-设计规范为 DESIGN.md；共享颜色、布局、焦点与 corner-shape 在 frontend/app/globals.css。连续角在支持的引擎启用；不支持引擎的普通圆角只作为兼容回退。前端本轮验证命令仍为 `npm run check`、`npm test`（26 项）和 `npm run build`。只更新现有前端时从根执行 `docker compose --profile app build frontend` 和 `docker compose --profile app up -d --no-deps --wait frontend`，不覆盖 .env、不重启数据库或后端。
+设计规范为 DESIGN.md；共享颜色、布局、焦点与 corner-shape 在 frontend/app/globals.css。连续角在支持的引擎启用；不支持引擎的普通圆角只作为兼容回退。前端验证命令为 `npm run check`、`npm test`（30 项）和 `npm run build`。仅更新前端时从根执行 `docker compose --profile app build frontend` 和 `docker compose --profile app up -d --no-deps --wait frontend`；本轮测试登录同时涉及后端，按上节更新前后端，不重启数据库。
 
 ## 环境与版本
 

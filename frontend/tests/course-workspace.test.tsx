@@ -7,6 +7,7 @@ import { Account } from '../components/account';
 import { Workspace } from '../components/workspace';
 import { CourseEditor } from '../components/course-editor';
 import { Toast, useToast } from '../components/toast';
+import { Profile } from '../components/profile';
 import { api } from '../lib/api';
 import type { Course } from '../lib/course-types';
 
@@ -251,15 +252,76 @@ describe('success toast lifecycle', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     fireEvent.click(save);
     fireEvent.click(screen.getByRole('button', { name: '关闭提示' }));
+    expect(screen.getByRole('status')).toHaveClass('is-dismissing');
+    act(() => vi.advanceTimersByTime(180));
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('does not dispatch a stale dismissal after the surface unmounts', () => {
     vi.useFakeTimers();
     const dismiss = vi.fn();
-    const view = render(<Toast notification={{ message: '资料已保存' }} onDismiss={dismiss} />);
+    const view = render(<Toast notification={{ message: '资料已保存', id: 1 }} onDismiss={dismiss} />);
     view.unmount();
     act(() => vi.advanceTimersByTime(3000));
     expect(dismiss).not.toHaveBeenCalled();
+  });
+});
+
+describe('personal account overview', () => {
+  beforeEach(() => {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true,
+      value: function(this: HTMLDialogElement) { this.setAttribute('open', ''); } });
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true,
+      value: function(this: HTMLDialogElement) { this.removeAttribute('open'); } });
+  });
+  const user = { id: 'profile-user', display_name: '学习者', email: 'student@example.com' };
+
+  it('shows five unavailable statistics honestly and keeps email editing disabled', () => {
+    render(<Profile user={user} onUpdate={vi.fn()} onPasswordChanged={vi.fn()} />);
+    expect(screen.getAllByLabelText('暂无统计')).toHaveLength(5);
+    expect(screen.getByRole('button', { name: /修改邮箱/ })).toBeDisabled();
+    expect(screen.getByText('学习统计待接入')).toBeInTheDocument();
+    expect(screen.queryByLabelText('当前密码')).not.toBeInTheDocument();
+  });
+
+  it('preserves an unsaved nickname, then uses the profile API and closes on success', async () => {
+    const updated = { ...user, display_name: '新昵称' };
+    const update = vi.fn();
+    vi.mocked(api).mockResolvedValue(updated);
+    render(<Profile user={user} onUpdate={update} onPasswordChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '修改昵称' }));
+    expect(screen.getByLabelText('昵称')).toHaveFocus();
+    fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '新昵称' } });
+    fireEvent.click(screen.getByRole('button', { name: '取消' }));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByLabelText('昵称')).toHaveValue('新昵称');
+    fireEvent.submit(screen.getByLabelText('昵称').closest('form')!);
+    await waitFor(() => expect(update).toHaveBeenCalledWith(updated));
+    expect(api).toHaveBeenCalledWith('users/me', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ display_name: '新昵称' }) }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('昵称已修改');
+  });
+
+  it('preserves password fields and recovery actions when the API fails', async () => {
+    vi.mocked(api).mockRejectedValue(new Error('当前密码错误'));
+    render(<Profile user={user} onUpdate={vi.fn()} onPasswordChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '修改密码' }));
+    fireEvent.change(screen.getByLabelText('当前密码'), { target: { value: 'old-password-123' } });
+    fireEvent.change(screen.getByLabelText('新密码'), { target: { value: 'new-password-123' } });
+    fireEvent.submit(screen.getByLabelText('新密码').closest('form')!);
+    await screen.findByText('当前密码错误');
+    expect(screen.getByLabelText('新密码')).toHaveValue('new-password-123');
+    expect(screen.getByRole('button', { name: '修改密码并退出' })).toBeEnabled();
+  });
+
+  it('logs into the dedicated test account only when the shortcut is enabled', async () => {
+    const login = vi.fn();
+    const view = render(<Account onLogin={login} />);
+    expect(screen.queryByRole('button', { name: '测试登录' })).not.toBeInTheDocument();
+    view.rerender(<Account onLogin={login} testLoginEnabled />);
+    vi.mocked(api).mockResolvedValue(user);
+    fireEvent.click(screen.getByRole('button', { name: '测试登录' }));
+    await waitFor(() => expect(login).toHaveBeenCalledWith(user));
+    expect(api).toHaveBeenCalledWith('auth/test-login', { method: 'POST' });
   });
 });

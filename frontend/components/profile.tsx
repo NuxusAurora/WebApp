@@ -1,62 +1,107 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import type { User } from './account';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 
+const statistics = ['消耗 Token', 'Token 使用峰值', '最长学习项目用时', '最长连续学习天数', '当前连续学习天数'];
+
 export function Profile({ user, onUpdate, onPasswordChanged }: {
   user: User; onUpdate: (user: User) => void; onPasswordChanged: () => void;
 }) {
-  const [pending, setPending] = useState<'profile' | 'password' | null>(null);
-  const { notification, notify: setMessage, dismiss } = useToast();
+  const [editing, setEditing] = useState<'nickname' | 'password' | null>(null);
+  const [pending, setPending] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState('');
-  const [section, setSection] = useState<'profile' | 'password'>('profile');
+  const { notification, notify, dismiss } = useToast();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const firstField = useRef<HTMLInputElement>(null);
   const errorElement = useRef<HTMLParagraphElement>(null);
 
-  async function submit(event: FormEvent<HTMLFormElement>, password: boolean) {
-    event.preventDefault(); setPending(password ? 'password' : 'profile'); setMessage(''); setError('');
+  useEffect(() => {
+    if (!editing || !dialog.current) return;
+    const surface = dialog.current;
+    const trigger = document.activeElement as HTMLElement | null;
+    surface.showModal();
+    firstField.current?.focus();
+    return () => { surface.close(); trigger?.focus({ preventScroll: true }); };
+  }, [editing]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const guard = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [dirty]);
+
+  function openEditor(section: 'nickname' | 'password') {
+    setError(''); setDirty(false); setEditing(section);
+  }
+
+  function closeEditor() {
+    if (pending || dirty && !window.confirm('修改尚未保存。放弃修改？')) return;
+    setEditing(null); setError(''); setDirty(false);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setPending(true); setError('');
     const data = Object.fromEntries(new FormData(event.currentTarget));
     try {
-      if (password) {
+      if (editing === 'password') {
         await api('auth/change-password', { method: 'POST', body: JSON.stringify(data) });
-        onPasswordChanged();
+        setDirty(false); setEditing(null); onPasswordChanged();
       } else {
         const result = await api<User>('users/me', { method: 'PATCH', body: JSON.stringify(data) });
-        onUpdate(result); setMessage('资料已保存');
+        onUpdate(result); setDirty(false); setEditing(null); notify('昵称已修改');
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : '操作失败，请重试');
       requestAnimationFrame(() => errorElement.current?.focus());
-    } finally { setPending(null); }
+    } finally { setPending(false); }
   }
 
-  return <div className="settings-page">
-    <div className="page-heading"><div><h1>账户设置</h1><p>管理个人资料与登录安全。</p></div></div>
+  return <div className="account-page">
+    <div className="page-heading"><h1>账户设置</h1></div>
     <Toast notification={notification} onDismiss={dismiss} />
-    {error ? <p ref={errorElement} tabIndex={-1} role="alert" className="notice error"><Icon name="alert" size={18} />{error}</p> : null}
-    <div className="segmented-control settings-tabs" aria-label="账户设置分类">
-      <button aria-pressed={section === 'profile'} disabled={pending !== null} onClick={() => { setSection('profile'); setError(''); setMessage(''); }}>个人资料</button>
-      <button aria-pressed={section === 'password'} disabled={pending !== null} onClick={() => { setSection('password'); setError(''); setMessage(''); }}>登录安全</button>
+    <div className="account-overview">
+      <section className="profile-identity" aria-label="个人资料">
+        <div className="profile-avatar" role="img" aria-label={user.display_name + '的头像'}>
+          {user.display_name.trim().slice(0, 2).toLocaleUpperCase() || '我'}
+        </div>
+        <h2>{user.display_name}</h2><p className="profile-email">{user.email}</p>
+      </section>
+      <dl className="learning-statistics" aria-label="学习统计">
+        {statistics.map(label => <div key={label}><dt>{label}</dt><dd aria-label="暂无统计">—</dd></div>)}
+      </dl>
+      <p className="statistics-note">学习统计待接入</p>
+      <div className="profile-actions" aria-label="账户操作">
+        <button className="button" onClick={() => openEditor('password')}>修改密码</button>
+        <button className="button" onClick={() => openEditor('nickname')}>修改昵称</button>
+        <button className="button" disabled>修改邮箱<span className="action-state">待接入</span></button>
+      </div>
     </div>
-    {section === 'profile' ? <section className="settings-section" aria-labelledby="profile-heading">
-      <div className="settings-description"><h2 id="profile-heading">个人资料</h2><p>称呼会显示在你的工作台中。</p></div>
-      <form className="form-stack" onSubmit={event => void submit(event, false)}>
-        <div className="field-group"><span className="field-label">邮箱</span><div className="read-only-field">{user.email}<span className="status-tag">已验证</span></div></div>
-        <label>称呼<input name="display_name" defaultValue={user.display_name} maxLength={80}
-          required autoComplete="nickname" /></label>
-        <div><button className="button primary" disabled={pending !== null}>{pending === 'profile' ? '保存中…' : '保存资料'}</button></div>
+    {editing ? <dialog ref={dialog} className="profile-dialog" aria-labelledby="profile-dialog-title"
+      aria-describedby={editing === 'password' ? 'password-note' : undefined}
+      onCancel={event => { event.preventDefault(); closeEditor(); }}>
+      <div className="panel-heading"><h2 id="profile-dialog-title">{editing === 'password' ? '修改密码' : '修改昵称'}</h2>
+        <button className="icon-button" type="button" aria-label="关闭编辑" disabled={pending} onClick={closeEditor}><Icon name="close" /></button></div>
+      {editing === 'password' ? <p className="dialog-description" id="password-note">修改后将退出所有登录。密码需为 12–128 个字符。</p> : null}
+      {error ? <p ref={errorElement} tabIndex={-1} role="alert" className="notice error">{error}</p> : null}
+      <form className="form-stack" onSubmit={submit} onChange={() => setDirty(true)}>
+        <div className="dialog-fields">
+          {editing === 'nickname' ? <label>昵称<input ref={firstField} name="display_name" defaultValue={user.display_name}
+            maxLength={80} required autoComplete="nickname" /></label> : <>
+            <label>当前密码<input ref={firstField} type="password" name="current_password" minLength={12} maxLength={128}
+              autoComplete="current-password" required /></label>
+            <label>新密码<input type="password" name="password" minLength={12} maxLength={128}
+              autoComplete="new-password" required /></label>
+          </>}
+        </div>
+        <div className="dialog-actions"><button className="button" type="button" disabled={pending} onClick={closeEditor}>取消</button>
+          <button className="button primary" disabled={pending}>{pending ? '保存中…' : editing === 'password' ? '修改密码并退出' : '保存昵称'}</button></div>
       </form>
-    </section> : <section className="settings-section" aria-labelledby="password-heading">
-      <div className="settings-description"><h2 id="password-heading">修改密码</h2><p>修改后将退出所有登录。<br />密码需为 12–128 个字符。</p></div>
-      <form className="form-stack" onSubmit={event => void submit(event, true)}>
-        <label>当前密码<input type="password" name="current_password" minLength={12} maxLength={128}
-          autoComplete="current-password" required /></label>
-        <label>新密码<input type="password" name="password" minLength={12} maxLength={128}
-          autoComplete="new-password" required /></label>
-        <div><button className="button" disabled={pending !== null}>{pending === 'password' ? '处理中…' : '修改密码并退出'}</button></div>
-      </form>
-    </section>}
+    </dialog> : null}
   </div>;
 }
