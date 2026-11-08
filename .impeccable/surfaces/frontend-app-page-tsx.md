@@ -28,3 +28,7 @@ FORM: 自拟候选 5，科学博物馆的展项标识与分类索引；用户选
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
 验收：主要桌面、390px 手机与实际内嵌浏览器宽度；真实课程和文件交互、键盘焦点、长内容和异步失败。依据用户的主代理规则，在本线程完成复查与文档，不使用技能建议的子代理，不声称独立评审。
+
+## Phase 2 本地模型设置
+
+Operate 模式，延续既有深蓝索引、自动深浅色、连续曲率和视口局部滚动。新增主导航模型设置：选择连接，下分连接与密钥 / 模型与测试 / 调用记录。表单显式保存，内容区可滚动，底部保存动作保持可达。新建、空、加载、保存失败保留输入、未保存离开确认、测试忙碌和真实结果分别呈现。仅本地 OpenAI 兼容；测试仅发送固定内容，不发送课程资料；真实模型效果不在本轮验收。

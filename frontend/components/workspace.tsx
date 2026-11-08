@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Account, type User } from './account';
 import { CourseSpace } from './course-space';
 import { Profile } from './profile';
+import { AISettings } from './ai-settings';
 import { Icon } from './icon';
 import { api, ApiError } from '../lib/api';
 
@@ -14,7 +15,7 @@ export function Workspace({ testLoginEnabled = false }: { testLoginEnabled?: boo
   const [loadError, setLoadError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<'courses' | 'profile'>('courses');
+  const [view, setView] = useState<'courses' | 'profile' | 'ai'>('courses');
   const [dirty, setDirty] = useState(false);
   const [retry, setRetry] = useState(0);
 
@@ -35,10 +36,10 @@ export function Workspace({ testLoginEnabled = false }: { testLoginEnabled?: boo
   }, [retry]);
 
   function leaveEditor() {
-    return !dirty || window.confirm('课程修改尚未保存。放弃修改并离开？');
+    return !dirty || window.confirm('修改尚未保存。放弃修改并离开？');
   }
 
-  function navigate(next: 'courses' | 'profile') {
+  function navigate(next: 'courses' | 'profile' | 'ai') {
     if (next === view || !leaveEditor()) return;
     setDirty(false);
     setView(next);
@@ -93,6 +94,10 @@ export function Workspace({ testLoginEnabled = false }: { testLoginEnabled?: boo
           aria-current={view === 'courses' ? 'page' : undefined} onClick={() => navigate('courses')}>
           <Icon name="courses" /><span>我的课程</span>
         </button>
+        <button className={'nav-item' + (view === 'ai' ? ' is-current' : '')}
+          aria-current={view === 'ai' ? 'page' : undefined} onClick={() => navigate('ai')}>
+          <Icon name="sliders" /><span>模型设置</span>
+        </button>
         <button className={'nav-item' + (view === 'profile' ? ' is-current' : '')}
           aria-current={view === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')}>
           <Icon name="user" /><span>账户设置</span>
@@ -115,12 +120,12 @@ export function Workspace({ testLoginEnabled = false }: { testLoginEnabled?: boo
     <div className="app-body">
       <header className="workspace-topbar">
         <div className="breadcrumb"><span>个人空间</span><Icon name="chevron" size={14} />
-          <strong>{view === 'courses' ? '我的课程' : '账户设置'}</strong></div>
+          <strong>{view === 'courses' ? '我的课程' : view === 'ai' ? '模型设置' : '账户设置'}</strong></div>
         <span className="workspace-user">{user.display_name}</span>
       </header>
       <main id="main-content" className="workspace-main">
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
-        {view === 'profile' ? <Profile user={user} onUpdate={setUser} onPasswordChanged={() => {
+        {view === 'ai' ? <AISettings onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired} />}
       </main>

@@ -1,4 +1,4 @@
-const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
+const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|ai\/(options|providers(?:\/[0-9a-f-]{36}(?:\/(key|models))?)?|models\/[0-9a-f-]{36}(?:\/test)?|calls(?:\/stream)?)|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
 
 export async function proxyBusiness(request: Request, segments: string[], fetcher: typeof fetch = fetch,
   environment: Record<string, string | undefined> = process.env) {
@@ -56,9 +56,13 @@ export async function proxyBusiness(request: Request, segments: string[], fetche
     }
     const url = new URL(`/api/v1/${path}`, base);
     const offset = new URL(request.url).searchParams.get('offset');
-    if (path === 'courses' && offset) url.searchParams.set('offset', offset);
+    if (['courses', 'ai/calls'].includes(path) && offset) url.searchParams.set('offset', offset);
     const response = await fetcher(url, { method: request.method, headers, body: body as BodyInit,
-      cache: 'no-store', redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]) });
+      cache: 'no-store', redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(path.startsWith('ai/') ? 125000 : 15000)]) });
+    if (path === 'ai/calls/stream' && response.ok && response.headers.get('Content-Type')?.startsWith('text/event-stream')) {
+      return new Response(response.body, { status: 200, headers: { 'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' } });
+    }
     const payload = await response.json();
     const outgoing = new Headers({ 'Cache-Control': 'no-store' });
     for (const cookie of response.headers.getSetCookie()) {

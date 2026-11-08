@@ -4,6 +4,21 @@ import { proxyBusiness } from '../lib/business-proxy.server';
 
 const environment = { BACKEND_INTERNAL_URL: 'http://backend:8000' };
 describe('authenticated same-origin proxy', () => {
+  it('passes local model streams through without buffering and forwards log pagination', async () => {
+    const upstream = vi.fn().mockResolvedValue(new Response('data: {"done":true}\n\n', {
+      headers: { 'Content-Type': 'text/event-stream', 'Authorization': 'private' },
+    }));
+    const request = new Request('http://localhost/api/v1/ai/calls/stream', {
+      method: 'POST', body: '{}', headers: { 'X-Requested-With': 'structured-learning' },
+    });
+    const result = await proxyBusiness(request, ['ai', 'calls', 'stream'], upstream, environment);
+    expect(result.headers.get('Content-Type')).toBe('text/event-stream');
+    expect(result.headers.has('Authorization')).toBe(false);
+    expect(await result.text()).toContain('"done":true');
+    const logs = vi.fn().mockResolvedValue(Response.json({ success: true, data: [] }));
+    await proxyBusiness(new Request('http://localhost/api/v1/ai/calls?offset=100'), ['ai', 'calls'], logs, environment);
+    expect(logs.mock.calls[0][0].searchParams.get('offset')).toBe('100');
+  });
   it('forwards only the session cookie and preserves HttpOnly session responses', async () => {
     const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: {}, error: null },
       { headers: { 'Set-Cookie': 'learning_session=opaque; HttpOnly; SameSite=Strict; Path=/' } }));
