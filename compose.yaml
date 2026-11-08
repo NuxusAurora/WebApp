@@ -1,0 +1,122 @@
+x-backend-environment: &backend-environment
+  DATABASE_URL: ${DATABASE_URL:?Generate .env with node scripts/infra.mjs init}
+  REDIS_URL: ${REDIS_URL:?Set REDIS_URL}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:?Set CELERY_BROKER_URL}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:?Set CELERY_RESULT_BACKEND}
+  SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY}
+  STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:?Set STORAGE_ENDPOINT}
+  STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?Set STORAGE_ACCESS_KEY}
+  STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:?Set STORAGE_SECRET_KEY}
+  STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+  STORAGE_BUCKET: ${STORAGE_BUCKET:-learning-dev}
+
+x-health: &health
+  interval: 5s
+  timeout: 3s
+  retries: 20
+  start_period: 10s
+
+services:
+  postgres:
+    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-learning}
+      POSTGRES_DB: ${POSTGRES_DB:-learning}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks: [data]
+    healthcheck:
+      <<: *health
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - redis-data:/data
+    networks: [data]
+    healthcheck:
+      <<: *health
+      test: [CMD, redis-cli, ping]
+    restart: unless-stopped
+
+  storage:
+    image: rustfs/rustfs:1.0.4@sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2
+    environment:
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?Set STORAGE_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY:?Set STORAGE_SECRET_KEY}
+      RUSTFS_ADDRESS: ':9000'
+      RUSTFS_CONSOLE_ENABLE: 'false'
+      RUSTFS_OBS_LOGGER_LEVEL: warn
+    command: [/data]
+    ports:
+      - '127.0.0.1:${STORAGE_PORT:-9000}:9000'
+    volumes:
+      - storage-data:/data
+    networks: [data, storage-access]
+    healthcheck:
+      <<: *health
+      test: [CMD, curl, --fail, --silent, --max-time, '2', 'http://localhost:9000/health']
+    restart: unless-stopped
+
+  backend:
+    profiles: [app]
+    build: ./backend
+    environment: *backend-environment
+    ports:
+      - '127.0.0.1:${BACKEND_PORT:-8000}:8000'
+    networks: [app, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      storage: {condition: service_healthy}
+    healthcheck:
+      <<: *health
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://localhost:8000/api/v1/health", timeout=2).close()']
+    init: true
+    restart: unless-stopped
+
+  worker:
+    profiles: [app]
+    build: ./backend
+    environment:
+      <<: *backend-environment
+      WORKER_APP: ${WORKER_APP:-}
+    command: [sh, -ec, 'exec celery -A "$${WORKER_APP:?Set WORKER_APP to the entry published by P0-B}" worker --loglevel=INFO']
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [app, data]
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    profiles: [app]
+    build: ./frontend
+    environment:
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
+    ports:
+      - '127.0.0.1:${FRONTEND_PORT:-3000}:3000'
+    networks: [app]
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      <<: *health
+      test: [CMD, node, -e, 'fetch("http://localhost:3000/api/v1/health", {signal: AbortSignal.timeout(2000)}).then(r => {if (!r.ok) process.exit(1)}).catch(() => process.exit(1))']
+    init: true
+    restart: unless-stopped
+
+networks:
+  app: {}
+  storage-access: {}
+  data:
+    internal: true
+
+volumes:
+  postgres-data: {}
+  redis-data: {}
+  storage-data: {}

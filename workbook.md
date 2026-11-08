@@ -1,6 +1,19 @@
 # Workbook
 
-当前没有活动任务。
+## task: phase0-c-infra-20261108
+- 负责人：当前聊天，P0-C
+- 开始：2026-11-08T02:07:36-08:00
+- 状态：进行中；依赖层已验证，等待 A/B 应用入口与交叉评审
+- 正在做：已实现 Compose、环境模板、隔离验证、基础设施 CI 和 README/RUNBOOK；完整应用 CI 与容器联调待 A/B 输入。
+- 为什么：落实 Phase 0 的基础设施与可复现启动。
+- 共同基线：phase0-spec-v1 = 7e939d9b3610276a5d5f4e70a3eddfd80b32b112。
+- 分支/worktree：codex/phase0-c-infra；D:/Code/codex/codex-work/Webapp-phase0-c。
+- 涉及范围：compose.yaml、.env.example、.gitignore、.github/**、README.md、RUNBOOK.md、scripts/**；任务卡仅登记 C 状态。
+- 共享资源：Docker 引擎及镜像缓存；验证使用 p0c-verify-UUID 项目，另有本任务 p0c-20261108 诊断项目，均已删除测试容器、网络和卷。不触碰其他项目。
+- 独立缓存区：D:/Code/codex/codex-work/Webapp-phase0-c/.task-cache/p0c；本轮临时 env 已清理，后续验证按需重建。
+- 验证：5 项 Node 检查通过；PostgreSQL 认证连接、Redis/S3 读写删除、测试桶清理、stop/up 恢复通过。详细事实与待测项集中在任务 worktree 的 RUNBOOK.md。
+- 解耦：依赖层通过；应用 CMD、Worker 配置、重连及前后端链路尚未验证。
+- 协作提示：不修改 frontend/**、backend/** 或根 HANDOFF.md。A/B 的入口、锁文件和 Dockerfile 尚未提供，最终整栈与 CI 验收依赖这些输入。
 
 2026-11-08：已初始化当前目录的 Git 仓库，origin 为 https://github.com/NuxusAurora/WebApp.git。已核对 fetch/push 地址；尚无提交，未拉取或推送。保留原有 mainbook.md，无临时缓存。
 

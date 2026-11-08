@@ -1,0 +1,32 @@
+name: Infrastructure
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.18.0'
+          package-manager-cache: false
+      - name: Tooling regression checks
+        run: node --test scripts/infra.test.mjs
+      - name: Clean isolated dependencies and recovery
+        run: node scripts/infra.mjs verify
+      # Application CI must be added from A/B's published commands and lockfiles.
+      # A green Infrastructure job alone does not accept Phase 0.
