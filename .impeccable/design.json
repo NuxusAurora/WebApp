@@ -96,7 +96,7 @@
       "refersTo": "input",
       "description": "可见标签、占位文字与焦点。",
       "html": "<label class=\"ds-label\">课程名称<input class=\"ds-input\" placeholder=\"例如：高等数学\" /></label>",
-      "css": ".ds-label{display:grid;gap:8px;font:13px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-input{font:inherit;background:var(--surface,white);color:var(--ink,#24354a);padding:11px 12px;border:1px solid #c7d5e4;border-radius:var(--radius,8px);corner-shape:squircle}.ds-input::placeholder{color:#60748b}.ds-input:hover{border-color:#87a7c8}.ds-input:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
+      "css": ".ds-label{display:grid;gap:8px;font:13px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-input{font:inherit;background:var(--surface,white);color:var(--ink,#24354a);padding:11px 12px;border:1px solid #c7d5e4;border-radius:var(--radius,8px);corner-shape:squircle}.ds-input::placeholder{color:#60748b}.ds-input:hover{border-color:#87a7c8}.ds-input:focus-visible{outline:none;border-color:var(--accent,#2869b0);box-shadow:inset 0 0 0 1px var(--accent,#2869b0)}"
     },
     {
       "name": "全局导航",
