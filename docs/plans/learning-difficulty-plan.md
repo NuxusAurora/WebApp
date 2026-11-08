@@ -35,4 +35,4 @@
 
 ## 状态
 
-Phase 1 选项：本轮实施；规范化枚举迁移、LearningPolicyResolver、Prompt、AI 调用和三档教学效果：待后续阶段，尚未实现或验收。
+Phase 1 选项：已实现，保存与刷新恢复已验收；规范化枚举迁移、LearningPolicyResolver、Prompt、AI 调用和三档教学效果：待后续阶段，尚未实现或验收。
