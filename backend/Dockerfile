@@ -6,6 +6,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project --no-cache
 COPY app ./app
+COPY prompts ./prompts
 COPY migrations ./migrations
 COPY alembic.ini ./
 RUN useradd --uid 10001 --create-home app

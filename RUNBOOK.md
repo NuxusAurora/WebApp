@@ -12,11 +12,11 @@
 
 本机 localhost:3000 已启用 TEST_LOGIN_ENABLED=true；登录页点击“测试登录”直接进入独立测试账户。普通环境仍默认关闭。
 
-当前回归：前端 30 项、后端 30 项、工具 5 项。测试配置同时覆盖默认关闭、非本地拒绝、邮箱冲突、限流及测试账户隔离。视觉验收范围与限制见 HANDOFF.md。
+账户页回归覆盖默认关闭、非本地拒绝、邮箱冲突、限流和测试账户隔离。当前测试总数及视觉验收范围见 HANDOFF.md 的最新阶段。
 
 ## 前端工作台与学习目标
 
-保存成功通知由 frontend/components/toast.tsx 统一提供局部 hook 和展示组件：课程与个人资料保存成功显示 3 秒黄绿色气泡，淡入淡出，手动关闭经过 180ms 淡出；减少动态时关闭动画，错误保持原位。`npm test` 当前共 30 项，覆盖重复通知和定时器退出清理。
+保存成功通知由 frontend/components/toast.tsx 统一提供局部 hook 和展示组件：课程与个人资料保存成功显示 3 秒黄绿色气泡，淡入淡出，手动关闭经过 180ms 淡出；减少动态时关闭动画，错误保持原位。测试覆盖重复通知和定时器退出清理。
 
 用户当前主验收尺寸为 3200×2000、浏览器 100% 缩放。界面固定视口，长课程/资料只在列表内滚动；窄屏从目录进入详情并可返回，资料内容在“学习资料”页签，账户设置在“个人资料/登录安全”切换。登录页已移除介绍区。
 
@@ -152,7 +152,7 @@ node scripts/phase0.mjs down
 - 端口占用：改本环境的端口，再 up。当前 Engine 上内部网络仅加 ports 不会实际发布；存储另有访问网络，数据库/Redis 保持内部。
 - 密码错误：不要重新 init 或删除开发卷；已有卷的用户密码需明确修改并同步 DATABASE_URL。init 不覆盖原凭据。
 - 验证中断：只对 `.task-cache/p0c/p0c-verify-UUID.env` 对应的同名项目执行 `docker compose --env-file <该文件> --profile app --profile test down --volumes --remove-orphans`，再删除临时配置。
-- 日志：后端记录自建请求 ID、方法、路由模板、状态和耗时，不记录正文、请求头、查询串、原始异常或连接串；响应含 X-Request-ID。验证码、密码、会话令牌均不写入日志；尚无 AI 工作流或模型调用日志。
+- 日志：后端记录自建请求 ID、方法、路由模板、状态和耗时，不记录正文、请求头、查询串、原始异常或连接串；响应含 X-Request-ID。验证码、密码、会话令牌均不写入日志；尚无教学工作流，模型审计见 Phase 2。
 
 ## Phase 1 账户、课程与文件
 
@@ -171,3 +171,19 @@ node scripts/phase0.mjs down
 日常启动仍为 `node scripts/phase0.mjs up`；不需要重建 `.env`，新增配置有开发默认值。旧 Phase 0 卷执行新迁移即可；不得覆盖 `.env` 中原有凭据。
 
 当前配置用于本地开发；生产 TLS、最小权限存储身份、备份恢复、部署和回滚属于 Phase 9，尚未验收。Ruff/pytest/Vitest/生产构建、真实依赖与浏览器验收分别记录，不能相互替代。
+
+## Phase 2 本地 OpenAI 兼容模型
+
+入口：登录后“模型设置”，依次填写“连接与密钥 → 模型与测试”。密钥可留空；已有密钥在编辑时留空保留，可单独删除。更换地址必须重新输入或先删除密钥，防止把旧密钥发送给新地址。密钥以 Fernet 认证加密保存，读取只返回 has_api_key。保留现有 ENCRYPTION_KEY；轮换应用加密主密钥需要独立重新加密迁移，本阶段不提供自动迁移。
+
+- 默认允许 localhost、127.0.0.1、host.docker.internal 的 1234/11434 端口。Docker 内 localhost 指容器自身，宿主机服务通常填写 `http://host.docker.internal:1234/v1` 或 `:11434/v1`。实际模型需自行运行并允许容器访问，应用不下载或启动模型。其他端口在既有 `.env` 添加 `AI_ALLOWED_ORIGINS`：逗号分隔的精确源（scheme://host:port，不含 /v1），然后重启后端，保留原凭据。仅允许可信本地服务；禁止重定向和环境代理。
+- 迁移 `0003_ai_gateway` 接在 0002 后，增加 ai_providers/ai_models/ai_call_logs。`node scripts/phase0.mjs up` 升级现有数据库。降级到 0002 删除 AI 配置/日志，只在明确可丢弃的隔离库执行。
+- `GET /api/v1/ai/options`：允许地址；`GET/POST /ai/providers`；`PATCH/DELETE /ai/providers/{id}`；`DELETE /ai/providers/{id}/key`；`POST /ai/providers/{id}/models`；`PUT/DELETE /ai/models/{id}`。沿用会话、同源写请求校验及所有者隔离。
+- `POST /ai/models/{id}/test`，正文 `{"kind":"chat"}`、stream 或 structured。仅发送固定测试内容，使用本地算力；探测与用户确认分开。改地址/密钥/模型/能力清除旧结果；网络期间变更的配置不能被旧探测标记通过。视觉/工具能力不按名称猜测；本阶段只接收文本。
+- `POST /ai/calls`：provider_id、model_id、messages（role/content）、task_type、task_context、可选 output_schema、prompt_version、timeout（默认 60，最大 120 秒）、retry_policy.max_retries（0–2）、max_output_tokens（16–8192）。响应含 text、structured、usage 和 log_id。task_context 由工作流传入，Adapter 不读课程或学习策略。无原生 Schema 能力时用文本 JSON 校验及最多两次修复。未知 Token 为 null，不估算费用/上下文占用；分词和上下文压缩留到后续阶段。
+- `POST /ai/calls/stream` 为 SSE，data 含 text/usage/done/log_id；done 仅在上游完整结束且审计保存后发出，失败为 event:error。取消关闭上游，已发文本后不重试，不把截断流当成功。代理不缓冲流，最长 125 秒。普通 HTTP 受总超时限制，浏览器离开不保证立即停止已开始的非流式计算。
+- `GET /ai/calls?offset=0` 每页最多 100 条，保存当次名称快照、版本、状态、耗时、尝试数、Token 和安全错误码，无正文、回复或密钥。进程崩溃后 RUNNING 可能留存，不能视为成功，自动恢复不在本阶段。
+
+源码：`backend/app/ai/`、版本为 gateway-v1 的 `backend/prompts/gateway/*`、`frontend/components/ai-settings.tsx` 和既有同源代理。模型与课程领域互不写入。实施约定见 `docs/plans/phase-2-implementation.md`。
+
+验收仍为 `node --test scripts/infra.test.mjs` 与 `node scripts/phase0.mjs verify`，后者含 `scripts/phase2-acceptance.mjs`。只对 p0c-verify-* 项目做迁移回退，复制 `scripts/fixtures/phase2-check.py` 和 `local-model.py` 到隔离容器 /tmp，经真实 HTTP 验证协议；fixture 不是 AI 推理服务，不进入运行镜像。成功/失败按原 finally 清理，--keep 仅供浏览器检查。真实模型质量未测，视觉限制见 HANDOFF。

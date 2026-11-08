@@ -1,6 +1,6 @@
 # AI Structured Learning
 
-模型无关的结构化 AI 学习平台。产品规格见 [mainbook.md](mainbook.md)。当前实现到 Phase 1：账户注册与邮箱验证、安全会话、资料和密码管理、用户隔离的课程 CRUD、受限文本上传与签名下载，以及 Phase 0 基础设施。Phase 2 AI Gateway 尚未开始。
+模型无关的结构化 AI 学习平台。产品规格见 [mainbook.md](mainbook.md)。当前提供账户、独立课程与资料管理，以及 Phase 2 本地 OpenAI 兼容模型配置、可选加密密钥、能力测试与脱敏调用记录。实际本地模型需自行配置；尚无 AI 教学或课程结构生成。
 
 需要 Node.js 24.18.0、运行中的 Docker Engine / Docker Desktop（Linux 容器与 Compose）。从仓库根执行：
 

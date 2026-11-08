@@ -5,11 +5,15 @@ import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from app.ai.adapters import OpenAIProvider
+from app.ai.gateway import Gateway
+from app.ai.routes import router as ai_router
 from app.auth import router as auth_router
 from app.config import Settings
 from app.courses import router as course_router
@@ -29,6 +33,7 @@ def create_app(
     resources_factory=Resources,
     mailer_factory=Mailer,
     store_factory=ObjectStore,
+    ai_client_factory=None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -37,20 +42,36 @@ def create_app(
         app.state.resources = resources
         app.state.settings = configured
         app.state.store = None
+        app.state.ai_client = None
         try:
             app.state.mailer = mailer_factory(configured)
             app.state.store = store_factory(configured)
+            app.state.ai_client = (
+                ai_client_factory()
+                if ai_client_factory
+                else httpx.AsyncClient(
+                    follow_redirects=False,
+                    trust_env=False,
+                    limits=httpx.Limits(max_connections=20, max_keepalive_connections=5),
+                )
+            )
+            app.state.ai_gateway = Gateway({"openai": OpenAIProvider(app.state.ai_client)})
             yield
         finally:
             try:
                 if app.state.store is not None:
                     await run_in_threadpool(app.state.store.close)
             finally:
-                await resources.close()
+                try:
+                    if app.state.ai_client is not None:
+                        await app.state.ai_client.aclose()
+                finally:
+                    await resources.close()
 
     app = FastAPI(title="Structured Learning API", version="0.1.0", lifespan=lifespan)
     app.include_router(auth_router)
     app.include_router(course_router)
+    app.include_router(ai_router)
 
     @app.exception_handler(AppError)
     async def application_error(request, error):
