@@ -2,11 +2,13 @@
 
 ## 前端工作台与学习目标
 
-用户当前主验收尺寸为 3200×2000、浏览器 100% 缩放。界面固定视口，长课程/资料只在列表内滚动；窄屏从目录进入详情并可返回，资料内容在“学习资料”页签，账户设置在“个人资料/登录安全”切换。登录页已移除介绍区。当前前端测试为 24 项。
+保存成功通知由 frontend/components/toast.tsx 统一提供局部 hook 和展示组件：课程与个人资料保存成功显示 3 秒 toast，手动可关闭；错误保持原位。`npm test` 当前共 26 项，覆盖重复通知和定时器退出清理。
+
+用户当前主验收尺寸为 3200×2000、浏览器 100% 缩放。界面固定视口，长课程/资料只在列表内滚动；窄屏从目录进入详情并可返回，资料内容在“学习资料”页签，账户设置在“个人资料/登录安全”切换。登录页已移除介绍区。
 
 当前课程目录、详情/编辑及文件选择分别位于 frontend/components/course-space.tsx、course-editor.tsx、course-files.tsx；三档学习目标统一定义在 frontend/lib/learning-goals.ts，保存到现有 learning_goal。AI 难度策略实施与验收见 docs/plans/learning-difficulty-plan.md；目前没有模型请求。
 
-设计规范为 DESIGN.md；共享颜色、布局、焦点与 corner-shape 在 frontend/app/globals.css。连续角在支持的引擎启用；不支持引擎的普通圆角只作为兼容回退。前端本轮验证命令仍为 `npm run check`、`npm test`（24 项）和 `npm run build`。只更新现有前端时从根执行 `docker compose --profile app build frontend` 和 `docker compose --profile app up -d --no-deps --wait frontend`，不覆盖 .env、不重启数据库或后端。
+设计规范为 DESIGN.md；共享颜色、布局、焦点与 corner-shape 在 frontend/app/globals.css。连续角在支持的引擎启用；不支持引擎的普通圆角只作为兼容回退。前端本轮验证命令仍为 `npm run check`、`npm test`（26 项）和 `npm run build`。只更新现有前端时从根执行 `docker compose --profile app build frontend` 和 `docker compose --profile app up -d --no-deps --wait frontend`，不覆盖 .env、不重启数据库或后端。
 
 ## 环境与版本
 

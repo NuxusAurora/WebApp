@@ -6,6 +6,7 @@ import { CourseSpace } from '../components/course-space';
 import { Account } from '../components/account';
 import { Workspace } from '../components/workspace';
 import { CourseEditor } from '../components/course-editor';
+import { Toast, useToast } from '../components/toast';
 import { api } from '../lib/api';
 import type { Course } from '../lib/course-types';
 
@@ -67,6 +68,7 @@ describe('desktop course workspace', () => {
     });
     fireEvent.submit(screen.getByRole('button', { name: '保存课程' }).closest('form')!);
     await screen.findByRole('heading', { name: '概率论' });
+    expect(screen.getByRole('status')).toHaveTextContent('课程已保存');
     const call = vi.mocked(api).mock.calls.find(([path, init]) => path === 'courses' && init?.method === 'POST')!;
     expect(JSON.parse(call[1]!.body as string)).toEqual({ title: '概率论', subject: '', textbook: '', learning_goal: '多学一点' });
     expect(screen.queryByLabelText(/课程名称/)).not.toBeInTheDocument();
@@ -221,5 +223,43 @@ describe('learning goal choices', () => {
     fireEvent.change(goal, { target: { value: '及格就好' } });
     fireEvent.submit(screen.getByRole('button', { name: '保存课程' }).closest('form')!);
     expect(save.mock.calls[1][0]).toHaveProperty('learning_goal', '及格就好');
+  });
+});
+
+describe('success toast lifecycle', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  function SaveExample() {
+    const { notification, notify, dismiss } = useToast();
+    return <><button onClick={() => notify('课程已保存')}>保存</button>
+      <Toast notification={notification} onDismiss={dismiss} /></>;
+  }
+
+  it('shows each successful save for three seconds, including repeated identical saves', () => {
+    vi.useFakeTimers();
+    render(<SaveExample />);
+    const save = screen.getByRole('button', { name: '保存' });
+    save.focus();
+    fireEvent.click(save);
+    expect(save).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('课程已保存');
+    act(() => vi.advanceTimersByTime(2000));
+    fireEvent.click(save);
+    act(() => vi.advanceTimersByTime(2999));
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    fireEvent.click(save);
+    fireEvent.click(screen.getByRole('button', { name: '关闭提示' }));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('does not dispatch a stale dismissal after the surface unmounts', () => {
+    vi.useFakeTimers();
+    const dismiss = vi.fn();
+    const view = render(<Toast notification={{ message: '资料已保存' }} onDismiss={dismiss} />);
+    view.unmount();
+    act(() => vi.advanceTimersByTime(3000));
+    expect(dismiss).not.toHaveBeenCalled();
   });
 });

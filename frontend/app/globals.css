@@ -81,6 +81,13 @@ svg { flex-shrink: 0; vertical-align: middle; }
 .notice.success { color: var(--success); background: var(--success-bg); border-color: #cce4d8; }
 .notice.error { color: var(--danger); background: var(--danger-bg); border-color: #efccc5; }
 .notice.info { color: #315c8e; background: #edf4fc; border-color: #d1e1f3; }
+.success-toast { position: fixed; z-index: 100; top: 20px; right: 24px; display: flex; align-items: center; gap: 10px;
+  min-width: 220px; max-width: min(420px, calc(100vw - 32px)); padding: 10px 12px 10px 16px;
+  border-radius: var(--panel-radius); background: var(--surface); color: var(--ink); box-shadow: 0 4px 18px #152d4b22;
+  font-size: 13px; line-height: 1.6; }
+.success-toast > svg { color: var(--success); }
+.success-toast > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.success-toast .icon-button { width: 30px; min-height: 30px; padding: 5px; }
 .inline-error p { color: var(--danger); overflow-wrap: anywhere; margin-bottom: 10px; }
 .status-tag { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 3px 8px; min-height: 25px; border-radius: 5px;
   color: var(--success); background: var(--success-bg); font-size: 11px; white-space: nowrap; font-weight: 500; }
@@ -322,6 +329,7 @@ input::placeholder, textarea::placeholder { color: #60748b; opacity: 1; }
   .entry-form-region { padding: 40px 32px; }
 }
 @media (max-width: 740px) {
+  .success-toast { top: 12px; right: 12px; left: 12px; min-width: 0; max-width: none; }
   .app-sidebar { padding: 18px 20px 12px; gap: 16px 8px; }
   .app-sidebar > .wordmark { font-size: 16px; gap: 8px; }
   .app-sidebar .brand-symbol { width: 30px; height: 32px; }

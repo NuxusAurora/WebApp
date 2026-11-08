@@ -8,6 +8,7 @@ import { learningGoalDescription } from '../lib/learning-goals';
 import { CourseEditor } from './course-editor';
 import { CourseFiles } from './course-files';
 import { Icon } from './icon';
+import { Toast, useToast } from './toast';
 
 export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   onDirtyChange?: (dirty: boolean) => void;
@@ -24,7 +25,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   const [filesError, setFilesError] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const { notification, notify: setMessage, dismiss } = useToast();
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('all');
   const [query, setQuery] = useState('');
@@ -214,7 +215,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     </div>
     {error ? <p ref={errorElement} tabIndex={-1} className="notice error" role="alert">
       <Icon name="alert" size={18} />{error}</p> : null}
-    {message ? <p className="notice success" role="status"><Icon name="check" size={18} />{message}</p> : null}
+    <Toast notification={notification} onDismiss={dismiss} />
     <div className="library-toolbar">
       <div className="segmented-control course-filters" aria-label="当前页课程状态">
         {([['all', '全部', courses.length], ['active', '学习中', activeCount],

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-08T13:45:00Z",
+  "generatedAt": "2026-11-08T14:03:00Z",
   "title": "学习工作台 · 深蓝索引",
   "extensions": {
     "colorMeta": {
@@ -22,6 +22,11 @@
         "name": "segment-selected",
         "value": "0 1px 3px #152d4b12",
         "purpose": "分段按钮活动项"
+      },
+      {
+        "name": "toast",
+        "value": "0 4px 18px #152d4b22",
+        "purpose": "浮动成功通知，使用阴影而不叠加边框。"
       }
     ],
     "motion": [
@@ -116,6 +121,14 @@
       "description": "白色内容面板、单线边界。",
       "html": "<section class=\"ds-panel\"><h2 class=\"ds-title\">高等数学</h2><p class=\"ds-caption\">学习目标</p><p class=\"ds-goal\">多学一点</p></section>",
       "css": ".ds-panel{padding:20px;border:1px solid var(--line,#d8e2ed);border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);font:14px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-title{font-size:24px;line-height:1.45;font-weight:650;margin:0 0 23px;color:var(--ink-strong,#1b2b40)}.ds-caption{font-size:13px;color:var(--muted,#536a83);margin:0 0 8px}.ds-goal{margin:0}"
+    },
+    {
+      "name": "成功通知",
+      "kind": "custom",
+      "refersTo": "toast-success",
+      "description": "保存成功后浮动显示 3 秒，可关闭，不移动布局。此片段为静态设计预览。",
+      "html": "<div class=\"ds-toast\" role=\"status\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#256b53\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg><span class=\"ds-toast-message\">课程已保存</span><button class=\"ds-toast-close\" aria-label=\"关闭提示\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m6 6 12 12M18 6 6 18\"/></svg></button></div>",
+      "css": ".ds-toast{display:flex;align-items:center;gap:10px;min-width:220px;max-width:420px;padding:10px 12px 10px 16px;border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);color:var(--ink,#24354a);box-shadow:0 4px 18px #152d4b22;font:13px \"Microsoft YaHei\",sans-serif;line-height:1.6}.ds-toast-message{flex:1;min-width:0;overflow-wrap:anywhere}.ds-toast-close{display:grid;place-items:center;width:30px;height:30px;padding:5px;border:0;border-radius:7px;corner-shape:squircle;color:var(--muted,#536a83);background:transparent;cursor:pointer}.ds-toast-close:hover{color:var(--accent,#2869b0);background:var(--accent-soft,#eaf2fc)}.ds-toast-close:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
     }
   ],
   "narrative": {

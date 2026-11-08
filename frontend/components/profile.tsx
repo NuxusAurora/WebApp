@@ -4,12 +4,13 @@ import { useRef, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import type { User } from './account';
 import { Icon } from './icon';
+import { Toast, useToast } from './toast';
 
 export function Profile({ user, onUpdate, onPasswordChanged }: {
   user: User; onUpdate: (user: User) => void; onPasswordChanged: () => void;
 }) {
   const [pending, setPending] = useState<'profile' | 'password' | null>(null);
-  const [message, setMessage] = useState('');
+  const { notification, notify: setMessage, dismiss } = useToast();
   const [error, setError] = useState('');
   const [section, setSection] = useState<'profile' | 'password'>('profile');
   const errorElement = useRef<HTMLParagraphElement>(null);
@@ -33,7 +34,7 @@ export function Profile({ user, onUpdate, onPasswordChanged }: {
 
   return <div className="settings-page">
     <div className="page-heading"><div><h1>账户设置</h1><p>管理个人资料与登录安全。</p></div></div>
-    {message ? <p role="status" className="notice success"><Icon name="check" size={18} />{message}</p> : null}
+    <Toast notification={notification} onDismiss={dismiss} />
     {error ? <p ref={errorElement} tabIndex={-1} role="alert" className="notice error"><Icon name="alert" size={18} />{error}</p> : null}
     <div className="segmented-control settings-tabs" aria-label="账户设置分类">
       <button aria-pressed={section === 'profile'} disabled={pending !== null} onClick={() => { setSection('profile'); setError(''); setMessage(''); }}>个人资料</button>
