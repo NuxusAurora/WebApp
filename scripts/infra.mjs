@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dependencies = ['postgres', 'redis', 'storage'];
 
 export function generatedEnv(template, project) {
@@ -51,7 +51,7 @@ export function signedHeaders(method, url, body, access, secret, region, now = n
   };
 }
 
-function docker(args) {
+export function docker(args) {
   const result = spawnSync('docker', args, {
     cwd: root, encoding: 'utf8', timeout: 240_000, windowsHide: true,
     maxBuffer: 8 * 1024 * 1024,
@@ -63,7 +63,7 @@ function docker(args) {
   return result.stdout.trim();
 }
 
-function context(envFile, project) {
+export function context(envFile, project) {
   const args = ['compose', '--env-file', envFile];
   if (project) args.push('--project-name', project);
   const compose = (...tail) => docker([...args, ...tail]);
@@ -80,7 +80,7 @@ export function checkConfig(config) {
   }
   assert.equal(config.networks.data.internal, true);
   const frontendEnv = config.services.frontend.environment;
-  assert.deepEqual(Object.keys(frontendEnv), ['BACKEND_INTERNAL_URL']);
+  assert.deepEqual(Object.keys(frontendEnv).sort(), ['BACKEND_INTERNAL_URL', 'BACKEND_TIMEOUT_MS']);
   for (const service of Object.values(config.services)) {
     for (const value of Object.values(service.environment ?? {})) {
       assert.ok(!String(value).includes('__'), 'Generate environment secrets before starting');
@@ -94,7 +94,7 @@ export function checkConfig(config) {
   }
 }
 
-async function smoke({ compose, config }) {
+export async function smoke({ compose, config }) {
   const settings = config();
   checkConfig(settings);
   const sql = compose('exec', '-T', 'postgres', 'sh', '-ec',

@@ -1,28 +1,29 @@
 # AI Structured Learning
 
-模型无关的结构化 AI 学习平台。产品规格见 [mainbook.md](mainbook.md)，分工和验收见 [Phase 0 任务卡](docs/plans/phase-0-task-cards.md)。
+模型无关的结构化 AI 学习平台。产品规格见 [mainbook.md](mainbook.md)。当前实现 Phase 0：前后端工程、服务连接状态、PostgreSQL 迁移链、Redis/Celery、S3 开发存储和 CI。登录、课程、上传与 AI 教学属于后续阶段。
 
-当前为 Phase 0。P0-C 已提供 PostgreSQL、Redis、S3 兼容开发存储、隔离验证脚本和基础设施 CI；前后端尚未接入，不能据此认定应用或 Phase 0 已验收。
-
-需要 Node.js 24.18.0 和运行中的 Docker Engine / Docker Desktop（Linux 容器、Compose）。从仓库根目录执行：
+需要 Node.js 24.18.0、运行中的 Docker Engine / Docker Desktop（Linux 容器与 Compose）。从仓库根执行：
 
 ```sh
 node scripts/infra.mjs init
-node scripts/infra.mjs check
-node scripts/infra.mjs up
-node scripts/infra.mjs smoke
-node scripts/infra.mjs down
+node scripts/phase0.mjs up
 ```
 
-`init` 生成本机随机凭据，拒绝覆盖已有 `.env`。数据库和 Redis 不发布宿主端口。S3 API 默认仅监听本机 `127.0.0.1:9000`；停止时保留开发数据。
+打开 [学习工作台](http://localhost:3000)。`up` 构建生产镜像、启动依赖、显式执行迁移，再启动前端、API 和 Worker。`.env` 由 init 生成随机凭据，拒绝覆盖已有文件；默认端口 3000、8000、9000 仅监听本机，数据库和 Redis 不发布宿主端口。
 
-执行与基础设施 CI 相同的检查：
+停止（保留开发数据）：
+
+```sh
+node scripts/phase0.mjs down
+```
+
+执行与 CI 相同的检查：
 
 ```sh
 node --test scripts/infra.test.mjs
-node scripts/infra.mjs verify
+node scripts/phase0.mjs verify
 ```
 
-`verify` 创建带随机名称的独立 Compose 项目、随机本机端口和测试桶，验证停止后恢复，最后删除本次测试的容器、网络和卷。不会启动尚不存在的应用。
+`verify` 使用随机项目名、随机端口和独立卷，运行前后端检查/测试/生产构建、重复迁移、真实 Worker 任务、S3 读写清理、依赖故障与整栈恢复验收，最后删除本次测试资源。首次构建需要下载固定摘要的官方基础镜像。
 
-配置、宿主开发方式、迁移顺序、故障排查、数据保留和当前未测项统一见 [RUNBOOK.md](RUNBOOK.md)。应用工程分别由 P0-A 维护 `frontend/`、P0-B 维护 `backend/`；C 的 `app` profile 在取得两方 Dockerfile、锁文件及实际入口后继续联调。
+入口、配置、单独开发、故障排查及验收边界见 [RUNBOOK.md](RUNBOOK.md)，当前交付与后续工作见 [HANDOFF.md](HANDOFF.md)。GitHub Actions 配置已提供，远端执行仍需授权推送；本地检查不代表远端已运行。

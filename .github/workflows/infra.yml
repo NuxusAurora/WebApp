@@ -1,4 +1,4 @@
-name: Infrastructure
+name: Phase 0
 
 on:
   push:
@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  dependencies:
+  full-stack:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -26,7 +26,5 @@ jobs:
           package-manager-cache: false
       - name: Tooling regression checks
         run: node --test scripts/infra.test.mjs
-      - name: Clean isolated dependencies and recovery
-        run: node scripts/infra.mjs verify
-      # Application CI must be added from A/B's published commands and lockfiles.
-      # A green Infrastructure job alone does not accept Phase 0.
+      - name: Build, test, migrate and verify isolated full stack
+        run: node scripts/phase0.mjs verify

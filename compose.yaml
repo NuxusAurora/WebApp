@@ -10,6 +10,7 @@ x-backend-environment: &backend-environment
   STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:?Set STORAGE_SECRET_KEY}
   STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
   STORAGE_BUCKET: ${STORAGE_BUCKET:-learning-dev}
+  DEPENDENCY_TIMEOUT: ${DEPENDENCY_TIMEOUT:-1.5}
 
 x-health: &health
   interval: 5s
@@ -64,7 +65,8 @@ services:
 
   backend:
     profiles: [app]
-    build: ./backend
+    image: ${COMPOSE_PROJECT_NAME:-structured-learning}-backend
+    build: {context: ./backend, target: runtime}
     environment: *backend-environment
     ports:
       - '127.0.0.1:${BACKEND_PORT:-8000}:8000'
@@ -75,17 +77,21 @@ services:
       storage: {condition: service_healthy}
     healthcheck:
       <<: *health
-      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://localhost:8000/api/v1/health", timeout=2).close()']
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/api/v1/health", timeout=2).close()']
     init: true
     restart: unless-stopped
 
   worker:
     profiles: [app]
-    build: ./backend
+    image: ${COMPOSE_PROJECT_NAME:-structured-learning}-backend
+    build: {context: ./backend, target: runtime}
     environment:
       <<: *backend-environment
-      WORKER_APP: ${WORKER_APP:-}
-    command: [sh, -ec, 'exec celery -A "$${WORKER_APP:?Set WORKER_APP to the entry published by P0-B}" worker --loglevel=INFO']
+      WORKER_APP: ${WORKER_APP:-app.tasks:celery_app}
+    command: [sh, -ec, 'exec celery -A "$${WORKER_APP}" worker --loglevel=INFO --concurrency=1']
+    healthcheck:
+      <<: *health
+      test: [CMD-SHELL, 'celery -A "$${WORKER_APP}" inspect ping --timeout=2 --destination "celery@$${HOSTNAME}" >/dev/null']
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -96,9 +102,11 @@ services:
 
   frontend:
     profiles: [app]
-    build: ./frontend
+    image: ${COMPOSE_PROJECT_NAME:-structured-learning}-frontend
+    build: {context: ./frontend, target: runtime}
     environment:
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
+      BACKEND_TIMEOUT_MS: ${BACKEND_TIMEOUT_MS:-3000}
     ports:
       - '127.0.0.1:${FRONTEND_PORT:-3000}:3000'
     networks: [app]
@@ -106,9 +114,23 @@ services:
       backend: {condition: service_healthy}
     healthcheck:
       <<: *health
-      test: [CMD, node, -e, 'fetch("http://localhost:3000/api/v1/health", {signal: AbortSignal.timeout(2000)}).then(r => {if (!r.ok) process.exit(1)}).catch(() => process.exit(1))']
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:3000/api/v1/health", {signal: AbortSignal.timeout(4000)}).then(r => {if (!r.ok) process.exit(1)}).catch(() => process.exit(1))']
     init: true
     restart: unless-stopped
+
+  backend-test:
+    profiles: [test]
+    image: ${COMPOSE_PROJECT_NAME:-structured-learning}-backend-test
+    build: {context: ./backend, target: test}
+    network_mode: none
+
+  frontend-test:
+    profiles: [test]
+    image: ${COMPOSE_PROJECT_NAME:-structured-learning}-frontend-test
+    build: {context: ./frontend, target: test}
+    environment:
+      NEXT_TELEMETRY_DISABLED: '1'
+    network_mode: none
 
 networks:
   app: {}

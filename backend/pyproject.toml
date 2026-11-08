@@ -1,0 +1,27 @@
+[project]
+name = "structured-learning-backend"
+version = "0.1.0"
+requires-python = "==3.14.*"
+dependencies = [
+  "fastapi>=0.120,<1",
+  "uvicorn>=0.38,<1",
+  "pydantic-settings>=2.11,<3",
+  "sqlalchemy[asyncio]>=2.0.44,<2.1",
+  "psycopg[binary]>=3.2.12,<4",
+  "alembic>=1.17,<2",
+  "redis>=6.4,<8",
+  "celery[redis]>=5.6,<6",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.4,<10", "httpx>=0.28,<1", "ruff>=0.14,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
