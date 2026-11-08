@@ -43,15 +43,14 @@ export function CourseFiles({ files, busy, loading, error, onUpload, onDownload,
       </li>)}</ul> : <div className="files-empty"><Icon name="file" size={24} />
         <p>还没有学习资料</p><small>添加这门课程的笔记或其他文本资料。</small></div>}
     <form className="upload-form" onSubmit={submit}>
-      <span className="upload-label">添加学习资料</span>
       <div className="file-picker-row"><label className={'button file-picker' + (busy || loading ? ' is-disabled' : '')}>
         <Icon name="plus" size={15} />选择文件
         <input id="course-file" className="file-input" type="file" name="file" accept=".txt,text/plain" required disabled={busy || loading}
           aria-label="选择学习资料文件" aria-describedby="upload-constraint" onChange={event => setSelectedName(event.target.files?.[0]?.name ?? '')} />
-      </label><span className="selected-file-name" title={selectedName} aria-live="polite">{selectedName || '未选择文件'}</span></div>
-      <div className="upload-bottom"><small id="upload-constraint">UTF-8 .txt · 最大 1 MiB</small>
+      </label><span className="selected-file-name" title={selectedName} aria-live="polite">{selectedName || '未选择文件'}</span>
         <button className="button button-small" disabled={busy || loading}><Icon name="upload" size={16} />
           {busy ? '处理中…' : '上传文件'}</button></div>
+      <small id="upload-constraint">UTF-8 .txt · 最大 1 MiB</small>
     </form>
   </section>;
 }

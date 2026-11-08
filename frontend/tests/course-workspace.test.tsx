@@ -89,6 +89,7 @@ describe('desktop course workspace', () => {
       return [{ id: 'f1', filename: '极限.txt', size: 1024 }];
     });
     await ready();
+    fireEvent.click(screen.getByRole('tab', { name: /学习资料/ }));
     await screen.findByText('资料读取失败');
     fireEvent.click(screen.getByRole('button', { name: '重试加载资料' }));
     await screen.findByText('极限.txt');
@@ -105,6 +106,7 @@ describe('desktop course workspace', () => {
     await ready();
     await waitFor(() => expect(resolveOld).toBeDefined());
     fireEvent.click(screen.getByRole('button', { name: /大学物理/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /学习资料/ }));
     await screen.findByText('物理资料.txt');
     await act(async () => { resolveOld([{ id: 'old-file', filename: '旧课程资料.txt', size: 100 }]); });
     expect(screen.queryByText('旧课程资料.txt')).not.toBeInTheDocument();
@@ -137,6 +139,19 @@ describe('desktop course workspace', () => {
 });
 
 describe('account and shell states', () => {
+  it('requires confirmation before returning from an unsaved compact editor to the directory', async () => {
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: '新建课程' }));
+    fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '尚未保存' } });
+    fireEvent.click(screen.getByRole('button', { name: '返回课程目录' }));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText(/课程名称/)).toHaveValue('尚未保存');
+    vi.mocked(window.confirm).mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: '返回课程目录' }));
+    expect(screen.queryByLabelText(/课程名称/)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '我的课程' }).closest('.course-space')).not.toHaveClass('showing-detail');
+  });
+
   it('preserves the dirty guard when the active navigation item is clicked again', async () => {
     vi.mocked(api).mockImplementation(async path => path === 'users/me' ?
       { id: 'user-a', display_name: '学生', email: 'student@example.com' } :

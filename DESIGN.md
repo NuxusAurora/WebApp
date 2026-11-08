@@ -21,7 +21,7 @@ colors:
 typography:
   title:
     fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "28px"
+    fontSize: "25px"
     fontWeight: 650
     lineHeight: 1.35
     letterSpacing: "-0.02em"
@@ -42,7 +42,8 @@ spacing:
   unit: "8px"
   group: "16px"
   section: "24px"
-  page: "36px"
+  page: "24px"
+  wide-page: "48px"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
@@ -78,7 +79,7 @@ components:
   panel:
     backgroundColor: "{colors.surface}"
     rounded: "{rounded.panel}"
-    padding: "26px"
+    padding: "20px"
 ---
 
 ## Overview
@@ -91,11 +92,13 @@ components:
 
 ## Typography
 
-使用系统中文无衬线，避免额外字体加载。主标题 28/650，课程详情标题 24/650，面板标题 20/650，正文 14，操作 13，元信息 11–12。标题字距不小于 -0.02em；数量使用等宽数字。长名称允许折行，次要教材信息可以省略并通过详情阅读。
+使用系统中文无衬线，避免额外字体加载。标准工作区主标题 25/650，课程详情标题 22/650，面板标题 20/650，正文 14，操作 13，元信息 11–12。2400px 以上主标题 34、课程标题 28、输入正文 16。标题字距不小于 -0.02em；数量使用等宽数字。目录名称允许折行，详情标题最多两行并提供完整 title，编辑框保留完整名称。
 
 ## Layout
 
-标准桌面为 220px 导航、弹性课程目录和 420px 详情，内容间距 24px，页面水平留白 36px。导航固定在视口中，账户与退出始终可到达。1180px 以下收紧到 190px 导航/360px 详情；940px 以下改为顶部导航；740px 以下列表与详情纵向排列，选择课程/新建时定位详情。最低支持 320px；1600px 起限制内容最大宽度。登录保持双区布局，手机只显示表单。
+用户指定 3200×2000、100% 缩放为主验收尺寸。应用占满 100dvh，导航、标题和操作区固定，课程/资料长列表只在各自区域滚动。2400px 以上使用 260px 导航、最大 2400px 内容区、36% 详情列和 48px 页面留白；标准桌面沿用 220px 导航/420px 详情并收紧留白。保存、取消及上传按钮留在可见区域，禁止通过缩放或裁掉字段实现适屏。
+
+940px 以下导航移至顶部；740px 以下目录与详情切换显示，用“返回课程目录”返回，编辑退出保留未保存提示。资料只显示在资料页签；账户设置分为个人资料与登录安全。登录页按用户要求删除介绍区，只保留居中表单，标准最大宽 440px、大屏 520px。极短窗口、放大辅助显示或超长旧内容可在对应面板滚动；不承诺任意内容全量同时显示。最低宽度仍为 320px。
 
 ## Elevation & Depth
 

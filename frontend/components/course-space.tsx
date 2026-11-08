@@ -32,6 +32,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   const [filesReload, setFilesReload] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'materials'>('overview');
+  const [mobileDetail, setMobileDetail] = useState(false);
   const newButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
   const errorElement = useRef<HTMLParagraphElement>(null);
@@ -87,10 +88,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
 
   useEffect(() => { if (deleteTarget) confirmButton.current?.focus({ preventScroll: true }); }, [deleteTarget]);
 
-  useEffect(() => {
-    if (editing && window.innerWidth < 741) detailRegion.current?.scrollIntoView?.({ block: 'start' });
-  }, [editing]);
-
   function tabKey(event: KeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
@@ -108,7 +105,14 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     if (!leaveEditor()) return;
     setSelected(course); setEditing(null); setDirty(false); setDeleteTarget(null);
     setDetailTab('overview'); setError(''); setMessage('');
-    if (window.innerWidth < 741) requestAnimationFrame(() => detailRegion.current?.scrollIntoView?.({ block: 'start' }));
+    setMobileDetail(true);
+    if (window.innerWidth < 741) requestAnimationFrame(() => document.getElementById('course-detail-title')?.focus({ preventScroll: true }));
+  }
+
+  function backToDirectory() {
+    if (!leaveEditor()) return;
+    setEditing(null); setDirty(false); setMobileDetail(false); setDeleteTarget(null);
+    requestAnimationFrame(() => newButton.current?.focus({ preventScroll: true }));
   }
 
   function newCourse() {
@@ -139,6 +143,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
         method: isNew ? 'POST' : 'PATCH', body: JSON.stringify(data),
       });
       setSelected(course); setEditing(null); setDirty(false);
+      setMobileDetail(true);
       setCourses(previous => isNew ? [course, ...previous].slice(0, 100) :
         previous.map(row => row.id === course.id ? course : row));
       if (isNew && offset !== 0) setOffset(0);
@@ -181,6 +186,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     await run(async () => {
       await api('courses/' + deleteTarget.id, { method: 'DELETE' });
       setDeleteTarget(null); setSelected(null); setMessage('课程已删除');
+      setMobileDetail(false);
       if (courses.length === 1 && offset > 0) setOffset(previous => Math.max(0, previous - 100));
       else setReload(previous => previous + 1);
       requestAnimationFrame(() => newButton.current?.focus({ preventScroll: true }));
@@ -200,7 +206,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   const activeCount = courses.filter(course => course.status === 'active').length;
   const hasFilters = Boolean(needle || filter !== 'all');
 
-  return <>
+  return <div className={'course-space' + (editing || mobileDetail ? ' showing-detail' : '')}>
     <div className="page-heading">
       <div><h1>我的课程</h1><p>管理课程、教材和学习资料。</p></div>
       <button ref={newButton} className="button primary" disabled={busy} onClick={newCourse}>
@@ -253,6 +259,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
               onClick={() => page(offset + 100)}><Icon name="chevron" size={16} /></button></div></div> : null}
       </section>
       <div className="detail-region" ref={detailRegion}>
+        <button className="text-button detail-back" disabled={busy} onClick={backToDirectory}>
+          <span className="rotate-icon"><Icon name="chevron" size={16} /></span>返回课程目录
+        </button>
         {editing ? <CourseEditor key={editing === 'new' ? 'new' : selected!.id} course={editing === 'new' ? null : selected}
           busy={busy} onSave={data => void save(data)} onCancel={cancelEditor} onDirty={() => setDirty(true)} /> :
           selected ? <section className="detail-panel" aria-labelledby="course-detail-title">
@@ -260,7 +269,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
               {selected.status === 'active' ? '学习中' : '已归档'}</span>
               <button className="button button-small" disabled={busy} onClick={() => { setEditing('edit'); setDeleteTarget(null); }}>
                 <Icon name="edit" size={16} />编辑课程</button></div>
-            <h2 className="course-detail-title" id="course-detail-title">{selected.title}</h2>
+            <h2 className="course-detail-title" id="course-detail-title" tabIndex={-1} title={selected.title}>{selected.title}</h2>
             {courseDate(selected.updated_at) ? <p className="last-edited">更新于 {courseDate(selected.updated_at)}</p> : null}
             <div className="detail-tabs" role="tablist" aria-label="课程详情">
               <button role="tab" id="overview-tab" aria-selected={detailTab === 'overview'} aria-controls="course-tab-panel"
@@ -276,10 +285,10 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
                 <dt>教材</dt><dd>{selected.textbook || <span className="muted">未设置</span>}</dd>
                 <dt>学习目标</dt><dd className="learning-goal">{selected.learning_goal || <span className="muted">还没有选择学习目标。</span>}
                   {learningGoalDescription(selected.learning_goal) ? <small className="goal-description">{learningGoalDescription(selected.learning_goal)}</small> : null}</dd>
-              </dl> : null}
+              </dl> :
               <CourseFiles key={selected.id} files={files} busy={busy} loading={filesLoading} error={filesError}
                 onUpload={upload} onDownload={file => void download(file)} onDelete={file => void removeFile(file)}
-                onRetry={() => setFilesReload(value => value + 1)} />
+                onRetry={() => setFilesReload(value => value + 1)} />}
             </div>
             <div className="detail-bottom"><button className="text-button danger-quiet" disabled={busy}
               onClick={() => setDeleteTarget(selected)}><Icon name="trash" size={16} />删除课程</button></div>
@@ -293,5 +302,5 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
             <h2>课程详情</h2><p>选择一门课程，查看学习目标<br />和课程资料。</p></section>}
       </div>
     </div>
-  </>;
+  </div>;
 }

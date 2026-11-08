@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-08T13:25:00Z",
+  "generatedAt": "2026-11-08T13:45:00Z",
   "title": "学习工作台 · 深蓝索引",
   "extensions": {
     "colorMeta": {
@@ -51,6 +51,10 @@
       {
         "name": "narrow",
         "value": "370px"
+      },
+      {
+        "value": "2400px",
+        "name": "large-workstation"
       }
     ],
     "cornerShape": "squircle",
@@ -111,7 +115,7 @@
       "refersTo": "panel",
       "description": "白色内容面板、单线边界。",
       "html": "<section class=\"ds-panel\"><h2 class=\"ds-title\">高等数学</h2><p class=\"ds-caption\">学习目标</p><p class=\"ds-goal\">多学一点</p></section>",
-      "css": ".ds-panel{padding:26px;border:1px solid var(--line,#d8e2ed);border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);font:14px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-title{font-size:24px;line-height:1.45;font-weight:650;margin:0 0 23px;color:var(--ink-strong,#1b2b40)}.ds-caption{font-size:13px;color:var(--muted,#536a83);margin:0 0 8px}.ds-goal{margin:0}"
+      "css": ".ds-panel{padding:20px;border:1px solid var(--line,#d8e2ed);border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);font:14px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-title{font-size:24px;line-height:1.45;font-weight:650;margin:0 0 23px;color:var(--ink-strong,#1b2b40)}.ds-caption{font-size:13px;color:var(--muted,#536a83);margin:0 0 8px}.ds-goal{margin:0}"
     }
   ],
   "narrative": {
@@ -121,7 +125,8 @@
       "深蓝导航",
       "蓝白索引带",
       "清晰阅读轴",
-      "原生表单"
+      "原生表单",
+      "固定视口与局部滚动"
     ],
     "rules": [
       {
@@ -133,6 +138,11 @@
         "name": "统一连续角",
         "body": "共享 corner-shape 与半径；头像及状态点圆形。",
         "section": "shapes"
+      },
+      {
+        "section": "layout",
+        "body": "3200×2000、100% 缩放为主；登录只有表单，长列表局部滚动。",
+        "name": "视口适配"
       }
     ],
     "dos": [

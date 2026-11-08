@@ -33,6 +33,7 @@ export function CourseEditor({ course, busy, onSave, onCancel, onDirty }: {
     </div>
     <p className="panel-description">{course ? '更新课程信息和学习目标。' : '填写课程信息，之后可以随时修改。'}</p>
     <form className="form-stack" onSubmit={submit} onChange={onDirty}>
+      <div className="editor-fields">
       <label>课程名称 <span className="required">必填</span>
         <input ref={title} name="title" defaultValue={course?.title} required maxLength={200}
           placeholder="例如：高等数学" autoComplete="off" />
@@ -55,6 +56,7 @@ export function CourseEditor({ course, busy, onSave, onCancel, onDirty }: {
       {course ? <label>课程状态<select name="status" defaultValue={course.status}>
         <option value="active">学习中</option><option value="archived">已归档</option>
       </select></label> : null}
+      </div>
       <div className="editor-actions">
         <button className="button primary" disabled={busy}><Icon name="check" size={17} />{busy ? '保存中…' : '保存课程'}</button>
         <button className="button" type="button" disabled={busy} onClick={onCancel}>取消</button>

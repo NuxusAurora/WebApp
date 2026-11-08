@@ -72,16 +72,6 @@ export function Workspace() {
       <Link className="quiet-link" href="/system"><Icon name="pulse" size={17} />连接状态</Link>
     </header>
     <main id="main-content" className="entry-main">
-      <aside className="entry-introduction" aria-label="学习空间说明">
-        <div className="entry-book"><Icon name="book" size={38} /></div>
-        <p className="entry-title">课程与资料，<br />放在同一个工作台。</p>
-        <p>整理教材、记录学习目标，<br />为每门课程保留独立的学习空间。</p>
-        <div className="entry-principles">
-          <div><Icon name="courses" size={19} /><span>按课程整理教材和目标</span></div>
-          <div><Icon name="file" size={19} /><span>学习资料随课程保存</span></div>
-          <div><Icon name="user" size={19} /><span>只属于你的个人空间</span></div>
-        </div>
-      </aside>
       <div className="entry-form-region">
         {loading ? <div className="account-skeleton" role="status" aria-label="正在读取账户">
           <div className="skeleton skeleton-title" /><div className="skeleton" /><div className="skeleton" />
