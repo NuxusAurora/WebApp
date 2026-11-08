@@ -94,10 +94,12 @@ docker compose run --rm --no-deps frontend-test
 真实任务检查，在已启动环境执行：
 
 ```sh
-docker compose exec -T backend python -c 'from app.tasks import celery_app; r=celery_app.send_task("phase0.smoke"); print(r.get(timeout=15)); r.forget(); celery_app.close()'
+node scripts/phase0.mjs smoke
 ```
 
 独立 Web/Worker 导入不执行迁移。FastAPI lifespan 关闭 Redis 与引擎，会话退出关闭并回滚未提交事务；Worker 使用独立 Celery 连接，SIGTERM 给予 30 秒退出窗口。任务结果保留 300 秒；验收主动 forget。
+
+自定义配置文件使用 `node -- scripts/phase0.mjs up --env-file .env.local`，smoke/down 同样传该文件。`node --` 终止 Node 自身参数解析；脚本内部以参数数组调用 Docker，兼容 Windows 原生命令参数传递，不需要在 PowerShell 内嵌 Python 引号。
 
 ## CI 等效整栈验收
 

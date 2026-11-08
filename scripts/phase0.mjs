@@ -43,6 +43,12 @@ async function start(ctx, build = true) {
   console.log('PASS migrations twice and all six services healthy');
 }
 
+function workerProbe(ctx) {
+  const result = ctx.compose('exec', '-T', 'backend', 'python', '-c',
+    'from app.tasks import celery_app; r=celery_app.send_task("phase0.smoke"); assert r.get(timeout=15)=={"status":"ok"}; r.forget(); celery_app.close(); print("task-ok")');
+  assert.equal(result, 'task-ok');
+}
+
 async function acceptance(ctx) {
   await smoke(ctx);
   const address = (service, port) => `http://127.0.0.1:${ctx.compose('port', service, String(port)).split(':').at(-1)}`;
@@ -61,9 +67,7 @@ async function acceptance(ctx) {
   const tables = ctx.compose('exec', '-T', 'postgres', 'sh', '-ec',
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT tablename FROM pg_tables WHERE schemaname=\x27public\x27"');
   assert.equal(tables, 'alembic_version', 'Phase 0 must not create business tables');
-  const task = ctx.compose('exec', '-T', 'backend', 'python', '-c',
-    'from app.tasks import celery_app; r=celery_app.send_task("phase0.smoke"); assert r.get(timeout=15)=={"status":"ok"}; r.forget(); celery_app.close(); print("task-ok")');
-  assert.equal(task, 'task-ok');
+  workerProbe(ctx);
   console.log('PASS direct and proxied API, migration chain and Redis/Worker result roundtrip');
 
   for (const [service, key] of [['redis', 'redis'], ['postgres', 'database']]) {
@@ -76,6 +80,7 @@ async function acceptance(ctx) {
     ctx.compose('up', '-d', '--wait', '--wait-timeout', '120', service);
     await waitReady(backend);
     await waitReady(frontend);
+    if (service === 'redis') workerProbe(ctx);
     console.log(`PASS ${service} failure and recovery; health stays independent`);
   }
   ctx.compose('stop', 'backend');
@@ -91,6 +96,7 @@ async function acceptance(ctx) {
   frontend = address('frontend', 3000);
   await waitReady(frontend);
   assert.equal(revision(), '0001_baseline');
+  workerProbe(ctx);
   const logs = ctx.compose('logs', '--no-color', 'backend', 'frontend', 'worker');
   const configured = ctx.config().services.backend.environment;
   for (const key of ['SECRET_KEY', 'ENCRYPTION_KEY', 'STORAGE_ACCESS_KEY', 'STORAGE_SECRET_KEY']) {
@@ -104,8 +110,9 @@ async function main() {
   if (!owned) {
     const ctx = context(envFile);
     if (command === 'up') { await start(ctx); console.log('Use docker compose port frontend 3000 to locate the page.'); }
+    else if (command === 'smoke') { await smoke(ctx); workerProbe(ctx); console.log('PASS Worker task result and cleanup'); }
     else if (command === 'down') ctx.compose('--profile', 'app', 'down');
-    else throw new Error('Commands: up, down, verify [--keep]');
+    else throw new Error('Commands: up, smoke, down, verify [--keep]');
     return;
   }
   const project = `p0c-verify-${randomUUID()}`;
