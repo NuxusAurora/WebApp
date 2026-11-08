@@ -1,5 +1,11 @@
 # 运行手册
 
+## 前端工作台与学习目标
+
+当前课程目录、详情/编辑及文件选择分别位于 frontend/components/course-space.tsx、course-editor.tsx、course-files.tsx；三档学习目标统一定义在 frontend/lib/learning-goals.ts，保存到现有 learning_goal。AI 难度策略实施与验收见 docs/plans/learning-difficulty-plan.md；目前没有模型请求。
+
+设计规范为 DESIGN.md；共享颜色、布局、焦点与 corner-shape 在 frontend/app/globals.css。连续角在支持的引擎启用；不支持引擎的普通圆角只作为兼容回退。前端本轮验证命令仍为 `npm run check`、`npm test`（23 项）和 `npm run build`。只更新现有前端时从根执行 `docker compose --profile app build frontend` 和 `docker compose --profile app up -d --no-deps --wait frontend`，不覆盖 .env、不重启数据库或后端。
+
 ## 环境与版本
 
 共同规格：`phase0-spec-v1` = `7e939d9b3610276a5d5f4e70a3eddfd80b32b112`。2026-11-08 用户授权同一主代理完整实现 Phase 0，原三卡分工由统一实施取代。实施与解耦约定见 `docs/plans/phase-0-implementation.md`。

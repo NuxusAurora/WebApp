@@ -1,0 +1,26 @@
+---
+version: 1
+slug: "frontend-app-page-tsx"
+primary_target: "frontend/app/page.tsx"
+related_targets: ["frontend/components/workspace.tsx","frontend/components/account.tsx","frontend/components/course-space.tsx","frontend/components/profile.tsx","frontend/app/system/page.tsx","frontend/app/globals.css"]
+---
+
+# Phase 1 工作台改版
+
+模式：Operate。用户确认桌面优先、快速管理课程和资料；2026-11-08 在方向页选择 blue-index，code-first。范围覆盖课程工作区、登录/账户和系统状态；后端及 Phase 2 不变。
+
+## Direction contract
+
+THESIS: 用清晰的课程索引和稳定的详情区域完成管理任务，替换居中的简易表单与松散列表；不使用宣传页 hero、虚构学习统计或装饰性动效。
+
+OWN-WORLD: 深蓝 #152d4b 导航承载全局定位；#2869b0 用于主操作、选中和焦点；#edf3f9 是工作区浅底，内容白色。使用紧凑的中文系统无衬线、固定字阶、统一 8/12px 控件与面板连续曲率圆角、单线边界。签名细节是蓝白索引带：选中课程的标题、状态与资料操作在同一阅读轴上。
+
+STORY: 用户先扫课程目录，再阅读当前课程的教材和目标，直接整理资料；新建和编辑在详情区域完成。登录、账户和状态页使用相同组件语言，真实状态替代营销内容。
+
+FIRST VIEWPORT: 桌面左侧约 220px 导航，中部课程目录，右侧约 420px 详情；主标题和新建操作在顶端，过滤/搜索只作用于当前页。窄屏导航重排为紧凑顶栏，列表、详情顺序堆叠，不压缩字号。选择、忙碌、空、错误和危险操作都有可见反馈。
+
+FORM: 自拟候选 5，科学博物馆的展项标识与分类索引；用户选择 blue-index。seed:7aeb6b277e009f0b。选定草图 blue-index 为布局参考，原始临时草图在交付后清理；无批准的图像 comp。保留字体样张的层级精度、时刻表的列对齐和分组列表的信息纪律，不移植其器物或控件。
+
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
+验收：主要桌面、390px 手机与实际内嵌浏览器宽度；真实课程和文件交互、键盘焦点、长内容和异步失败。依据用户的主代理规则，在本线程完成复查与文档，不使用技能建议的子代理，不声称独立评审。

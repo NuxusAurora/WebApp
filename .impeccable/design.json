@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-08T13:25:00Z",
+  "title": "学习工作台 · 深蓝索引",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "行动蓝"
+      },
+      "rail": {
+        "role": "neutral",
+        "displayName": "深蓝导航"
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "浅蓝工作区"
+      }
+    },
+    "shadows": [
+      {
+        "name": "segment-selected",
+        "value": "0 1px 3px #152d4b12",
+        "purpose": "分段按钮活动项"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "150ms ease",
+        "purpose": "背景、文字和边界颜色；减少动态时关闭"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide",
+        "value": "1600px"
+      },
+      {
+        "name": "compact",
+        "value": "1180px"
+      },
+      {
+        "name": "top-navigation",
+        "value": "940px"
+      },
+      {
+        "name": "stacked",
+        "value": "740px"
+      },
+      {
+        "name": "narrow",
+        "value": "370px"
+      }
+    ],
+    "cornerShape": "squircle",
+    "cornerFallback": "ordinary-radius; continuous shape unverified in unsupported engines"
+  },
+  "components": [
+    {
+      "name": "主操作",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "真实按钮状态与共享连续圆角。",
+      "html": "<button class=\"ds-button-primary\">保存课程</button>",
+      "css": ".ds-button-primary{font:550 13px \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:white;background:var(--accent,#2869b0);} .ds-button-primary:hover{background:var(--accent-strong,#1e5592);} .ds-button-primary:active{filter:brightness(.95);} .ds-button-primary:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-primary:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
+    },
+    {
+      "name": "普通操作",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "真实按钮状态与共享连续圆角。",
+      "html": "<button class=\"ds-button-secondary\">编辑课程</button>",
+      "css": ".ds-button-secondary{font:550 13px \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:#37516d;background:var(--surface,white);} .ds-button-secondary:hover{background:#f4f8fc;} .ds-button-secondary:active{filter:brightness(.95);} .ds-button-secondary:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-secondary:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
+    },
+    {
+      "name": "危险操作",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "真实按钮状态与共享连续圆角。",
+      "html": "<button class=\"ds-button-danger\">确认删除</button>",
+      "css": ".ds-button-danger{font:550 13px \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:white;background:var(--danger,#a03831);} .ds-button-danger:hover{background:#832a25;} .ds-button-danger:active{filter:brightness(.95);} .ds-button-danger:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-danger:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
+    },
+    {
+      "name": "课程输入",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "可见标签、占位文字与焦点。",
+      "html": "<label class=\"ds-label\">课程名称<input class=\"ds-input\" placeholder=\"例如：高等数学\" /></label>",
+      "css": ".ds-label{display:grid;gap:8px;font:13px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-input{font:inherit;background:var(--surface,white);color:var(--ink,#24354a);padding:11px 12px;border:1px solid #c7d5e4;border-radius:var(--radius,8px);corner-shape:squircle}.ds-input::placeholder{color:#60748b}.ds-input:hover{border-color:#87a7c8}.ds-input:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
+    },
+    {
+      "name": "全局导航",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "深蓝底与当前页面。",
+      "html": "<nav class=\"ds-rail\"><button class=\"ds-nav\" aria-current=\"page\">我的课程</button><button class=\"ds-nav\">账户设置</button></nav>",
+      "css": ".ds-rail{background:var(--rail,#152d4b);padding:20px;display:grid;gap:7px}.ds-nav{font:14px \"Microsoft YaHei\",sans-serif;min-height:44px;border:0;border-radius:var(--radius,8px);corner-shape:squircle;text-align:left;padding:11px 14px;color:var(--rail-muted,#b3c5d9);background:transparent;cursor:pointer}.ds-nav[aria-current]{background:var(--rail-current,#294867);color:white;font-weight:550}.ds-nav:hover{background:#213f5e;color:white}.ds-nav:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
+    },
+    {
+      "name": "课程状态",
+      "kind": "chip",
+      "refersTo": "status",
+      "description": "状态是文字含义，不依赖颜色识别。",
+      "html": "<span class=\"ds-status\">学习中</span> <span class=\"ds-status ds-archived\">已归档</span>",
+      "css": ".ds-status{display:inline-flex;align-items:center;min-height:25px;padding:3px 8px;border-radius:5px;corner-shape:squircle;font:500 11px \"Microsoft YaHei\",sans-serif;color:var(--success,#256b53);background:var(--success-bg,#edf6f1)}.ds-archived{color:#566c84;background:#edf1f6}"
+    },
+    {
+      "name": "详情面板",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "白色内容面板、单线边界。",
+      "html": "<section class=\"ds-panel\"><h2 class=\"ds-title\">高等数学</h2><p class=\"ds-caption\">学习目标</p><p class=\"ds-goal\">多学一点</p></section>",
+      "css": ".ds-panel{padding:26px;border:1px solid var(--line,#d8e2ed);border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);font:14px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-title{font-size:24px;line-height:1.45;font-weight:650;margin:0 0 23px;color:var(--ink-strong,#1b2b40)}.ds-caption{font-size:13px;color:var(--muted,#536a83);margin:0 0 8px}.ds-goal{margin:0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "深蓝索引",
+    "overview": "以课程目录和稳定详情区组织课程、目标与资料。遵循已确认的桌面工作场景。",
+    "keyCharacteristics": [
+      "深蓝导航",
+      "蓝白索引带",
+      "清晰阅读轴",
+      "原生表单"
+    ],
+    "rules": [
+      {
+        "name": "真实状态",
+        "body": "只展示接口已返回的内容；AI 尚未接入。",
+        "section": "components"
+      },
+      {
+        "name": "统一连续角",
+        "body": "共享 corner-shape 与半径；头像及状态点圆形。",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "保持目录和详情对齐",
+      "保留键盘焦点及明确错误"
+    ],
+    "donts": [
+      "不添加虚构学习统计",
+      "不丢弃旧自定义目标"
+    ]
+  }
+}
