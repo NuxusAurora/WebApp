@@ -2,38 +2,42 @@
 
 ## 已完成
 
-2026-11-08：Phase 0 已完成本地验收，Phase 1 尚未开始。用户授权当前主代理统一接管 A/B/C，原三人待领取与交叉评审流程由本轮单主代理实施、测试及代码复查取代；未使用子代理，不声称独立评审。
+2026-11-08：Phase 1 本地实施与验收完成。用户最新指示“做完 phase1 停下”；Phase 2 未实施。单主代理执行，没有子代理或独立评审。实现版本 `1ede57e0a9d7e340cd9c5227ad3605f8721d2d56`；后续交付提交仅更新交接与工作记录。
 
-- 实施版本：`b92912e8d5c1f6ab6ff27a012d24a654fd06faf9`；其后仅更新交付文档和完成记录。共同规格标签 phase0-spec-v1 保持不动。
-- Next.js + React + TypeScript 工程、同源 health/ready 代理与状态页；有限超时、无缓存、上游异常脱敏，支持检查中、依赖失败、后端不可达和重试恢复。
-- FastAPI Settings、SQLAlchemy/Redis 生命周期和 health/ready；数据库/缓存检查并行且有超时，日志记录请求 ID 与路由模板，不记录查询串、正文和原始异常。
-- Alembic 空基线 `0001_baseline`，空库迁移及重复执行通过，无业务表；独立 Celery Worker 与 `phase0.smoke`，经 Redis 投递并读取结果，主动清理结果。
-- Compose 六服务、隔离网络/数据卷、非 root 应用容器、固定镜像摘要、Python/npm 锁文件；README、RUNBOOK 和 CI 使用同一组实际入口。
+- 注册、一次性邮箱验证/重发、登录/退出、资料修改、密码修改/找回/重置。Argon2id 哈希，可撤销的 12 小时服务端会话；数据库仅存令牌摘要，验证码 30 分钟有效，密码变更撤销全部会话。
+- 用户隔离课程 CRUD、学习目标、归档、分页；客户端不能写角色、所有者或正式结构修订号。任何角色均不绕过私人课程隔离。
+- 私有 S3 文本上传、文件列表/删除和 60 秒签名下载，课程删除清理对象；仅允许 1 MiB 内 UTF-8 .txt，具体限制见 RUNBOOK。
+- 账户/课程/文件页面及同源白名单代理，原连接状态迁至 /system；请求体上限、Origin/Host 与自定义头校验、HttpOnly/SameSite Cookie、登录限流和错误脱敏。
+- 冻结新迁移 0002_users_courses；0001_baseline 与 phase0-spec-v1 不变。CI 沿用 phase0.mjs verify 入口，现包含 Phase 1 真实流程。
 
 ## 验收证据
 
-- 5 项 Node 工具检查、15 项后端测试、7 项前端测试通过；Ruff、格式检查、TypeScript 检查与 Next.js 生产构建通过。
-- 最终实施版本在隔离 Linux 容器内完整执行 CI 等效入口 `node --test scripts/infra.test.mjs` 与 `node scripts/phase0.mjs verify`：测试/生产镜像构建、六服务健康、重复迁移、真实任务结果、PostgreSQL 认证连接、Redis 与 S3 读写删除、测试桶清理均通过。
-- Redis/PostgreSQL 分别停机时 health 仍为 200，ready 与前端代理返回 503，恢复后重新就绪；后端停机时代理返回 502，恢复通过。Worker 在 Redis 恢复及整栈重启后再次执行真实任务成功。完整 stop/up 后迁移版本保留，应用日志与页面未发现所配置密钥。
-- 真实浏览器验收：桌面正常状态、检查中、Redis 失效、后端断开、手动重试恢复、Enter 触发重试均通过；390×844 窄屏内容宽度等于视口宽度，无横向溢出。前端采用普通 CSS 的克制状态列表，未加入 Shader 或无业务作用的装饰。
-- 首轮验收发现 Docker 重启后重新分配随机宿主端口；仅修复验收脚本，重启后重新发现地址，最终整套检查通过。
+- 5 项 Node 工具测试、26 项后端测试、11 项前端测试通过；最终 Linux 容器内 Ruff/格式、pytest、TypeScript、Vitest 和 Next.js 生产构建通过。
+- 隔离 Compose 实际验证六服务、重复迁移、Worker 真实任务、PostgreSQL/Redis/S3 读写、依赖停机及恢复、整栈重启；保留 Phase 0 已验收行为。
+- 最终 Phase 1 流程验证直接及同源注册/验证/登录、并发消费验证码恰好成功一次、CSRF、两账户课程及文件全接口隔离、私有对象、真实可下载签名 URL、重启后课程/文件持久化、课程删除后对象不可再下载、退出撤销及真实日志无密码/验证码/会话令牌。
+- PostgreSQL 真实回退到 0001 后只剩版本表，重复升级成功，迁移与 ORM 元数据一致。诊断脚本和原始测试数据已清理。
+- 浏览器验证注册→邮箱验证→登录、空态、课程新建、Enter 提交修改、文本选择/上传/下载、删除确认取消、资料修改及退出。1280×900 与 390×844 下均无横向溢出。页面以普通 HTML/CSS 实现；按 shaders-frontend 判断表单/阅读场景不需要 Shader。
+- 浏览器发现并修正 Next.js 内部 URL 与浏览器 Host 不同导致的同源误拒绝，已有回归测试；验收脚本也处理整栈重启后的 S3 随机端口变化。
 
-解耦复查：通过，范围为 Phase 0 入口、直接调用链与资源退出路径。浏览器不持有内部配置或凭据；UI 只消费状态，代理筛选响应字段；Web 与 Worker 独立，迁移不耦合启动；连接、会话、超时取消与关闭归属明确；测试仅操作随机命名的键、桶、项目和卷，基础设施不直接写业务状态。没有扩展历史重构。
+解耦复查：通过，范围为 Phase 1 入口、直接调用链及资源退出路径。认证拥有账户/令牌；课程查询一律限制所有者，课程行锁串行上传/删除，账户行锁串行登录/密码变更。S3 与邮件经可替换适配器注入，测试验证隔离、撤销、数据库回滚与上传补偿；迁移不依赖运行时 ORM。组合根拥有 S3/Redis/数据库生命周期。前端仅消费公开快照，不取得内部连接配置或密码哈希，没有引入循环依赖或 AI/课程耦合。
 
 ## 下一步
 
-按 mainbook 第 20 章进入 Phase 1：注册/邮箱验证、登录与权限、课程 CRUD、文件上传和用户级隔离。业务表从新迁移开始，不能修改已验收的 0001 基线。当前没有业务账户或课程数据。
+按用户要求停在 Phase 1。后续只有收到新指示才开始 mainbook 第 20 章的 Phase 2 AI Gateway。
 
-运行入口以 [RUNBOOK.md](RUNBOOK.md) 为准。从仓库根执行 `node scripts/infra.mjs init`，然后 `node scripts/phase0.mjs up`。停止用 phase0.mjs down，保留开发卷；完整复验用 phase0.mjs verify。
+运行入口见 [RUNBOOK.md](RUNBOOK.md)：已有 .env 不覆盖；执行 `node scripts/phase0.mjs up` 构建并升级现有数据库。完整复验为 `node --test scripts/infra.test.mjs` 和 `node scripts/phase0.mjs verify`。
 
 ## 未测与限制
 
-- GitHub Actions 工作流已配置，本机执行了等效容器检查；未获推送授权，远端 Actions 未运行。未发布或部署外部服务。
-- 当前仅 Phase 0；生产 TLS、备份恢复、生产凭据策略、业务权限与 AI 能力属于后续阶段，不能从本轮通过推导完成。
-- pytest 的 Starlette TestClient 发出 httpx 兼容层弃用提醒，测试全部通过；后续可在依赖维护时切换 httpx2，不影响当前服务运行。
+- SMTP 调用契约和私有开发 outbox 已测，真实外部 SMTP/邮件投递未联调；本地验证码读取方式见 RUNBOOK。
+- 上传只开放受限 UTF-8 文本检查，未实现通用杀毒、图片或 PDF；存储和数据库跨系统操作无法保证强一致，S3 不可达时补偿删除可能失败，需核对孤立对象。
+- 当前限流的连接来源在代理后为前端服务地址；生产多用户部署需要按受信代理拓扑细化，Cookie Secure/TLS、最小权限存储、备份恢复与正式发布尚未验收。管理员后台不属于本次实现。
+- GitHub Actions 仅配置并完成本地等效检查；未推送，远端 CI 未运行，未部署外部服务。Starlette TestClient 的 httpx 兼容层弃用提醒仍存在，不影响测试通过。
 
 ## 清理与交付
 
-本轮测试项目（f1030cc5、d2e45337、0f9ab18f UUID 尾缀）和诊断 p0c-20261108 的容器、网络、卷均已删除；12 个任务镜像标签及本任务新拉取且无人使用的 Python/uv/Node/RustFS 镜像标签已删除。前端 node_modules、.next、tsbuildinfo，后端 .venv、pytest/Ruff/Python 缓存及临时 env 已删除，生成文件合计逻辑大小 582,419,123 字节；这不是精确磁盘净释放量。原始验证资料不长期保留，后续按源码和锁文件复建。
+本轮隔离测试项目 685399d8、b5e4f42e 的容器/网络/卷及 8 个任务镜像标签已删除；本任务 .venv、node_modules、.next、Python/pytest/Ruff 缓存、临时 env/诊断脚本/上传文件及匹配的浏览器测试下载已清理。工作区生成文件逻辑大小 615,492,618 字节，不代表精确磁盘净释放量。原始截图、令牌和测试数据不保留；后续依源码与锁文件复建。
 
-没有全局清理共享 npm/uv 下载缓存或 Docker BuildKit，以免影响其他项目；既有 PostgreSQL/Redis 镜像保留。任务 worktree 在候选本地合入 master、锁释放且确认无依赖后按普通 Git worktree 流程移除。没有推送授权，不执行 push。
+保留主工作区 .env、既有开发服务/数据、共享 npm/uv 下载缓存和 Docker BuildKit，避免影响其他项目。交付走现有 master 合并队列及短锁，仅本地合入；普通 Git 任务 worktree 在合入且无依赖后回收，不推送。
+
+Phase 0 历史实现为 b92912e，交付为 703b397；详细旧验收记录可从该提交读取。

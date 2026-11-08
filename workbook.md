@@ -2,6 +2,8 @@
 
 当前没有活动开发任务。
 
+2026-11-08（phase1-phase2-20261108）：用户最新范围为完成 Phase 1 后停止，Phase 2 未实施。Phase 1 实现版本 1ede57e：账户/邮箱验证/会话/密码与资料管理、隔离课程 CRUD、受限文本上传与签名下载。5 项工具、26 项后端、11 项前端测试及容器/生产构建、真实 PostgreSQL/S3、并发令牌消费和浏览器验收通过，解耦复查通过。任务测试资源、8 个镜像标签与 615,492,618 逻辑字节缓存已清理；本地交付按 master 队列，合入后回收任务 worktree，不推送。验收范围和限制集中见 HANDOFF.md，运行方式见 RUNBOOK.md。
+
 2026-11-08（phase0-c-infra-20261108）：用户将范围扩展为完整 Phase 0，由同一主代理接管 A/B/C。实现与完整验收代码为 b92912e8d5c1f6ab6ff27a012d24a654fd06faf9；27 项工具/前后端测试、Linux 容器中的检查与生产构建、真实依赖/迁移/Worker/S3、故障恢复及浏览器验收通过，解耦复查通过。已清理任务测试资源和生成缓存，候选按锁本地合入 master 后回收独立 worktree；未推送，远端 CI 未运行。具体证据、清理字节数、限制与 Phase 1 接续集中见 HANDOFF.md，运行入口见 RUNBOOK.md。
 
 2026-11-08：已初始化当前目录的 Git 仓库，origin 为 https://github.com/NuxusAurora/WebApp.git。已核对 fetch/push 地址；尚无提交，未拉取或推送。保留原有 mainbook.md，无临时缓存。
