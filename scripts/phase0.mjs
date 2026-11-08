@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { checkConfig, context, docker, generatedEnv, root, smoke } from './infra.mjs';
+import { phase1Acceptance } from './phase1-acceptance.mjs';
 
 const [command, ...flags] = process.argv.slice(2);
 const owned = command === 'verify';
@@ -38,6 +39,12 @@ async function start(ctx, build = true) {
     ctx.compose('--profile', 'app', 'build', 'backend', 'frontend');
   }
   ctx.compose('up', '-d', '--wait', '--wait-timeout', '120', 'postgres', 'redis', 'storage');
+  if (owned) {
+    const port = ctx.compose('port', 'storage', '9000').split(':').at(-1);
+    const content = readFileSync(envFile, 'utf8').replace(/^STORAGE_PUBLIC_ENDPOINT=.*$/m,
+      `STORAGE_PUBLIC_ENDPOINT=http://127.0.0.1:${port}`);
+    writeFileSync(envFile, content, { mode: 0o600 });
+  }
   for (let run = 0; run < 2; run++) ctx.compose('run', '--rm', '--no-deps', 'backend', 'alembic', 'upgrade', 'head');
   ctx.compose('--profile', 'app', 'up', '-d', '--wait', '--wait-timeout', '120');
   console.log('PASS migrations twice and all six services healthy');
@@ -58,15 +65,15 @@ async function acceptance(ctx) {
   await json(`${backend}/api/v1/ready`, 200);
   await json(`${frontend}/api/v1/health`, 200);
   await json(`${frontend}/api/v1/ready`, 200);
-  const page = await (await fetch(frontend)).text();
+  const page = await (await fetch(`${frontend}/system`)).text();
   assert.ok(page.includes('连接状态'));
   assert.ok(!page.includes('http://backend:8000'));
   const revision = () => ctx.compose('exec', '-T', 'postgres', 'sh', '-ec',
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT version_num FROM alembic_version"');
-  assert.equal(revision(), '0001_baseline');
+  assert.equal(revision(), '0002_users_courses');
   const tables = ctx.compose('exec', '-T', 'postgres', 'sh', '-ec',
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT tablename FROM pg_tables WHERE schemaname=\x27public\x27"');
-  assert.equal(tables, 'alembic_version', 'Phase 0 must not create business tables');
+  assert.deepEqual(tables.split('\n').sort(), ['alembic_version', 'auth_tokens', 'courses', 'uploads', 'users']);
   workerProbe(ctx);
   console.log('PASS direct and proxied API, migration chain and Redis/Worker result roundtrip');
 
@@ -95,7 +102,7 @@ async function acceptance(ctx) {
   backend = address('backend', 8000);
   frontend = address('frontend', 3000);
   await waitReady(frontend);
-  assert.equal(revision(), '0001_baseline');
+  assert.equal(revision(), '0002_users_courses');
   workerProbe(ctx);
   const logs = ctx.compose('logs', '--no-color', 'backend', 'frontend', 'worker');
   const configured = ctx.config().services.backend.environment;
@@ -122,7 +129,7 @@ async function main() {
   writeFileSync(envFile, generatedEnv(readFileSync(resolve(root, '.env.example'), 'utf8'), project), { flag: 'wx', mode: 0o600 });
   const ctx = context(envFile, project);
   let passed = false;
-  console.log(`Phase 0 project: ${project}`);
+  console.log(`Full-stack acceptance project: ${project}`);
   try {
     checkConfig(ctx.config());
     console.log('Building and checking frontend and backend in CI-equivalent containers…');
@@ -133,6 +140,13 @@ async function main() {
     }
     await start(ctx);
     await acceptance(ctx);
+    // The full stop/start above can reassign storage's ephemeral host port as well.
+    const storagePort = ctx.compose('port', 'storage', '9000').split(':').at(-1);
+    writeFileSync(envFile, readFileSync(envFile, 'utf8').replace(/^STORAGE_PUBLIC_ENDPOINT=.*$/m,
+      `STORAGE_PUBLIC_ENDPOINT=http://127.0.0.1:${storagePort}`), { mode: 0o600 });
+    ctx.compose('--profile', 'app', 'up', '-d', '--wait', '--wait-timeout', '120', '--force-recreate', 'backend');
+    const address = (service, port) => `http://127.0.0.1:${ctx.compose('port', service, String(port)).split(':').at(-1)}`;
+    await phase1Acceptance(ctx, address('backend', 8000), address('frontend', 3000));
     passed = true;
   } finally {
     if (passed && keep) console.log(`Retained only for browser QA. Environment file: ${envFile}`);

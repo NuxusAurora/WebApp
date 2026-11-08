@@ -1,6 +1,6 @@
 # AI Structured Learning
 
-模型无关的结构化 AI 学习平台。产品规格见 [mainbook.md](mainbook.md)。当前实现 Phase 0：前后端工程、服务连接状态、PostgreSQL 迁移链、Redis/Celery、S3 开发存储和 CI。登录、课程、上传与 AI 教学属于后续阶段。
+模型无关的结构化 AI 学习平台。产品规格见 [mainbook.md](mainbook.md)。当前实现到 Phase 1：账户注册与邮箱验证、安全会话、资料和密码管理、用户隔离的课程 CRUD、受限文本上传与签名下载，以及 Phase 0 基础设施。Phase 2 AI Gateway 尚未开始。
 
 需要 Node.js 24.18.0、运行中的 Docker Engine / Docker Desktop（Linux 容器与 Compose）。从仓库根执行：
 
@@ -9,7 +9,7 @@ node scripts/infra.mjs init
 node scripts/phase0.mjs up
 ```
 
-打开 [学习工作台](http://localhost:3000)。`up` 构建生产镜像、启动依赖、显式执行迁移，再启动前端、API 和 Worker。`.env` 由 init 生成随机凭据，拒绝覆盖已有文件；默认端口 3000、8000、9000 仅监听本机，数据库和 Redis 不发布宿主端口。
+打开 [学习工作台](http://localhost:3000)，[连接状态](http://localhost:3000/system) 单独保留。`up` 构建生产镜像、启动依赖、显式执行迁移，再启动前端、API 和 Worker。`.env` 由 init 生成随机凭据，拒绝覆盖已有文件；默认端口 3000、8000、9000 仅监听本机，数据库和 Redis 不发布宿主端口。开发邮箱默认写入容器私有 outbox，验证方式见 [运行手册](RUNBOOK.md#phase-1-账户课程与文件)。上传目前仅支持 1 MiB 内 UTF-8 `.txt`。
 
 停止（保留开发数据）：
 

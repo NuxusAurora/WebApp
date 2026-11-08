@@ -26,9 +26,9 @@ node scripts/phase0.mjs up
 
 `init` 从 `.env.example` 生成随机数据库/存储/应用凭据，不覆盖已有 `.env`，不打印密钥。Windows 文件访问权限由当前用户 ACL 管理。`up` 构建生产镜像，等待 postgres/redis/storage 健康，由单一命令执行两次 `alembic upgrade head`（验证幂等），再启动 backend/worker/frontend 并等待健康。迁移没有嵌入 Web/Worker 启动，不会因多副本启动竞争迁移。
 
-- 页面：[http://localhost:3000](http://localhost:3000)。初次检查与“重新检查”均请求同源 health/ready。
+- 页面：[http://localhost:3000](http://localhost:3000) 为账户/课程工作台；[连接状态](http://localhost:3000/system) 的初次检查与“重新检查”请求同源 health/ready。
 - API：[http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)、[ready](http://localhost:8000/api/v1/ready)、[OpenAPI](http://localhost:8000/docs)。
-- S3 API：`http://127.0.0.1:9000`；控制台关闭。用户文件上传 API 尚未实现。
+- S3 API：`http://127.0.0.1:9000`；控制台关闭。Phase 1 经后端上传纯文本并取得短期签名下载链接。
 
 `docker compose ps` 查看状态；修改端口后重新 up。默认 Compose 仅启用三个基础依赖；`phase0.mjs up` 显式启用 app profile。只启动基础依赖可执行 `node scripts/infra.mjs up`。
 
@@ -43,7 +43,7 @@ node scripts/phase0.mjs up
 | REDIS_URL | Web 就绪检查，容器内 `redis://redis:6379/0` |
 | CELERY_BROKER_URL / CELERY_RESULT_BACKEND | Redis DB 1 / DB 2；Web 和 Worker 独立入口 |
 | SECRET_KEY / ENCRYPTION_KEY | SECRET_KEY 至少 32 字符；ENCRYPTION_KEY 是编码 32 字节的 URL-safe base64 |
-| STORAGE_ENDPOINT / STORAGE_REGION / STORAGE_BUCKET | 容器内 http://storage:9000 / us-east-1 / learning-dev；Phase 0 不自动创建业务桶 |
+| STORAGE_ENDPOINT / STORAGE_REGION / STORAGE_BUCKET | 容器内 http://storage:9000 / us-east-1 / learning-dev；首次上传创建私有业务桶，不修改桶策略 |
 | STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY | 本地开发 S3 管理凭据；STORAGE_SECRET_KEY 至少 32 字符 |
 | WORKER_APP | `app.tasks:celery_app`，任务名 `phase0.smoke`，无参数，结果 `{"status":"ok"}` |
 | DEPENDENCY_TIMEOUT | 每项就绪探测默认 1.5 秒，0.05–10 秒；数据库/Redis 并行执行 |
@@ -89,7 +89,7 @@ docker compose run --rm --no-deps backend-test
 docker compose run --rm --no-deps frontend-test
 ```
 
-运行迁移前依赖必须健康。Phase 0 的唯一迁移 `0001_baseline` 不创建业务表，只有 Alembic 的版本表。Web 启动为 `uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log`；Worker 为 `celery -A app.tasks:celery_app worker --loglevel=INFO --concurrency=1`。本机直接启动后端需将环境注入进程，并将 DATABASE_URL、Redis URL、STORAGE_ENDPOINT 改为实际可达的宿主/托管地址；本项目默认不提供宿主数据库端口。
+运行迁移前依赖必须健康。`0001_baseline` 保留为空基线；新迁移 `0002_users_courses` 创建 users、auth_tokens、courses、uploads，与运行时 ORM 独立冻结，支持回退至空基线。Web 启动为 `uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log`；Worker 为 `celery -A app.tasks:celery_app worker --loglevel=INFO --concurrency=1`。本机直接启动后端需将环境注入进程，并将 DATABASE_URL、Redis URL、STORAGE_ENDPOINT 改为实际可达的宿主/托管地址；本项目默认不提供宿主数据库端口。
 
 真实任务检查，在已启动环境执行：
 
@@ -108,7 +108,7 @@ node --test scripts/infra.test.mjs
 node scripts/phase0.mjs verify
 ```
 
-工作流 `.github/workflows/infra.yml` 运行上述相同命令：Node 检查，Linux 容器中的 Ruff/pytest、TypeScript/Vitest/生产构建，生产镜像构建、空库重复迁移、六服务健康、真实 Celery 结果、S3 读写/字节核对/删除/桶清理，以及依赖与上游故障恢复。测试容器不接网络，模拟测试不替代后续真实连接检查。
+工作流 `.github/workflows/infra.yml` 运行上述相同命令：Node 检查，Linux 容器中的 Ruff/pytest、TypeScript/Vitest/生产构建，生产镜像构建、空库重复迁移、六服务健康、真实 Celery 结果、S3 读写/字节核对/删除/桶清理，以及依赖与上游故障恢复。现有 `phase0.mjs verify` 兼容入口同时调用 `phase1-acceptance.mjs`，验证真实注册/邮箱令牌并发消费/会话、两用户课程和上传全接口隔离、浏览器 Origin、私有对象和可用签名下载、重启持久化及对象清理。测试容器不接网络，模拟测试不替代真实连接检查。
 
 `verify` 创建 `p0c-verify-UUID` 项目、随机本机端口和独立卷，临时配置在 `.task-cache/p0c/`。成功或失败均在 finally 删除自己的容器、网络与卷，成功清理后删除配置。`verify --keep` 只在全部自动检查通过后保留项目用于浏览器验收，输出 URL 和临时配置路径；验收后必须按该精确 env/项目名删除自己的资源。中断时可通过保留的 env 文件找到项目，禁止全局 prune 或操作他人卷。
 
@@ -128,6 +128,22 @@ node scripts/phase0.mjs down
 - 端口占用：改本环境的端口，再 up。当前 Engine 上内部网络仅加 ports 不会实际发布；存储另有访问网络，数据库/Redis 保持内部。
 - 密码错误：不要重新 init 或删除开发卷；已有卷的用户密码需明确修改并同步 DATABASE_URL。init 不覆盖原凭据。
 - 验证中断：只对 `.task-cache/p0c/p0c-verify-UUID.env` 对应的同名项目执行 `docker compose --env-file <该文件> --profile app --profile test down --volumes --remove-orphans`，再删除临时配置。
-- 日志：后端记录自建请求 ID、方法、路由模板、状态和耗时，不记录正文、请求头、查询串、原始异常或连接串；响应含 X-Request-ID。Phase 0 没有用户、AI 工作流或模型调用日志。
+- 日志：后端记录自建请求 ID、方法、路由模板、状态和耗时，不记录正文、请求头、查询串、原始异常或连接串；响应含 X-Request-ID。验证码、密码、会话令牌均不写入日志；尚无 AI 工作流或模型调用日志。
+
+## Phase 1 账户、课程与文件
+
+源码：`backend/app/auth.py`、`models.py`、`security.py`、`mail.py`、`courses.py`、`storage.py`；前端 `components/account.tsx`、`profile.tsx`、`course-space.tsx`，同源代理 `lib/business-proxy.server.ts`。实施约定见 `docs/plans/phase-1-implementation.md`。
+
+- 注册输入 email/password/display_name；密码 12–128 字符，使用 Argon2id。邮件一次性 token 在页面“验证邮箱”输入，30 分钟过期；重发使旧 token 作废，验证前不可登录。
+- 登录设置 `learning_session` HttpOnly、SameSite=Strict Cookie，最长 12 小时；数据库只存 token 的 SHA-256 摘要。退出撤销当前会话；修改/重置密码撤销全部会话及待用 token。登录按账户及连接来源限流，每 10 分钟最多 10 次；代理后的来源是前端服务连接地址，部署时需按拓扑调整更细粒度限流。
+- `.env` 未配置 SMTP_HOST 时，邮件写入后端容器 `/tmp/learning-outbox/*.json`，仅服务用户可读。开发者可用 `docker compose exec backend sh -c 'cat /tmp/learning-outbox/*.json'` 查看本地测试验证码，不要共享原始文件。容器重建会丢弃 outbox，页面可重发邮件。
+- 外部邮件显式配置 SMTP_HOST/PORT/USER/PASSWORD 和 MAIL_FROM；强制 STARTTLS。已验证本地 outbox 和 SMTP 调用契约，未向真实邮箱发送或联调外部 SMTP。
+- COOKIE_SECURE 默认 false，仅供本机 HTTP；HTTPS 环境设 true。PUBLIC_ORIGIN 是直接访问后端时的可信来源，默认 `http://localhost:3000`。前端代理比较浏览器 Origin 与请求 Host，不信任 X-Forwarded-Host；所有写请求要求 `X-Requested-With: structured-learning`。不开跨域凭据访问。
+- 课程新建只接受 title/subject/textbook/learning_goal，更新另允许 active/archived；不能写 user_id、confirmed_revision 或角色。资料更新只允许 display_name。任何角色均只能访问自己的课程；本阶段不提供管理员后台或公开角色提权接口。
+- GET `/api/v1/courses?offset=0` 每页最多 100 条；POST 集合路径新建，GET/PATCH/DELETE `/api/v1/courses/{id}` 读取、修改、删除。删除前页面明确确认，并清理所属 S3 文件。
+- POST `/api/v1/courses/{id}/uploads` 接收原始 UTF-8 内容，`X-Filename` 为 URL 编码的 `.txt` 文件名，不用 multipart。限制 1 字节至 1 MiB；拒绝路径、二进制、控制字符、活动内容及已知恶意测试标记。这是受限文本检查，不是通用杀毒；PDF、图片和二进制上传未开放。上传失败回滚数据库并尝试删除对象；存储同时不可达时补偿删除可能失败，需运维核对孤立对象。
+- GET uploads 返回文件列表；GET `/courses/{course_id}/uploads/{upload_id}/download` 校验归属后返回 `{url, expires_in:60}`；DELETE 同一文件路径删除文件。STORAGE_PUBLIC_ENDPOINT 必须是浏览器可访问的 S3 根地址，默认 `http://127.0.0.1:9000`；修改 STORAGE_PORT 时同步调整。签名链接在有效期内可由持有者访问，参见 [S3 官方说明](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)。隔离验收自动发现随机端口，整栈重启后重新配置签名地址。
+
+日常启动仍为 `node scripts/phase0.mjs up`；不需要重建 `.env`，新增配置有开发默认值。旧 Phase 0 卷执行新迁移即可；不得覆盖 `.env` 中原有凭据。
 
 当前配置用于本地开发；生产 TLS、最小权限存储身份、备份恢复、部署和回滚属于 Phase 9，尚未验收。Ruff/pytest/Vitest/生产构建、真实依赖与浏览器验收分别记录，不能相互替代。

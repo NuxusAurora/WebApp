@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     storage_region: str = "us-east-1"
     storage_bucket: str = "learning-dev"
     dependency_timeout: float = Field(default=1.5, ge=0.05, le=10)
+    cookie_secure: bool = False
+    public_origin: str = "http://localhost:3000"
+    storage_public_endpoint: str = "http://127.0.0.1:9000"
+    mail_outbox: str = "/tmp/learning-outbox"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    mail_from: str = "learning@localhost"
 
     @field_validator("database_url")
     @classmethod

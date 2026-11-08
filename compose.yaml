@@ -11,6 +11,14 @@ x-backend-environment: &backend-environment
   STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
   STORAGE_BUCKET: ${STORAGE_BUCKET:-learning-dev}
   DEPENDENCY_TIMEOUT: ${DEPENDENCY_TIMEOUT:-1.5}
+  COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
+  STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ENDPOINT:-http://127.0.0.1:9000}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  MAIL_FROM: ${MAIL_FROM:-learning@localhost}
 
 x-health: &health
   interval: 5s
