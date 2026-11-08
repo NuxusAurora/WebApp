@@ -1,5 +1,9 @@
 # 运行手册
 
+## GPT Sites 公开体验入口
+
+[公开体验版](https://learning-workbench-public.jacky2007a.chatgpt.site) 为 public，点击“测试登录”即可试用，使用独立示例和浏览器存储。正式版 localhost:3000 仍连接原后端。公开版的更新、测试、来源和限制集中见 sites-demo/README.md；托管身份和发布回执见该目录 .openai/hosting.json 与 publication.json。复用现有 Site ID，不重复创建站点。
+
 ## 账户页、主题与开发测试账户
 
 账户页入口仍为工作台“账户设置”：五项统计暂未接入，修改邮箱按用户确认禁用；昵称和密码通过短表单及原有 API 修改。主题通过 prefers-color-scheme 自动跟随系统；成功提示为黄绿色淡入淡出气泡，减少动态下保留提示时间。
