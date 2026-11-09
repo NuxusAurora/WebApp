@@ -221,7 +221,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
             <button className="icon-button" aria-label="下一页课程" disabled={busy || courses.length < 100}
               onClick={() => page(offset + 100)}><Icon name="chevron" size={16} /></button></div></div> : null}
       </section>
-      : <PageContainer size={editing ? 'standard' : 'full'} className={'detail-region' + (editing ? ' course-form-page' : '')} ref={detailRegion}>
+      : <PageContainer size={editing ? 'standard' : 'full'} className={'detail-region' + (editing ? ' course-form-page' : '') + (editing === 'new' ? ' course-create-page' : '')} ref={detailRegion}>
         {editing ? <CourseEditor key={editing === 'new' ? 'new' : selected!.id} course={editing === 'new' ? null : selected}
           busy={busy} onSave={data => void save(data)} onCancel={cancelEditor} onDirty={() => setDirty(true)} /> :
           selected ? <section className="detail-panel" aria-labelledby="course-detail-title">

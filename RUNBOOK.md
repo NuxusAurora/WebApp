@@ -1,5 +1,9 @@
 # 运行手册
 
+## 新建课程局部视觉 · 2026-11-09
+
+`/` → 新建课程使用 `frontend/styles/course-create.css`，由 `app/layout.tsx` 在共享UI样式后导入。`course-space.tsx` 仅在新建状态提供 `course-create-page` 类，外壳通过 `:has()` 限定局部Token；编辑及其他页面沿用共享设计系统。新建内容上限1040px，普通桌面控件50px，短屏48px，手机纵排；详情和编辑入口未变。验证继续使用原check/test/build命令；本轮清单、截图与限制见 `docs/verification/course-create-visual-20261109/README.md`。
+
 ## 课程 UI 设计系统 · 2026-11-09
 
 追加：课程页不再提供独立返回按钮；顶部面包屑的“我的课程”返回列表，编辑时可点课程名回详情，保留未保存确认及保存期间禁用。当前前端测试 86 项。导航快照与受保护回调由 CourseSpace 提供，Workspace 负责顶部呈现。
