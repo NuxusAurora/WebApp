@@ -5,9 +5,50 @@ import { AISettings } from '../components/ai-settings';
 const caps = { vision: false, streaming: false, structured_output: false, tool_calling: false, max_context_tokens: 4096 };
 const provider = { id: '11111111-1111-1111-1111-111111111111', provider_name: '本地连接', base_url: 'http://localhost:1234/v1', enabled: true, has_api_key: true, models: [] as object[] };
 const success = (data: unknown) => Promise.resolve(Response.json({ success: true, data, error: null }));
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('local model settings', () => {
+  it('stores only the default connection ID per account and restores it on return', async () => {
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider]));
+    vi.stubGlobal('fetch', fetcher);
+    const view = render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByLabelText('连接名称');
+    expect(screen.getByLabelText('接口地址')).toHaveValue('https://api.nuxusaurora.com/v1');
+    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
+    fireEvent.click(screen.getByRole('button', { name: '设为默认连接' }));
+    expect(localStorage.getItem('learning.default-provider:account-one')).toBe(provider.id);
+    expect(screen.getByRole('button', { name: '当前默认连接' })).toBeDisabled();
+    view.unmount();
+    render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByRole('button', { name: '当前默认连接' });
+    expect(screen.getByLabelText('本地连接')).toHaveValue(provider.id);
+  });
+
+  it('does not reuse another account default or a disabled connection', async () => {
+    localStorage.setItem('learning.default-provider:account-one', provider.id);
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider])));
+    const view = render(<AISettings userId="account-two" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByLabelText('连接名称');
+    expect(screen.getByLabelText('本地连接')).toHaveValue('');
+    view.unmount();
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([{ ...provider, enabled: false }])));
+    render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByLabelText('连接名称');
+    expect(screen.getByLabelText('本地连接')).toHaveValue('');
+  });
+
+  it('reports a preference storage failure without changing the connection', async () => {
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider]));
+    vi.stubGlobal('fetch', fetcher);
+    render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByLabelText('连接名称');
+    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('unavailable'); });
+    fireEvent.click(screen.getByRole('button', { name: '设为默认连接' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('无法保存默认连接');
+    expect(screen.getByRole('button', { name: '设为默认连接' })).toBeEnabled();
+    expect(fetcher.mock.calls.every(([, init]: [string, RequestInit?]) => !init?.method)).toBe(true);
+  });
   it('clears saved credentials and never receives a key from configuration reads', async () => {
     let saved = false;
     const fetcher = vi.fn((url: string, init?: RequestInit) => {

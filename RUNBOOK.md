@@ -198,6 +198,8 @@ API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirme
 
 ## Phase 2 本地 OpenAI 兼容模型
 
+默认接口：新建连接的地址预填 https://api.nuxusaurora.com/v1，密钥由用户填写后通过原 API 加密保存，不在源码分发。在“连接与密钥”选择已保存且启用的连接，点击“设为默认连接”；当前浏览器按账户记住连接 ID，下次进入模型设置自动选中。失效或其他账户 ID 不使用，密钥不进入浏览器偏好。当前本地账户已按用户授权添加独立“默认接口”，真实模型列表读取 200/32 项；具体配置仅保留在加密数据库。
+
 模型发现：选择已保存且启用的连接，进入“模型与测试”即自动读取“服务模型”，可刷新、选择后保存。GET /api/v1/ai/providers/{id}/discovery 对该服务的 /models 只读请求，仅填入服务明确提供的上下文/能力；未知项可手工补充或保存后显式测试。实现位于 backend/app/ai/discovery.py、adapters.py、service.py、routes.py 与 frontend/components/ai-settings.tsx；测试见 backend/tests/test_model_discovery.py 和前端 ai-settings/business-proxy 测试。认证/权限拒绝时检查该连接的密钥与服务权限，不会自动更换凭据。
 
 入口：登录后“模型设置”，依次填写“连接与密钥 → 模型与测试”。密钥可留空；已有密钥在编辑时留空保留，可单独删除。更换地址必须重新输入或先删除密钥，防止把旧密钥发送给新地址。密钥以 Fernet 认证加密保存，读取只返回 has_api_key。保留现有 ENCRYPTION_KEY；轮换应用加密主密钥需要独立重新加密迁移，本阶段不提供自动迁移。

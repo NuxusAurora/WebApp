@@ -13,12 +13,17 @@ type CallLog = { id: string; model_id: string; model_name: string; provider_name
   attempts: number; input_tokens: number | null; output_tokens: number | null; error_code: string | null; created_at: string };
 const defaults: Capabilities = { vision: false, streaming: false, structured_output: false, tool_calling: false, max_context_tokens: 4096 };
 const states: Record<string, string> = { SUCCEEDED: '成功', FAILED: '失败', CANCELLED: '已取消', RUNNING: '进行中' };
+const defaultApiBase = 'https://api.nuxusaurora.com/v1';
 
-export function AISettings({ onDirtyChange, onSessionExpired }: {
+export function AISettings({ onDirtyChange, onSessionExpired, userId = '' }: {
   onDirtyChange: (dirty: boolean) => void; onSessionExpired: () => void;
+  userId?: string;
 }) {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [selected, setSelected] = useState('');
+  const [defaultProvider, setDefaultProvider] = useState('');
+  const selectionInitialized = useRef(false);
+  const defaultKey = 'learning.default-provider:' + userId;
   const [tab, setTab] = useState<'connection' | 'models' | 'logs'>('connection');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -49,7 +54,15 @@ export function AISettings({ onDirtyChange, onSessionExpired }: {
     setLoading(true); setError('');
     Promise.all([api<Provider[]>('ai/providers', { signal: abort.signal }),
       api<{ allowed_origins: string[] }>('ai/options', { signal: abort.signal })])
-      .then(([items, options]) => { if (current) { setProviders(items); setOrigins(options.allowed_origins); } })
+      .then(([items, options]) => {
+        if (!current) return;
+        setProviders(items); setOrigins(options.allowed_origins);
+        let stored = '';
+        try { stored = localStorage.getItem(defaultKey) ?? ''; } catch { /* Manual selection remains available. */ }
+        const preferred = items.find(item => item.id === stored && item.enabled);
+        setDefaultProvider(preferred?.id ?? '');
+        if (!selectionInitialized.current) { setSelected(preferred?.id ?? ''); selectionInitialized.current = true; }
+      })
       .catch(reason => { if (current) handleError(reason); })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; abort.abort(); };
@@ -63,6 +76,13 @@ export function AISettings({ onDirtyChange, onSessionExpired }: {
   }
   function leave() { return !dirty || window.confirm('模型配置尚未保存。放弃修改？'); }
   function choose(value: string) { if (busy || !leave()) return; markDirty(false); setSelected(value); setError(''); }
+  function makeDefault() {
+    if (!provider?.enabled || busy || dirty) return;
+    try {
+      localStorage.setItem(defaultKey, provider.id);
+      setDefaultProvider(provider.id); setError(''); notify('默认连接已设置');
+    } catch { setError('无法保存默认连接，请检查浏览器存储权限。'); }
+  }
   function switchTab(value: typeof tab) { if (busy || value === tab || !leave()) return; markDirty(false); setTab(value); setError(''); }
   async function run<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {
     if (busy) return;
@@ -82,7 +102,7 @@ export function AISettings({ onDirtyChange, onSessionExpired }: {
     <Toast notification={notification} onDismiss={dismiss} />
     <div className="ai-toolbar form-stack">
       <label>本地连接<select aria-label="本地连接" value={selected} disabled={busy || loading} onChange={event => choose(event.target.value)}>
-        <option value="">新建连接</option>{providers.map(item => <option key={item.id} value={item.id}>{item.provider_name}{item.enabled ? '' : '（已停用）'}</option>)}
+        <option value="">新建连接</option>{providers.map(item => <option key={item.id} value={item.id}>{item.provider_name}{item.id === defaultProvider ? '（默认）' : ''}{item.enabled ? '' : '（已停用）'}</option>)}
       </select></label>
     </div>
     <div className="segmented-control settings-tabs" role="group" aria-label="模型设置分类">
@@ -93,6 +113,7 @@ export function AISettings({ onDirtyChange, onSessionExpired }: {
     {error ? <p className="notice error" role="alert">{error}<button className="text-button" disabled={busy} onClick={() => { if (leave()) { markDirty(false); setRevision(value => value + 1); } }}>重新读取</button></p> : null}
     {loading ? <p role="status">正在读取模型配置…</p> : tab === 'logs' ? <CallHistory key={revision} onError={handleError} /> :
       tab === 'connection' ? <ConnectionForm key={selected + ':' + revision} provider={provider} origins={origins} busy={busy}
+        isDefault={provider?.id === defaultProvider} canMakeDefault={!dirty} onMakeDefault={makeDefault}
         onDirty={markDirty} onSave={(data) => run(async signal => {
           const saved = await api<Provider>(provider ? `ai/providers/${provider.id}` : 'ai/providers', {
             method: provider ? 'PATCH' : 'POST', body: JSON.stringify(data), signal,
@@ -132,9 +153,10 @@ export function AISettings({ onDirtyChange, onSessionExpired }: {
   </section>;
 }
 
-function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey, onDelete }: {
+function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey, onDelete, isDefault, canMakeDefault, onMakeDefault }: {
   provider?: Provider; origins: string[]; busy: boolean; onDirty: (value: boolean) => void;
   onSave: (data: object) => Promise<void>; onDeleteKey: () => Promise<void>; onDelete: () => Promise<void>;
+  isDefault: boolean; canMakeDefault: boolean; onMakeDefault: () => void;
 }) {
   const form = useRef<HTMLFormElement>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -148,7 +170,7 @@ function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey,
     <div className="ai-fields form-stack">
       <div><h2>{provider ? '连接与密钥' : '添加本地连接'}</h2><p className="muted">使用 OpenAI 兼容接口。密钥加密保存，可留空。</p></div>
       <label>连接名称<input name="provider_name" defaultValue={provider?.provider_name ?? ''} maxLength={80} required placeholder="例如：本机模型" disabled={busy} /></label>
-      <label>接口地址<input name="base_url" type="url" defaultValue={provider?.base_url ?? ''} maxLength={500} required
+      <label>接口地址<input name="base_url" type="url" defaultValue={provider?.base_url ?? defaultApiBase} maxLength={500} required
         placeholder="http://host.docker.internal:1234/v1" aria-describedby="ai-address-note" disabled={busy} /></label>
       <p id="ai-address-note" className="field-hint">地址需包含 /v1。应用在 Docker 中运行时，用 host.docker.internal 连接宿主机。</p>
       <details className="ai-origins"><summary>允许的服务地址</summary><ul>{origins.map(origin => <li key={origin}>{origin}</li>)}</ul></details>
@@ -157,9 +179,12 @@ function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey,
       <p className="field-hint">{provider?.has_api_key ? '密钥已保存。更换接口地址时需重新输入，或先删除密钥。' : '未保存密钥，仅适用于无需验证的本地服务。'}</p>
       <label className="ai-check"><input name="enabled" type="checkbox" defaultChecked={provider?.enabled ?? true} disabled={busy} />启用连接</label>
       {provider ? <div className="ai-secondary-actions">
+        <button type="button" className="button" disabled={busy || !provider.enabled || !canMakeDefault || isDefault} onClick={onMakeDefault}>
+          {isDefault ? '当前默认连接' : '设为默认连接'}</button>
         <button type="button" className="button" disabled={busy || !provider.has_api_key} onClick={onDeleteKey}>删除密钥</button>
         <button type="button" className="text-button danger-text" disabled={busy} onClick={onDelete}>删除连接</button>
       </div> : null}
+      {provider ? <p className="field-hint">默认连接仅在此浏览器生效。</p> : null}
     </div>
     <div className="ai-actions"><button className="button primary" disabled={busy}>{busy ? '处理中…' : '保存连接'}</button></div>
   </form>;

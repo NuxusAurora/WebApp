@@ -127,7 +127,7 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '' }: {
       </header>
       <main id="main-content" className="workspace-main">
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
-        {view === 'ai' ? <AISettings onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
+        {view === 'ai' ? <AISettings key={user.id} userId={user.id} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired} />}
       </main>
