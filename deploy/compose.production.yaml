@@ -20,6 +20,10 @@ services:
       STORAGE_PUBLIC_ENDPOINT: https://${STORAGE_DOMAIN:?Set STORAGE_DOMAIN}
     logging: *bounded-log
   worker:
+    healthcheck:
+      interval: 15s
+      timeout: 15s
+      start_period: 30s
     environment:
       COOKIE_SECURE: 'true'
       TEST_LOGIN_ENABLED: 'false'
