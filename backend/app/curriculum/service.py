@@ -135,6 +135,16 @@ async def new_draft(
     db, course, user_id, payload, source=None, raw_output="", base=None, run_id=None
 ):
     summary = await changes(db, course.id, payload)
+    previous = (
+        await db.scalars(
+            select(StructureVersion).where(
+                StructureVersion.course_id == course.id, StructureVersion.status == "DRAFT"
+            )
+        )
+    ).all()
+    for draft in previous:
+        draft.status = "SUPERSEDED"
+        db.add(StructureEvent(version_id=draft.id, actor_id=user_id, action="REPLACED", details={}))
     version = StructureVersion(
         user_id=user_id,
         course_id=course.id,

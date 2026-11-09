@@ -23,6 +23,23 @@ const success = (data: unknown) => Promise.resolve(Response.json({ success: true
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('reviewed curriculum', () => {
+  it('automatically resumes the latest draft and omits historical selection and metadata', async () => {
+    const latest = { ...version, id: 'latest', payload: { chapters: [{ id: 'tmp-new', title: '当前草稿', sections: [] }] },
+      source: { kind: 'ai', model_name: 'private-model-name' } };
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
+      success({ ...empty, versions: [{ ...version, status: 'CONFIRMED' }, latest, version] })));
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    await screen.findByRole('button', { name: '章节 1 当前草稿' });
+    expect(screen.queryByLabelText('历史与草稿')).not.toBeInTheDocument();
+    expect(screen.queryByText(/草稿修订|private-model-name/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '章节 1 函数与极限' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '关闭编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '手动编辑目录' }));
+    expect(screen.getByRole('button', { name: '章节 1 当前草稿' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '关闭编辑' }));
+    fireEvent.click(screen.getByRole('button', { name: '重新加载目录' }));
+    await screen.findByRole('button', { name: '章节 1 当前草稿' });
+  });
   it('keeps inline rename alive when a confirmed outline first becomes a draft', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
       success({ ...empty, curriculum: payload })));
@@ -65,7 +82,7 @@ describe('reviewed curriculum', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
       success({ ...empty, versions: [uncertain] })));
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('历史与草稿'), { target: { value: 'v1' } });
+    await screen.findByRole('button', { name: '核对并确认' });
     editPages(/^章节 1 /);
     expect(screen.getByLabelText('章节 1起始页')).toHaveValue(null);
     expect(screen.getByRole('button', { name: '核对并确认' })).toBeDisabled();
@@ -108,7 +125,7 @@ describe('reviewed curriculum', () => {
       init?.method === 'PATCH' ? success({ ...two, payload: JSON.parse(String(init.body)).payload }) : success({ ...empty, versions: [two] }));
     vi.stubGlobal('fetch', fetcher);
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('历史与草稿'), { target: { value: 'v1' } });
+    await screen.findByRole('button', { name: '核对并确认' });
     fireEvent.click(screen.getByRole('button', { name: /章节 1 函数/ }));
     fireEvent.click(screen.getByRole('button', { name: /小节 1.1 映射/ }));
     editPages(/小节 1.1 映射/);
@@ -143,7 +160,7 @@ describe('reviewed curriculum', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
       success({ ...empty, versions: [archived] })));
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('历史与草稿'), { target: { value: 'v1' } });
+    await screen.findByRole('button', { name: '核对并确认' });
     fireEvent.click(screen.getByRole('button', { name: '核对并确认' }));
     expect(screen.getByRole('button', { name: '确认应用目录' })).toBeDisabled();
     fireEvent.click(screen.getByLabelText('我已核对上方全部归档项'));
@@ -158,7 +175,7 @@ describe('reviewed curriculum', () => {
       return url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) : success({ ...empty, versions: [version], confirmed_revision: 1 });
     }));
     const { unmount } = render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('历史与草稿'), { target: { value: 'v1' } });
+    await screen.findByRole('button', { name: '核对并确认' });
     expect(screen.getByRole('alert')).toHaveTextContent('此草稿基线已过期');
     expect(screen.getByRole('button', { name: '核对并确认' })).toBeDisabled();
     unmount();

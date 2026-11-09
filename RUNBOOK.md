@@ -197,9 +197,11 @@ node scripts/phase0.mjs down
 
 “从文字整理（备用）”保留本地 OCR、文字核对/粘贴和文字生成；该模式不发送图片。也可直接手动编辑。章节/小节支持标题、排序和起止页码，未知页码留空；页码为 1–100000，结束页不早于起始页。模型不确定项须逐项核对、保存，再确认。保存草稿不会改变正式目录。确认应用时核对新增/修改/归档项；有归档必须显式勾选确认。再次编辑正式目录会建立新草稿，使用现有 UUID 保留节点；重新识别使用临时 ID，不按相同标题自动匹配。
 
-API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirmed_revision 与最近 100 份版本；GET/POST images 为独立目录图片；POST ocr 接收 image_ids；POST parse 接收 input_mode（images 或 text，默认 text）、ocr_text、image_ids、provider_id、model_id，图片模式要求 1–5 个归属当前课程的图片 ID 和视觉能力，文字模式要求非空 ocr_text。POST drafts 接收 payload 与 base_course_revision；PATCH 接收 version_id、revision、base_course_revision、payload；POST confirm 接收前三个版本字段与 accept_archives。图片下载/删除复用所有者校验的 uploads/{id} 入口；学习资料列表不混入图片。
+编辑器只保留一份当前草稿：进入或重新加载自动恢复最新草稿，关闭后“手动编辑目录”继续该草稿；去掉历史版本选择和模型/草稿修订信息。新建或模型重新生成成功后，已有草稿转为 SUPERSEDED，旧草稿不可再编辑或首次确认；失败保留原草稿，历史快照及审计仍在数据库，无需迁移。
 
-迁移 `0004_curriculum` 接在 `0003_ai_gateway` 后，建立 chapters、sections、structure_versions、workflow_runs、structure_events，并扩展 uploads。版本和正式修订分别校验，课程行锁串行化确认；重复确认返回首次结果。旧确认版本转 SUPERSEDED，旧草稿保留；移除节点归档。来源、原始输出、模型/Prompt、校验与工作流失败状态留在私有数据库，不写应用日志；用户修改不覆盖原始来源。当前只有 CURRICULUM 类型，Phase 4 再扩展知识结构与其归档协调。
+API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirmed_revision 与 versions 数组（仅最新 DRAFT，最多一份，确认后为空；兼容旧库多草稿时只读取最新）；GET/POST images 为独立目录图片；POST ocr 接收 image_ids；POST parse 接收 input_mode（images 或 text，默认 text）、ocr_text、image_ids、provider_id、model_id，图片模式要求 1–5 个归属当前课程的图片 ID 和视觉能力，文字模式要求非空 ocr_text。POST drafts 接收 payload 与 base_course_revision；PATCH 接收 version_id、revision、base_course_revision、payload；POST confirm 接收前三个版本字段与 accept_archives。图片下载/删除复用所有者校验的 uploads/{id} 入口；学习资料列表不混入图片。
+
+迁移 `0004_curriculum` 接在 `0003_ai_gateway` 后，建立 chapters、sections、structure_versions、workflow_runs、structure_events，并扩展 uploads。版本和正式修订分别校验，课程行锁串行化草稿替代与确认；重复确认返回首次结果。旧确认版本转 SUPERSEDED，替代草稿同时记录 REPLACED 事件；移除节点归档。来源、原始输出、模型/Prompt、校验与工作流失败状态留在私有数据库，不写应用日志；用户修改不覆盖原始来源。当前只有 CURRICULUM 类型，Phase 4 再扩展知识结构与其归档协调。
 
 源码：`backend/app/curriculum/`、`backend/prompts/curriculum/parse-v1.md`、`backend/prompts/curriculum/vision-v1.md`、`frontend/components/curriculum.tsx`、`frontend/lib/curriculum.ts`。通用图片契约在 backend/app/ai/contracts.py，wire 编码在 adapters.py，仅允许有界内嵌 PNG/JPEG；图片不进入公开审计或来源 JSON，仅记录图片 ID。OCR 从 app.state.curriculum_ocr 注入；Gateway 和存储由组合根复用，不反向依赖目录领域。协议参考：[图片输入](https://developers.openai.com/api/docs/guides/images-vision)、[结构化输出](https://developers.openai.com/api/docs/guides/structured-outputs)。
 

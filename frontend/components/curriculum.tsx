@@ -51,19 +51,24 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
     else { setError(reason instanceof Error ? reason.message : '操作失败，请重试');
       requestAnimationFrame(() => errorRef.current?.focus()); }
   }
-  async function load(signal: AbortSignal) {
+  async function load(signal: AbortSignal, restoreDraft = false) {
     const [current, images, connections] = await Promise.all([
       api<Curriculum>(path, { signal }), api<Photo[]>(path + '/images', { signal }),
       api<Provider[]>('ai/providers', { signal }),
     ]);
     if (!alive.current || signal.aborted) return;
     setData(current); setPhotos(images); setProviders(connections);
+    if (restoreDraft) {
+      const draft = current.versions.find(item => item.status === 'DRAFT');
+      if (draft) adopt(draft);
+      else { setVersion(null); setPayload(null); setDirty(false); setConfirming(false); }
+    }
     setModelId(value => value || connections.filter(p => p.enabled).flatMap(p => p.models).find(m => m.enabled)?.id || '');
   }
   async function refresh() {
     const task = new AbortController(); controller.current = task;
     setLoading(true); setError('');
-    try { await load(task.signal); } catch (reason) { if (!task.signal.aborted) failure(reason); }
+    try { await load(task.signal, true); } catch (reason) { if (!task.signal.aborted) failure(reason); }
     finally { if (alive.current && !task.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void refresh(); return () => controller.current?.abort(); }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -161,17 +166,12 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
         if (!canLeave()) return; setVersion(null); setPayload(null); setDirty(false); setTextDirty(false); void refresh();
       }}>重新加载目录</button><button className="button button-small" disabled={Boolean(busy)} onClick={() => {
         if (!canLeave()) return;
+        const draft = data.versions.find(item => item.status === 'DRAFT' && item.base_course_revision === data.confirmed_revision);
+        if (draft) { adopt(draft); return; }
         setVersion(null); setPayload(cleanTitles(structuredClone(data.curriculum.chapters.length ? data.curriculum :
           { chapters: [{ id: temporaryId(), title: '', sections: [] }] }))); setDirty(true); setConfirming(false);
       }}>手动编辑目录</button></div>
-      {data.versions.length ? <label className="curriculum-label">历史与草稿<select value={version?.id ?? ''} disabled={Boolean(busy)}
-        onChange={event => { if (!canLeave()) return; const next = data.versions.find(v => v.id === event.target.value); if (next) adopt(next); }}>
-        <option value="">选择版本</option>{data.versions.map((v, i) => <option key={v.id} value={v.id}>
-          {v.status === 'DRAFT' ? '待确认' : v.status === 'CONFIRMED' ? '已确认' : '历史'} · {new Date(v.created_at).toLocaleString()} · {i + 1}
-        </option>)}
-      </select></label> : null}
       {stale ? <p role="alert" className="notice error">此草稿基线已过期，请从当前正式目录重新编辑。</p> : null}
-      {version ? <p className="muted">{version.source.kind === 'ai' ? '模型：' + version.source.model_name : '人工编辑'} · 草稿修订 {version.revision}</p> : null}
       {payload ? <>
         <fieldset className="curriculum-fields" disabled={Boolean(busy) || !editable || stale}>
           <legend className="visually-hidden">章节编辑</legend>

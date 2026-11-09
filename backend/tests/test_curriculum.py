@@ -72,12 +72,27 @@ def test_drafts_edit_lock_confirm_id_mapping_and_idempotency(account_app):
     assert client.patch(path, json={**body, "revision": 2}).status_code == 409
 
 
-def test_regeneration_archives_explicitly_and_preserves_history_and_other_drafts(account_app):
+def test_replacement_keeps_one_draft_and_preserves_confirmed_history(account_app):
     app, client, path, _ = setup(account_app)
     original = draft(client, path)
-    untouched = draft(client, path)
     assert apply(client, path, original).status_code == 200
+    assert client.get(path).json()["data"]["versions"] == []
+    untouched = draft(client, path, base=1)
+    replacement = draft(client, path, base=1)
+    assert [v["id"] for v in client.get(path).json()["data"]["versions"]] == [replacement["id"]]
     assert apply(client, path, untouched).status_code == 409
+    assert (
+        client.patch(
+            path,
+            json={
+                "version_id": untouched["id"],
+                "revision": 1,
+                "base_course_revision": 1,
+                "payload": PAYLOAD,
+            },
+        ).status_code
+        == 409
+    )
     formal = client.get(path).json()["data"]["curriculum"]
     retained_id = formal["chapters"][0]["id"]
     formal["chapters"][0]["sections"] = []
@@ -87,14 +102,32 @@ def test_regeneration_archives_explicitly_and_preserves_history_and_other_drafts
     assert apply(client, path, next_version, accept_archives=True).status_code == 200
     current = client.get(path).json()["data"]
     assert current["curriculum"]["chapters"][0]["id"] == retained_id
-    statuses = {v["id"]: v["status"] for v in current["versions"]}
-    assert statuses[untouched["id"]] == "DRAFT" and statuses[original["id"]] == "SUPERSEDED"
+    assert current["versions"] == []
     assert apply(client, path, original).status_code == 200
 
     async def verify():
         async with app.state.resources.session() as db:
+            for old in (original, untouched, replacement):
+                row = await db.get(StructureVersion, UUID(old["id"]))
+                assert row.status == "SUPERSEDED"
+                assert row.payload == old["payload"]
             assert (await db.scalar(select(Section))).archived
-            assert await db.scalar(select(func.count()).select_from(StructureEvent)) == 6
+            assert (
+                await db.scalar(
+                    select(func.count())
+                    .select_from(StructureEvent)
+                    .where(StructureEvent.action == "REPLACED")
+                )
+                == 2
+            )
+            assert (
+                await db.scalar(
+                    select(func.count())
+                    .select_from(StructureVersion)
+                    .where(StructureVersion.status == "DRAFT")
+                )
+                == 0
+            )
 
     client.portal.call(verify)
 
@@ -274,14 +307,15 @@ def test_parse_uses_gateway_with_private_provenance_and_schema_failures(account_
     first = result.json()["data"]
     assert client.get(path).json()["data"]["curriculum"]["chapters"] == []
     assert client.post(path + "/parse", json=body).status_code == 201
-    assert len(client.get(path).json()["data"]["versions"]) == 2
+    current_drafts = client.get(path).json()["data"]["versions"]
+    assert len(current_drafts) == 1 and current_drafts[0]["id"] != first["id"]
     logs = client.get("/api/v1/ai/calls").json()["data"]
     assert all(log["status"] == "SUCCEEDED" for log in logs)
     assert "private-ocr" not in caplog.text and "private-ocr" not in json.dumps(logs)
 
     output = {"chapters": [PAYLOAD["chapters"][0], PAYLOAD["chapters"][0]]}
     assert client.post(path + "/parse", json=body).status_code == 502
-    assert len(client.get(path).json()["data"]["versions"]) == 2
+    assert client.get(path).json()["data"]["versions"] == current_drafts
 
     async def inspect():
         async with app.state.resources.session() as db:
