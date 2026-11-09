@@ -1,5 +1,9 @@
 # 运行手册
 
+## 腾讯云正式应用（准备中）
+
+完整应用部署入口见 [deploy/README.md](deploy/README.md)，生产覆盖层为 `deploy/compose.production.yaml`，环境生成/检查/启动为 `scripts/production.mjs`。仅对生产部署生效，不改变本地 Compose。用户选择新建云端数据库、保留本地数据；尚待公网 IP、SSH 用户名和域名，未连接或部署腾讯云。准备工作的配置检查不能算作线上验收。
+
 ## GPT Sites 公开体验入口
 
 [公开体验版](https://learning-workbench-public.jacky2007a.chatgpt.site) 为 public，点击“测试登录”即可试用，使用独立示例和浏览器存储。正式版 localhost:3000 仍连接原后端。公开版的更新、测试、来源和限制集中见 sites-demo/README.md；托管身份和发布回执见该目录 .openai/hosting.json 与 publication.json。复用现有 Site ID，不重复创建站点。

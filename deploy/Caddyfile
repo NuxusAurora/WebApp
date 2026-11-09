@@ -1,0 +1,24 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+	}
+}
+
+{$STORAGE_DOMAIN} {
+	@download method GET HEAD
+	handle @download {
+		# Do not rewrite Host, path or query: all participate in the S3 signature.
+		reverse_proxy storage:9000
+	}
+	handle {
+		respond 405
+	}
+	header X-Content-Type-Options nosniff
+}
