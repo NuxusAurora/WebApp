@@ -34,6 +34,7 @@ for (const relative of sourceFiles) {
 write('src/product/globals.css',fs.readFileSync(path.join(repo,'frontend/app/globals.css')));
 write('src/product/lib/api.ts',fs.readFileSync(path.join(recipe,'adapter.ts')));
 write('src/product/components/account.tsx',fs.readFileSync(path.join(recipe,'account.tsx'),'utf8').replace("'./product/lib/api'","'../lib/api'"));
+write('src/product/components/ai-settings.tsx',fs.readFileSync(path.join(recipe,'ai-settings.tsx')));
 for (const file of ['main.tsx','demo.css']) write('src/'+file,fs.readFileSync(path.join(recipe,file)));
 write('src/link.tsx', `import type {AnchorHTMLAttributes} from 'react';\nexport default function Link({href,...props}:AnchorHTMLAttributes<HTMLAnchorElement>){return <a {...props} href={href === '/system' ? '/#system' : href === '/' ? '/#' : href}/>;}\n`);
 write('.openai/hosting.json',fs.readFileSync(path.join(recipe,'.openai/hosting.json')));
