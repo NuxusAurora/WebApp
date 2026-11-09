@@ -4,7 +4,7 @@
 
 Workspace 与 /system 共用 frontend/components/app-sidebar.tsx；样式在 components/sidebar.css，经 globals.css 引入；URL/历史同步在 lib/workspace-navigation.ts。入口为 /（课程）、/?view=ai（模型）、/?view=profile（账户）、/system（原连接检查），刷新保持对应选中。侧栏 248/64px，折叠偏好仅保存浏览器 learning-workspace.sidebar-collapsed 布尔值；无偏好时 741–1100px 默认收起，<=740px 默认隐藏、由顶部菜单打开原生模态抽屉。账户区菜单提供现有账户设置和退出，无新增账户切换。未保存保护仍生效。
 
-原 ConnectionStatus 的 health/ready 与重试逻辑不变，不在侧栏伪造在线状态。验证仍在 frontend 执行 npm run check / npm test / npm run build（当前 80 项）；前后截图、文件清单和实际验收限制见 docs/verification/sidebar-20261109/README.md。早期布局章节中的 220/260px 和手机顶部平铺导航为历史状态，以本节为当前规范。
+原 ConnectionStatus 的 health/ready 与重试逻辑不变，不在侧栏伪造在线状态。验证仍在 frontend 执行 npm run check / npm test / npm run build（当前 81 项）；前后截图、文件清单和实际验收限制见 docs/verification/sidebar-20261109/README.md。早期布局章节中的 220/260px 和手机顶部平铺导航为历史状态，以本节为当前规范。
 
 
 ## 腾讯云正式应用
