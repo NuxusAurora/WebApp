@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sidebarDOM } from './sidebar-test-dom';
 import { CourseSpace } from '../components/course-space';
 import { Account } from '../components/account';
 import { Workspace } from '../components/workspace';
@@ -22,6 +23,7 @@ const courses: Course[] = [
 ];
 
 beforeEach(() => {
+  history.replaceState({}, '', '/'); localStorage.clear(); sidebarDOM();
   vi.mocked(api).mockReset();
   vi.spyOn(window, 'confirm').mockReturnValue(false);
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(0), 0));
@@ -224,16 +226,43 @@ describe('archived courses in settings', () => {
     render(<Workspace />);
     await screen.findByRole('button', { name: '进入高等数学' });
     expect(screen.queryByText('大学物理')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '账户设置' }));
+    fireEvent.click(screen.getByRole('link', { name: '账户设置' }));
     fireEvent.click(screen.getByRole('button', { name: '归档资料' }));
     fireEvent.click(await screen.findByRole('button', { name: '恢复学习：大学物理' }));
     await screen.findByText('已恢复学习');
-    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
+    fireEvent.click(screen.getByRole('link', { name: '我的课程' }));
     await screen.findByRole('button', { name: '进入大学物理' });
   });
 });
 
 describe('account and shell states', () => {
+  it('restores URL selection and preserves the session and menu after a failed logout', async () => {
+    history.replaceState({}, '', '/?view=profile');
+    vi.mocked(api).mockImplementation(async path => {
+      if (path === 'users/me') return { id: 'user-a', display_name: '学生', email: 'student@example.com' };
+      if (path === 'auth/logout') throw new Error('退出失败，请重试');
+      return [];
+    });
+    render(<Workspace />);
+    await screen.findByRole('button', { name: '修改昵称' });
+    expect(screen.getByRole('link', { name: '账户设置' })).toHaveAttribute('aria-current', 'page');
+    expect(document.querySelector('.workspace-user')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '账户菜单，学生' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '退出登录' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('退出失败，请重试');
+    expect(screen.getByRole('menuitem', { name: '退出登录' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '修改昵称' })).toBeInTheDocument();
+  });
+  it('keeps the existing public connection page available for a signed-out visitor', async () => {
+    history.replaceState({}, '', '/system');
+    vi.mocked(api).mockRejectedValue(new ApiError(401, '请登录'));
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ success: true })));
+    render(<Workspace systemView />);
+    expect(await screen.findByRole('heading', { name: '连接状态' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '连接状态' })).toHaveAttribute('aria-current', 'page');
+    await screen.findByText('登录工作台');
+    expect(screen.queryByLabelText('密码')).not.toBeInTheDocument();
+  });
   it('shows deployment account availability after resolving a signed-out session', async () => {
     vi.mocked(api).mockRejectedValueOnce(new ApiError(401, '请登录'));
     render(<Workspace accountNotice="邮件服务待配置，注册和找回密码暂不可用。" />);
@@ -290,8 +319,8 @@ describe('account and shell states', () => {
     await screen.findByRole('heading', { name: '高等数学' });
     fireEvent.click(screen.getByRole('button', { name: '编辑课程' }));
     fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '未保存的课程' } });
-    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
-    fireEvent.click(screen.getByRole('button', { name: '账户设置' }));
+    fireEvent.click(screen.getByRole('link', { name: '我的课程' }));
+    fireEvent.click(screen.getByRole('link', { name: '账户设置' }));
     expect(confirm).toHaveBeenCalledOnce();
     expect(screen.getByLabelText(/课程名称/)).toHaveValue('未保存的课程');
     fireEvent.click(screen.getByRole('link', { name: '连接状态' }));

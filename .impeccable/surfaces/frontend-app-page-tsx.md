@@ -11,6 +11,8 @@ related_targets: ["frontend/components/workspace.tsx","frontend/components/accou
 
 ## Direction contract
 
+2026-11-09 导航局部重构覆盖历史侧栏约定：248/64px 四区侧栏、移动单一抽屉，深色 #17191d 与 #293746；其余主内容视觉保持。URL 选中、折叠偏好、账户菜单、运行截图和限制见 DESIGN.md 最新 Overview 与 docs/verification/sidebar-20261109。
+
 THESIS: 用清晰的课程索引和稳定的详情区域完成管理任务，替换居中的简易表单与松散列表；不使用宣传页 hero、虚构学习统计或装饰性动效。
 
 OWN-WORLD: 深蓝 #152d4b 导航承载全局定位；#2869b0 用于主操作、选中和焦点；#edf3f9 是工作区浅底，内容白色。使用紧凑的中文系统无衬线、固定字阶、统一 8/12px 控件与面板连续曲率圆角、单线边界。签名细节是蓝白索引带：选中课程的标题、状态与资料操作在同一阅读轴上。

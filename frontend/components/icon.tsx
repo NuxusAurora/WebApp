@@ -1,6 +1,10 @@
 import type { CSSProperties } from 'react';
 
 const paths = {
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  more: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
+  'panel-close': <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16m7-11-3 3 3 3" /></>,
+  'panel-open': <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16m4-11 3 3-3 3" /></>,
   sliders: <><path d="M3 7h5m6 0h7M3 17h11m6 0h1" /><circle cx="11" cy="7" r="3" /><circle cx="17" cy="17" r="3" /></>,
   book: <><path d="M3 4h5a7 7 0 0 1 4 1.3A7 7 0 0 1 16 4h5v15h-5a7 7 0 0 0-4 1.3A7 7 0 0 0 8 19H3z" /><path d="M12 5.3v15" /></>,
   courses: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
