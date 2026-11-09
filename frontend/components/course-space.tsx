@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { api, ApiError } from '../lib/api';
-import type { Course, CourseFile } from '../lib/course-types';
+import type { Course } from '../lib/course-types';
 import { courseDate } from '../lib/course-types';
 import { learningGoalDescription } from '../lib/learning-goals';
 import { CourseEditor } from './course-editor';
-import { CourseFiles } from './course-files';
 import { CurriculumEditor } from './curriculum';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
@@ -21,9 +20,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState<'new' | 'edit' | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [files, setFiles] = useState<CourseFile[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
-  const [filesError, setFilesError] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const { notification, notify: setMessage, dismiss } = useToast();
@@ -31,9 +27,8 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('all');
   const [query, setQuery] = useState('');
   const [reload, setReload] = useState(0);
-  const [filesReload, setFilesReload] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
-  const [detailTab, setDetailTab] = useState<'overview' | 'materials' | 'curriculum'>('overview');
+  const [detailTab, setDetailTab] = useState<'overview' | 'curriculum'>('overview');
   const [mobileDetail, setMobileDetail] = useState(false);
   const newButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -74,29 +69,15 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     return () => { active = false; controller.abort(); };
   }, [offset, reload, handleError]);
 
-  const selectedId = selected?.id;
-  useEffect(() => {
-    setFiles([]); setFilesError('');
-    if (!selectedId) { setFilesLoading(false); return; }
-    const controller = new AbortController();
-    let active = true;
-    setFilesLoading(true);
-    api<CourseFile[]>('courses/' + selectedId + '/uploads', { signal: controller.signal })
-      .then(rows => { if (active) setFiles(rows); })
-      .catch(error => { if (active) handleError(error, setFilesError); })
-      .finally(() => { if (active) setFilesLoading(false); });
-    return () => { active = false; controller.abort(); };
-  }, [selectedId, filesReload, handleError]);
-
   useEffect(() => { if (deleteTarget) confirmButton.current?.focus({ preventScroll: true }); }, [deleteTarget]);
 
   function tabKey(event: KeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const tabs = ['overview', 'materials', 'curriculum'] as const;
+    const tabs = ['overview', 'curriculum'] as const;
     const index = tabs.indexOf(detailTab);
-    const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[2] :
-      tabs[(index + (event.key === 'ArrowRight' ? 1 : 2)) % 3];
+    const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[1] :
+      tabs[(index + 1) % tabs.length];
     if (next === detailTab || !leaveEditor()) return;
     setDirty(false);
     setDetailTab(next);
@@ -157,36 +138,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     });
   }
 
-  async function upload(file: File) {
-    if (!selected) return false;
-    if (!file.size || file.size > 1024 * 1024 || !/\.txt$/i.test(file.name)) {
-      setError('请选择 1 字节至 1 MiB 的 UTF-8 .txt 文件。'); return false;
-    }
-    return run(async () => {
-      const result = await api<CourseFile>('courses/' + selected.id + '/uploads', {
-        method: 'POST', body: file,
-        headers: { 'Content-Type': 'text/plain', 'X-Filename': encodeURIComponent(file.name) },
-      });
-      setFiles(previous => [result, ...previous]); setMessage('文件已上传');
-    });
-  }
-
-  async function download(file: CourseFile) {
-    if (!selected) return;
-    await run(async () => {
-      const result = await api<{ url: string }>('courses/' + selected.id + '/uploads/' + file.id + '/download');
-      window.location.assign(result.url);
-    });
-  }
-
-  async function removeFile(file: CourseFile) {
-    if (!selected || !window.confirm('删除“' + file.filename + '”？此操作无法撤销。')) return;
-    await run(async () => {
-      await api('courses/' + selected.id + '/uploads/' + file.id, { method: 'DELETE' });
-      setFiles(previous => previous.filter(row => row.id !== file.id)); setMessage('文件已删除');
-    });
-  }
-
   async function removeCourse() {
     if (!deleteTarget) return;
     await run(async () => {
@@ -214,7 +165,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
 
   return <div className={'course-space' + (editing || mobileDetail ? ' showing-detail' : '')}>
     <div className="page-heading">
-      <div><h1>我的课程</h1><p>管理课程、教材和学习资料。</p></div>
+      <div><h1>我的课程</h1><p>管理课程和教材目录。</p></div>
       <button ref={newButton} className="button primary" disabled={busy} onClick={newCourse}>
         <Icon name="plus" size={18} />新建课程</button>
     </div>
@@ -281,9 +232,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
               <button role="tab" id="overview-tab" aria-selected={detailTab === 'overview'} aria-controls="course-tab-panel"
                 tabIndex={detailTab === 'overview' ? 0 : -1} onKeyDown={tabKey}
                 onClick={() => { if (detailTab !== 'overview' && leaveEditor()) { setDirty(false); setDetailTab('overview'); } }}>课程概览</button>
-              <button role="tab" id="materials-tab" aria-selected={detailTab === 'materials'} aria-controls="course-tab-panel"
-                tabIndex={detailTab === 'materials' ? 0 : -1} onKeyDown={tabKey}
-                onClick={() => { if (detailTab !== 'materials' && leaveEditor()) { setDirty(false); setDetailTab('materials'); } }}>学习资料{!filesLoading && !filesError ? <span>{files.length}</span> : null}</button>
               <button role="tab" id="curriculum-tab" aria-selected={detailTab === 'curriculum'} aria-controls="course-tab-panel"
                 tabIndex={detailTab === 'curriculum' ? 0 : -1} onKeyDown={tabKey}
                 onClick={() => { if (detailTab !== 'curriculum' && leaveEditor()) { setDirty(false); setDetailTab('curriculum'); } }}>教材目录</button>
@@ -294,11 +242,8 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
                 <dt>教材</dt><dd>{selected.textbook || <span className="muted">未设置</span>}</dd>
                 <dt>学习目标</dt><dd className="learning-goal">{selected.learning_goal || <span className="muted">还没有选择学习目标。</span>}
                   {learningGoalDescription(selected.learning_goal) ? <small className="goal-description">{learningGoalDescription(selected.learning_goal)}</small> : null}</dd>
-              </dl> : detailTab === 'curriculum' ?
-              <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} /> :
-              <CourseFiles key={selected.id} files={files} busy={busy} loading={filesLoading} error={filesError}
-                onUpload={upload} onDownload={file => void download(file)} onDelete={file => void removeFile(file)}
-                onRetry={() => setFilesReload(value => value + 1)} />}
+              </dl> :
+              <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} />}
             </div>
             <div className="detail-bottom"><button className="text-button danger-quiet" disabled={busy}
               onClick={() => setDeleteTarget(selected)}><Icon name="trash" size={16} />删除课程</button></div>

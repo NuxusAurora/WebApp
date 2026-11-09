@@ -54,7 +54,7 @@ describe('desktop course workspace', () => {
     fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
     expect(window.confirm).not.toHaveBeenCalled();
     expect(dirty).toHaveBeenLastCalledWith(true);
-    fireEvent.click(screen.getByRole('tab', { name: /学习资料/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /课程概览/ }));
     expect(window.confirm).toHaveBeenCalled();
     expect(screen.getByLabelText('第 1 章标题')).toHaveValue('未保存的目录');
   });
@@ -104,36 +104,13 @@ describe('desktop course workspace', () => {
     await screen.findByRole('heading', { name: '高等数学' });
   });
 
-  it('loads files independently and retries only the selected course files', async () => {
-    let requests = 0;
-    vi.mocked(api).mockImplementation(async path => {
-      if (path.startsWith('courses?')) return courses;
-      if (++requests === 1) throw new Error('资料读取失败');
-      return [{ id: 'f1', filename: '极限.txt', size: 1024 }];
-    });
+  it('does not show or fetch learning materials when switching courses', async () => {
     await ready();
-    fireEvent.click(screen.getByRole('tab', { name: /学习资料/ }));
-    await screen.findByText('资料读取失败');
-    fireEvent.click(screen.getByRole('button', { name: '重试加载资料' }));
-    await screen.findByText('极限.txt');
-    expect(vi.mocked(api).mock.calls.filter(([path]) => path.startsWith('courses?'))).toHaveLength(1);
-  });
-
-  it('ignores the previous course file response after selecting a different course', async () => {
-    let resolveOld!: (value: unknown) => void;
-    vi.mocked(api).mockImplementation(path => {
-      if (path.startsWith('courses?')) return Promise.resolve(courses);
-      if (path === 'courses/course-a/uploads') return new Promise(resolve => { resolveOld = resolve; });
-      return Promise.resolve([{ id: 'new-file', filename: '物理资料.txt', size: 100 }]);
-    });
-    await ready();
-    await waitFor(() => expect(resolveOld).toBeDefined());
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.queryByRole('tab', { name: /学习资料/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /大学物理/ }));
-    fireEvent.click(screen.getByRole('tab', { name: /学习资料/ }));
-    await screen.findByText('物理资料.txt');
-    await act(async () => { resolveOld([{ id: 'old-file', filename: '旧课程资料.txt', size: 100 }]); });
-    expect(screen.queryByText('旧课程资料.txt')).not.toBeInTheDocument();
-    expect(screen.getByText('物理资料.txt')).toBeInTheDocument();
+    await screen.findByRole('heading', { name: '大学物理' });
+    expect(vi.mocked(api).mock.calls.some(([path]) => path.endsWith('/uploads'))).toBe(false);
   });
 
   it('keeps a course visible when its confirmed deletion fails', async () => {
@@ -151,7 +128,7 @@ describe('desktop course workspace', () => {
     await ready();
     const first = screen.getByRole('tab', { name: '课程概览' });
     fireEvent.keyDown(first, { key: 'ArrowRight' });
-    const files = screen.getByRole('tab', { name: /学习资料/ });
+    const files = screen.getByRole('tab', { name: /教材目录/ });
     expect(files).toHaveAttribute('aria-selected', 'true');
     expect(files).toHaveFocus();
     expect(first).toHaveAttribute('tabindex', '-1');
