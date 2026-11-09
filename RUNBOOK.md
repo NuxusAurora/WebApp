@@ -180,7 +180,7 @@ node scripts/phase0.mjs down
 
 ## Phase 3 教材目录
 
-标题列表默认折叠：点击大标题展开，小标题宽度为大标题一半，序号随位置重排；名称单行省略，鼠标悬停显示全文。拖动左侧手柄排序，章节连同小节移动，小节可移到其他章节（落到章节行末尾或指定小节前后）。正式目录拖动进入草稿，不自动应用；保存并确认后持久化。选中项下方编辑名称/页码，可用“上移/下移”和“所属章节”替代拖动。新增 UI 为 frontend/components/curriculum-outline.tsx，纯排序在 frontend/lib/curriculum-order.ts；后端 service 确认时保留小节 ID、页码并更新 chapter_id，旧版本快照不变。无需迁移；回归见 curriculum-outline.test.tsx、curriculum.test.tsx 与 backend/tests/test_curriculum.py。
+标题列表默认折叠：点击大标题展开，小标题宽度为大标题一半，序号随位置重排；名称单行省略，鼠标悬停显示全文。拖动左侧手柄排序，章节连同小节移动，小节可移到其他章节（落到章节行末尾或指定小节前后）。正式目录拖动进入草稿，不自动应用；保存并确认后持久化。右键标题行或点击行尾操作菜单：重命名在行内完成，大标题额外提供“添加小标题”；页码、上移/下移、移除在菜单中，所属章节在“编辑页码”内。编号只由当前位置生成，不进入名称输入框，导入的“第2章 / §2.1”等旧前缀在显示和保存时剥离；名称处理见 frontend/lib/curriculum-title.ts。支持 Shift+F10、菜单方向键、Enter 完成和 Escape 取消重命名；菜单随外部点击/滚动/禁用关闭。新增 UI 为 frontend/components/curriculum-outline.tsx，纯排序在 frontend/lib/curriculum-order.ts；后端 service 确认时保留小节 ID、页码并更新 chapter_id，旧版本快照不变。无需迁移；回归见 curriculum-outline.test.tsx、curriculum.test.tsx 与 backend/tests/test_curriculum.py。
 
 当前课程详情仅有“课程概览 / 教材目录”。学习资料页签及前端读取已移除；既有文本文件及上传后端接口保留，目录图片上传不受影响。
 

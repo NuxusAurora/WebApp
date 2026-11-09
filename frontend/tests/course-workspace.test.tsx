@@ -53,13 +53,15 @@ describe('desktop course workspace', () => {
     await screen.findByRole('heading', { name: '高等数学' });
     fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
     fireEvent.click(await screen.findByRole('button', { name: '手动编辑目录' }));
-    fireEvent.change(screen.getByLabelText('第 1 章标题'), { target: { value: '未保存的目录' } });
+    fireEvent.contextMenu(screen.getByRole('button', { name: /^章节 1 / }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }));
+    fireEvent.change(screen.getByLabelText('章节 1标题'), { target: { value: '未保存的目录' } });
     fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
     expect(window.confirm).not.toHaveBeenCalled();
     expect(dirty).toHaveBeenLastCalledWith(true);
     fireEvent.click(screen.getByRole('tab', { name: /课程概览/ }));
     expect(window.confirm).toHaveBeenCalled();
-    expect(screen.getByLabelText('第 1 章标题')).toHaveValue('未保存的目录');
+    expect(screen.getByLabelText('章节 1标题')).toHaveValue('未保存的目录');
   });
   it('shows only active courses in one container and opens detail explicitly', async () => {
     render(<CourseSpace />);

@@ -3,17 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { CurriculumOutline } from './curriculum-outline';
-import { moveOutline } from '../lib/curriculum-order';
+import { cleanTitles } from '../lib/curriculum-title';
 import { temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
 
-function PageFields({ node, label, onChange }: { node: { page_start?: number | null; page_end?: number | null };
-  label: string; onChange: (key: 'page_start' | 'page_end', value: number | null) => void }) {
-  return <div className="curriculum-pages">{(['page_start', 'page_end'] as const).map(key =>
-    <label className="curriculum-label" key={key}>{key === 'page_start' ? '起始页' : '结束页'}
-      <input type="number" min={1} max={100000} step={1} value={node[key] ?? ''} placeholder="未知"
-        aria-label={label + (key === 'page_start' ? '起始页' : '结束页')}
-        onChange={event => onChange(key, event.target.value ? Number(event.target.value) : null)} /></label>)}</div>;
-}
 function pageLabel(node: { page_start?: number | null; page_end?: number | null }) {
   return node.page_start != null || node.page_end != null ? `（${node.page_start ?? '?'}–${node.page_end ?? '?'} 页）` : '';
 }
@@ -84,30 +76,11 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
     finally { if (alive.current && !task.signal.aborted) setBusy(''); }
   }
   function adopt(next: Version) {
-    setVersion(next); setPayload(structuredClone(next.payload)); setDirty(false);
+    setVersion(next); setPayload(cleanTitles(structuredClone(next.payload))); setDirty(false);
     setConfirming(false); setAcceptArchives(false);
   }
   function canLeave() { return !(dirty || textDirty) || window.confirm('目录修改尚未保存。放弃修改？'); }
   function change(next: Payload) { setPayload(next); setDirty(true); setConfirming(false); }
-  function editTitle(chapter: number, section: number | null, title: string) {
-    const next = structuredClone(payload!);
-    if (section === null) next.chapters[chapter].title = title;
-    else next.chapters[chapter].sections[section].title = title;
-    change(next);
-  }
-  function move(chapter: number, section: number | null, delta: number) {
-    const next = structuredClone(payload!);
-    const list = section === null ? next.chapters : next.chapters[chapter].sections;
-    const index = section ?? chapter;
-    [list[index], list[index + delta]] = [list[index + delta], list[index]];
-    change(next);
-  }
-  function editPage(chapter: number, section: number | null, key: 'page_start' | 'page_end', value: number | null) {
-    const next = structuredClone(payload!);
-    const node = section === null ? next.chapters[chapter] : next.chapters[chapter].sections[section];
-    node[key] = value; change(next);
-  }
-
   const models = providers.filter(p => p.enabled).flatMap(p => p.models.filter(m => m.enabled).map(m => ({ ...m, provider: p })));
   const selectedModel = models.find(model => model.id === modelId);
   async function generate(inputMode: 'images' | 'text') {
@@ -125,21 +98,15 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   }
   const editable = Boolean(payload && (!version || version.status === 'DRAFT'));
   const stale = Boolean(version && data && version.base_course_revision !== data.confirmed_revision && version.status === 'DRAFT');
-  const selectedChapter = payload?.chapters.findIndex(chapter => chapter.id === selectedId || chapter.sections.some(section => section.id === selectedId)) ?? -1;
-  const ci = selectedChapter < 0 ? 0 : selectedChapter;
-  const chapter = payload?.chapters[ci];
-  const si = chapter?.sections.findIndex(section => section.id === selectedId) ?? -1;
-  const selected = si < 0 ? chapter : chapter?.sections[si];
-  const selectedLabel = si < 0 ? `第 ${ci + 1} 章` : `小节 ${ci + 1}.${si + 1}`;
-
   return <section className="curriculum" aria-label="教材目录" aria-busy={Boolean(busy)}>
     {error ? <p ref={errorRef} tabIndex={-1} className="notice error" role="alert">{error}</p> : null}
     {notice ? <p role="status" className="curriculum-notice">{notice}</p> : null}
     {loading ? <p role="status">正在加载目录…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载目录</button> : <>
-      {!payload ? <><div className="section-heading"><h3>已确认目录</h3><span className="count-label">修订 {data.confirmed_revision}</span></div>
-      {data.curriculum.chapters.length ? <CurriculumOutline payload={data.curriculum} disabled={Boolean(busy)} onSelect={setSelectedId}
-        onChange={next => { setVersion(null); change(next); }} /> :
-        <p className="muted">尚未确认目录。可从图片识别或手动录入。</p>}</> : null}
+      {!payload ? <div className="section-heading"><h3>已确认目录</h3><span className="count-label">修订 {data.confirmed_revision}</span></div> : null}
+      {payload || data.curriculum.chapters.length ? <CurriculumOutline payload={payload ?? data.curriculum}
+        disabled={Boolean(busy) || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}
+        onChange={next => { if (!payload) setVersion(null); change(next); }} /> :
+        <p className="muted">尚未确认目录。可从图片识别或手动录入。</p>}
       <details className="curriculum-import" open={!data.curriculum.chapters.length}>
         <summary>导入目录</summary>
         <p className="muted">所选图片将发送给模型，生成待核对的目录草稿。</p>
@@ -194,8 +161,8 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
         if (!canLeave()) return; setVersion(null); setPayload(null); setDirty(false); setTextDirty(false); void refresh();
       }}>重新加载目录</button><button className="button button-small" disabled={Boolean(busy)} onClick={() => {
         if (!canLeave()) return;
-        setVersion(null); setPayload(structuredClone(data.curriculum.chapters.length ? data.curriculum :
-          { chapters: [{ id: temporaryId(), title: '', sections: [] }] })); setDirty(true); setConfirming(false);
+        setVersion(null); setPayload(cleanTitles(structuredClone(data.curriculum.chapters.length ? data.curriculum :
+          { chapters: [{ id: temporaryId(), title: '', sections: [] }] }))); setDirty(true); setConfirming(false);
       }}>手动编辑目录</button></div>
       {data.versions.length ? <label className="curriculum-label">历史与草稿<select value={version?.id ?? ''} disabled={Boolean(busy)}
         onChange={event => { if (!canLeave()) return; const next = data.versions.find(v => v.id === event.target.value); if (next) adopt(next); }}>
@@ -206,46 +173,21 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
       {stale ? <p role="alert" className="notice error">此草稿基线已过期，请从当前正式目录重新编辑。</p> : null}
       {version ? <p className="muted">{version.source.kind === 'ai' ? '模型：' + version.source.model_name : '人工编辑'} · 草稿修订 {version.revision}</p> : null}
       {payload ? <>
-        <CurriculumOutline payload={payload} disabled={Boolean(busy) || !editable || stale} selectedId={selected?.id}
-          onSelect={setSelectedId} onChange={change} />
         <fieldset className="curriculum-fields" disabled={Boolean(busy) || !editable || stale}>
           <legend className="visually-hidden">章节编辑</legend>
           {payload.uncertain_items?.length ? <div className="curriculum-uncertainties"><h3>待核对项</h3><ul>{payload.uncertain_items.map((item, index) =>
             <li key={index}><span>{item}</span><button className="text-button" onClick={() => change({ ...payload,
               uncertain_items: payload.uncertain_items!.filter((_, i) => i !== index) })}>已核对第 {index + 1} 项</button></li>)}</ul></div> : null}
-          {selected && chapter ? <div className="curriculum-item-editor" aria-label="选中标题编辑">
-            <label className="curriculum-label">{selectedLabel}{si < 0 ? '标题' : ''}<input value={selected.title} maxLength={200} required
-              onChange={event => editTitle(ci, si < 0 ? null : si, event.target.value)} /></label>
-            <PageFields node={selected} label={selectedLabel} onChange={(key, value) => editPage(ci, si < 0 ? null : si, key, value)} />
-            {si >= 0 ? <label className="curriculum-label">所属章节<select value={chapter.id} onChange={event => change(moveOutline(payload,
-              { kind: 'section', id: selected.id }, { kind: 'chapter', id: event.target.value, position: 'inside' }))}>
-              {payload.chapters.map(item => <option key={item.id} value={item.id} disabled={item.id !== chapter.id && item.sections.length >= 100}>{item.title || '未命名'}</option>)}
-            </select></label> : null}
-            <div className="curriculum-row-actions">
-              <button className="text-button" disabled={(si < 0 ? ci : si) === 0} aria-label={'上移' + selectedLabel} onClick={() => move(ci, si < 0 ? null : si, -1)}>上移</button>
-              <button className="text-button" disabled={si < 0 ? ci === payload.chapters.length - 1 : si === chapter.sections.length - 1}
-                aria-label={'下移' + selectedLabel} onClick={() => move(ci, si < 0 ? null : si, 1)}>下移</button>
-              <button className="text-button danger-quiet" aria-label={'移除' + selectedLabel} onClick={() => {
-                if (!window.confirm(si < 0 ? '从草稿移除此章及其小节？正式目录在确认前不变。' : '从草稿移除此小节？正式目录在确认前不变。')) return;
-                const next = structuredClone(payload);
-                if (si < 0) next.chapters.splice(ci, 1); else next.chapters[ci].sections.splice(si, 1);
-                setSelectedId(''); change(next);
-              }}>移除</button>
-              <button className="text-button" disabled={chapter.sections.length >= 100} onClick={() => {
-                const next = structuredClone(payload); const id = temporaryId();
-                next.chapters[ci].sections.push({ id, title: '' }); setSelectedId(id); change(next);
-              }}>添加小节</button>
-            </div>
-          </div> : null}
+
           <button className="button" disabled={payload.chapters.length >= 50} onClick={() => {
             const id = temporaryId(); setSelectedId(id); change({ ...payload, chapters: [...payload.chapters, { id, title: '', sections: [] }] });
           }}>添加章节</button>
         </fieldset>
-        {editable && !validPayload(payload) ? <small role="status">至少保留一章，标题必填；页码为 1–100000，结束页不小于起始页。</small> : null}
+        {editable && !validPayload(cleanTitles(payload)) ? <small role="status">至少保留一章，标题必填；页码为 1–100000，结束页不小于起始页。</small> : null}
         <div className="curriculum-save-actions">
-          {editable ? <button className="button" disabled={Boolean(busy) || !dirty || !validPayload(payload) || stale} onClick={() => void run('保存中…', async signal => {
+          {editable ? <button className="button" disabled={Boolean(busy) || !dirty || !validPayload(cleanTitles(payload)) || stale} onClick={() => void run('保存中…', async signal => {
             const next = await api<Version>(version ? path : path + '/drafts', { method: version ? 'PATCH' : 'POST', signal,
-              body: JSON.stringify({ payload, base_course_revision: version?.base_course_revision ?? data.confirmed_revision,
+              body: JSON.stringify({ payload: cleanTitles(payload), base_course_revision: version?.base_course_revision ?? data.confirmed_revision,
                 ...(version ? { version_id: version.id, revision: version.revision } : {}) }) });
             if (!signal.aborted) { adopt(next); await load(signal); setNotice('草稿已保存，尚未应用到正式目录'); }
           })}>保存草稿</button> : null}
