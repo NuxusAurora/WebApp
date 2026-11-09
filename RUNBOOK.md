@@ -1,5 +1,9 @@
 # 运行手册
 
+## 腾讯云正式应用
+
+正式入口为 [学习工作台](https://learn.nuxusaurora.cn)，前端、后端、Worker 和数据服务均运行于腾讯云。用户选择新建云端数据库并保留本地数据，SMTP 暂待配置，注册/找回暂不可用。实际目录、配置来源、验收、邮件/证书/升级/备份及限制集中见 [deploy/README.md](deploy/README.md) 和 [部署回执](deploy/production.json)。既有公开 Sites 仍为独立体验站。
+
 ## GPT Sites 公开体验入口
 
 [公开体验版](https://learning-workbench-public.jacky2007a.chatgpt.site) 为 public，点击“测试登录”即可试用，使用独立示例和浏览器存储。正式版 localhost:3000 仍连接原后端。公开版的更新、测试、来源和限制集中见 sites-demo/README.md；托管身份和发布回执见该目录 .openai/hosting.json 与 publication.json。复用现有 Site ID，不重复创建站点。

@@ -1,0 +1,22 @@
+# Third file for a host that already runs Nginx. Never publishes the Caddy service.
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to the verified loaded image ID}
+  redis:
+    image: ${REDIS_IMAGE:?Set REDIS_IMAGE to the verified loaded image ID}
+  proxy:
+    profiles: !override [standalone-caddy]
+  frontend:
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE to the verified release}
+    ports: !override ['127.0.0.1:${PRIVATE_WEB_PORT:-13100}:3000']
+  storage:
+    image: ${STORAGE_IMAGE:?Set STORAGE_IMAGE to the verified loaded image ID}
+    ports: !override ['127.0.0.1:${PRIVATE_STORAGE_PORT:-13900}:9000']
+  backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the verified release}
+    environment:
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_DOWNLOAD_ORIGIN:?Set STORAGE_DOWNLOAD_ORIGIN}
+  worker:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the verified release}
+    environment:
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_DOWNLOAD_ORIGIN:?Set STORAGE_DOWNLOAD_ORIGIN}

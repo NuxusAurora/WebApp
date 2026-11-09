@@ -417,3 +417,19 @@ def test_development_mailbox_and_smtp_transport(configured, tmp_path, monkeypatc
     connection = smtp.return_value.__enter__.return_value
     connection.starttls.assert_called_once()
     connection.send_message.assert_called_once()
+
+
+def test_public_mail_without_smtp_fails_instead_of_claiming_delivery(configured, tmp_path):
+    from app.errors import AppError
+    from app.mail import Mailer
+
+    settings = configured.model_copy(
+        update={
+            "public_origin": "https://learn.example.com",
+            "mail_outbox": str(tmp_path / "outbox"),
+        }
+    )
+    with pytest.raises(AppError) as error:
+        Mailer(settings).send("test@example.com", "verify", "test-token")
+    assert error.value.status_code == 503
+    assert not (tmp_path / "outbox").exists()
