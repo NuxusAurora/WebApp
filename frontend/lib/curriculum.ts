@@ -1,7 +1,7 @@
 export type Section = { id: string; title: string; page_start?: number | null; page_end?: number | null };
 export type Chapter = Section & { sections: Section[] };
 export type Payload = { chapters: Chapter[]; uncertain_items?: string[] };
-export type Changes = { added: Section[]; modified: Section[]; archived: Section[] };
+export type Changes = { added: Section[]; modified: Section[]; archived: Section[]; knowledge_archived?: Section[] };
 export type Version = {
   id: string; status: 'DRAFT' | 'CONFIRMED' | 'SUPERSEDED'; revision: number;
   base_course_revision: number; applied_course_revision: number | null;

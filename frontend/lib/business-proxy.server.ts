@@ -1,12 +1,13 @@
 const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|ai\/(options|providers(?:\/[0-9a-f-]{36}(?:\/(key|models|discovery))?)?|models\/[0-9a-f-]{36}(?:\/test)?|calls(?:\/stream)?)|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
 const curriculumAllowed = /^courses\/[0-9a-f-]{36}\/curriculum(?:\/(images|ocr|parse|drafts|confirm))?$/;
+const knowledgeAllowed = /^sections\/[0-9a-f-]{36}\/knowledge-points(?:\/(generate|drafts|confirm))?$/;
 
 export async function proxyBusiness(request: Request, segments: string[], fetcher: typeof fetch = fetch,
   environment: Record<string, string | undefined> = process.env) {
   const fail = (status: number, message: string) => Response.json({ success: false, data: null,
     error: { code: 'REQUEST_FAILED', message, details: {} } }, { status, headers: { 'Cache-Control': 'no-store' } });
   const path = segments.join('/');
-  if (!allowed.test(path) && !curriculumAllowed.test(path)) return fail(404, '页面不存在');
+  if (!allowed.test(path) && !curriculumAllowed.test(path) && !knowledgeAllowed.test(path)) return fail(404, '页面不存在');
   const mutation = !['GET', 'HEAD'].includes(request.method);
   const origin = request.headers.get('Origin');
   let sameOrigin = !origin;
@@ -40,7 +41,7 @@ export async function proxyBusiness(request: Request, segments: string[], fetche
   try {
     let body: Uint8Array | undefined;
     if (mutation && request.body) {
-      const limit = path.endsWith('/curriculum/images') ? 5 * 1024 * 1024 : path.includes('/curriculum') ? 512 * 1024 : path.endsWith('/uploads') ? 1024 * 1024 : 32768;
+      const limit = path.endsWith('/curriculum/images') ? 5 * 1024 * 1024 : path.includes('/curriculum') || knowledgeAllowed.test(path) ? 512 * 1024 : path.endsWith('/uploads') ? 1024 * 1024 : 32768;
       const reader = request.body.getReader();
       const chunks: Uint8Array[] = []; let size = 0;
       try {
@@ -59,7 +60,7 @@ export async function proxyBusiness(request: Request, segments: string[], fetche
     const offset = new URL(request.url).searchParams.get('offset');
     if (['courses', 'ai/calls'].includes(path) && offset) url.searchParams.set('offset', offset);
     const response = await fetcher(url, { method: request.method, headers, body: body as BodyInit,
-      cache: 'no-store', redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(path.startsWith('ai/') || path.includes('/curriculum') ? 185000 : 15000)]) });
+      cache: 'no-store', redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(path.startsWith('ai/') || path.includes('/curriculum') || knowledgeAllowed.test(path) ? 185000 : 15000)]) });
     if (path === 'ai/calls/stream' && response.ok && response.headers.get('Content-Type')?.startsWith('text/event-stream')) {
       return new Response(response.body, { status: 200, headers: { 'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' } });

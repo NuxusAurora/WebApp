@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from app.curriculum.models import Chapter, Section, StructureEvent, StructureVersion
 from app.errors import AppError
+from app.knowledge.service import archive_for_curriculum, curriculum_archives
 from app.models import now
 
 
@@ -97,6 +98,8 @@ async def changes(db, course_id, payload):
     result["archived"] = [
         {"id": key, "title": row.title} for key, row in current.items() if key not in seen
     ]
+    affected = await curriculum_archives(db, course_id, [r["id"] for r in result["archived"]])
+    result["knowledge_archived"] = [{"id": str(p.id), "title": p.title} for p in affected]
     return result
 
 
@@ -123,7 +126,11 @@ def version_data(version):
 async def owned_version(db, course_id, version_id):
     version = await db.scalar(
         select(StructureVersion)
-        .where(StructureVersion.id == version_id, StructureVersion.course_id == course_id)
+        .where(
+            StructureVersion.id == version_id,
+            StructureVersion.course_id == course_id,
+            StructureVersion.structure_type == "CURRICULUM",
+        )
         .with_for_update()
     )
     if not version:
@@ -138,7 +145,9 @@ async def new_draft(
     previous = (
         await db.scalars(
             select(StructureVersion).where(
-                StructureVersion.course_id == course.id, StructureVersion.status == "DRAFT"
+                StructureVersion.course_id == course.id,
+                StructureVersion.status == "DRAFT",
+                StructureVersion.structure_type == "CURRICULUM",
             )
         )
     ).all()
@@ -213,7 +222,9 @@ async def confirm(db, course, version, actor_id, revision, base, accept_archives
     previous = (
         await db.scalars(
             select(StructureVersion).where(
-                StructureVersion.course_id == course.id, StructureVersion.status == "CONFIRMED"
+                StructureVersion.course_id == course.id,
+                StructureVersion.status == "CONFIRMED",
+                StructureVersion.structure_type == "CURRICULUM",
             )
         )
     ).all()
@@ -228,6 +239,7 @@ async def confirm(db, course, version, actor_id, revision, base, accept_archives
             )
         )
     await db.flush()  # Release the partial unique constraint before setting CONFIRMED.
+    await archive_for_curriculum(db, course.id, [r["id"] for r in summary["archived"]])
     course.confirmed_revision += 1
     version.status = "CONFIRMED"
     version.applied_course_revision = course.confirmed_revision

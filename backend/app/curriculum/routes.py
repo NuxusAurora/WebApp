@@ -170,7 +170,11 @@ async def current(course_id: UUID, db: DB, actor: Actor):
     versions = (
         await db.scalars(
             select(StructureVersion)
-            .where(StructureVersion.course_id == course_id, StructureVersion.status == "DRAFT")
+            .where(
+                StructureVersion.course_id == course_id,
+                StructureVersion.status == "DRAFT",
+                StructureVersion.structure_type == "CURRICULUM",
+            )
             .order_by(StructureVersion.created_at.desc(), StructureVersion.id)
             .limit(1)
         )

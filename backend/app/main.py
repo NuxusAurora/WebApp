@@ -21,6 +21,7 @@ from app.curriculum.ocr import LocalOCR
 from app.curriculum.routes import router as curriculum_router
 from app.database import Resources
 from app.errors import AppError
+from app.knowledge.routes import router as knowledge_router
 from app.mail import Mailer
 from app.storage import ObjectStore
 
@@ -76,6 +77,7 @@ def create_app(
     app.include_router(course_router)
     app.include_router(ai_router)
     app.include_router(curriculum_router)
+    app.include_router(knowledge_router)
 
     @app.exception_handler(AppError)
     async def application_error(request, error):
@@ -136,7 +138,7 @@ def create_app(
                         5 * 1024 * 1024
                         if path.endswith("/curriculum/images")
                         else 512 * 1024
-                        if "/curriculum" in path
+                        if "/curriculum" in path or "/knowledge-points" in path
                         else 1024 * 1024
                         if path.endswith("/uploads")
                         else 32768

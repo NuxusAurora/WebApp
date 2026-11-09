@@ -28,6 +28,10 @@ class Handler(BaseHTTPRequestHandler):
             text = json.dumps({"chapters": [{"id": "tmp-c1", "title": "第一章 函数与极限", "page_start": 1, "page_end": None,
                 "sections": [{"id": "tmp-s1", "title": "1.1 映射与函数", "page_start": 1, "page_end": None},
                              {"id": "tmp-s2", "title": "1.2 数列的极限", "page_start": 12, "page_end": None}]}], "uncertain_items": []})
+        if body["model"] == "knowledge-fixture":
+            text = json.dumps({"knowledge_points": [{"temp_id": "kp_001", "existing_knowledge_point_id": None,
+                "title": "函数的定义", "description": "两个集合间的唯一对应。", "learning_objectives": ["解释函数的定义"],
+                "importance": "HIGH", "mastery_criteria": ["判断一个对应是否为函数"]}], "uncertain_items": []})
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream" if body.get("stream") else "application/json")
         self.end_headers()

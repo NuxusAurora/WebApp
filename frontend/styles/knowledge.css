@@ -1,0 +1,25 @@
+.knowledge { max-width: var(--container-wide); min-width: 0; }
+.knowledge-section, .knowledge-fields label { display: grid; gap: var(--space-2); min-width: 0; }
+.knowledge-section { max-width: var(--container-standard); margin-bottom: var(--space-6); }
+.knowledge select, .knowledge input:not([type=checkbox]), .knowledge textarea { width: 100%; min-width: 0; }
+.knowledge-toolbar, .knowledge-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-5); }
+.knowledge-actions { margin-top: var(--space-5); }
+.knowledge-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.knowledge-list { margin: 0; padding: 0; list-style: none; }
+.knowledge-list > li { padding: var(--space-6) 0; border-top: 1px solid var(--line-soft); overflow-wrap: anywhere; }
+.knowledge-list > li:first-child { padding-top: var(--space-4); }
+.knowledge-point-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.knowledge-point-heading h3 { margin-bottom: var(--space-3); }
+.knowledge-list label + label, .knowledge-goals, .knowledge-importance { margin-top: var(--space-4); }
+.knowledge-goals { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+.knowledge-goals label + label { margin-top: 0; }
+.knowledge-importance { max-width: 200px; }
+.knowledge h4 { font-weight: var(--weight-emphasis); margin-bottom: var(--space-2); }
+.knowledge-diff, .knowledge-confirm { padding: var(--space-5) 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.knowledge summary { cursor: pointer; padding: var(--space-2) 0; }
+.knowledge-archive { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-4); }
+.knowledge-uncertainties li { margin-bottom: var(--space-3); overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .knowledge-goals { grid-template-columns: 1fr; }
+  .knowledge-toolbar .button, .knowledge-actions .button { min-height: var(--touch-target); }
+}

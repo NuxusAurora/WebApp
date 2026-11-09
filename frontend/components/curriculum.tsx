@@ -147,11 +147,14 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
             <summary>{kind === 'added' ? '新增项' : kind === 'modified' ? '修改项' : '归档项'}</summary>
             <ul>{version.change_summary[kind].map(item => <li key={item.id}>{item.title}{pageLabel(item)}</li>)}</ul>
           </details> : null)}
+          {version.change_summary.knowledge_archived?.length ? <details open><summary>随小节归档的知识点</summary>
+            <ul>{version.change_summary.knowledge_archived.map(item => <li key={item.id}>{item.title}</li>)}</ul>
+          </details> : null}
         </div> : null}
         {confirming && version ? <div className="curriculum-confirm" role="region" aria-label="确认目录">
           <h3>应用这份目录？</h3><p>确认后成为正式目录。现有章节只通过明确 ID 匹配，移除项归档。</p>
           {version.change_summary.archived.length ? <label><input type="checkbox" checked={acceptArchives}
-            onChange={event => setAcceptArchives(event.target.checked)} />我已核对上方全部归档项</label> : null}
+            onChange={event => setAcceptArchives(event.target.checked)} />我已核对上方全部归档项及受影响知识点</label> : null}
           <div className="button-row"><button className="button primary" disabled={Boolean(busy) || (version.change_summary.archived.length > 0 && !acceptArchives)}
             onClick={() => void run('确认中…', async signal => {
               await api(path + '/confirm', { method: 'POST', signal, body: JSON.stringify({ version_id: version.id,

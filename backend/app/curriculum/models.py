@@ -54,13 +54,24 @@ class StructureVersion(Record, Base):
     __tablename__ = "structure_versions"
     __table_args__ = (
         CheckConstraint("status IN ('DRAFT','CONFIRMED','SUPERSEDED')", name="ck_structure_status"),
-        CheckConstraint("structure_type = 'CURRICULUM'", name="ck_structure_type"),
+        CheckConstraint(
+            "(structure_type = 'CURRICULUM' AND section_id IS NULL) OR "
+            "(structure_type = 'KNOWLEDGE' AND section_id IS NOT NULL)",
+            name="ck_structure_type",
+        ),
         Index(
             "uq_curriculum_confirmed",
             "course_id",
             unique=True,
-            postgresql_where=text("status = 'CONFIRMED'"),
-            sqlite_where=text("status = 'CONFIRMED'"),
+            postgresql_where=text("status = 'CONFIRMED' AND structure_type = 'CURRICULUM'"),
+            sqlite_where=text("status = 'CONFIRMED' AND structure_type = 'CURRICULUM'"),
+        ),
+        Index(
+            "uq_knowledge_confirmed",
+            "section_id",
+            unique=True,
+            postgresql_where=text("status = 'CONFIRMED' AND structure_type = 'KNOWLEDGE'"),
+            sqlite_where=text("status = 'CONFIRMED' AND structure_type = 'KNOWLEDGE'"),
         ),
     )
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -68,6 +79,9 @@ class StructureVersion(Record, Base):
         ForeignKey("courses.id", ondelete="CASCADE"), index=True
     )
     structure_type: Mapped[str] = mapped_column(String(20), default="CURRICULUM")
+    section_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("sections.id", ondelete="CASCADE"), index=True
+    )
     status: Mapped[str] = mapped_column(String(20), default="DRAFT")
     revision: Mapped[int] = mapped_column(default=1)
     base_course_revision: Mapped[int]

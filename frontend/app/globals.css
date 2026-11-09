@@ -1,5 +1,6 @@
 @import '../styles/tokens.css';
 @import '../components/sidebar.css';
+@import '../styles/knowledge.css';
 
 
 /* Shared continuous corners; unsupported engines retain usable radius fallbacks. */

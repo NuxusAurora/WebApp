@@ -162,7 +162,7 @@ describe('desktop course workspace', () => {
 
   it('does not show or fetch learning materials when switching courses', async () => {
     await ready();
-    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
     expect(screen.queryByRole('tab', { name: /学习资料/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     fireEvent.click(screen.getByRole('button', { name: '进入高等数学' }));

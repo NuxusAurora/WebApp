@@ -4,6 +4,16 @@ import { proxyBusiness } from '../lib/business-proxy.server';
 
 const environment = { BACKEND_INTERNAL_URL: 'http://backend:8000' };
 describe('authenticated same-origin proxy', () => {
+  it('allows only bounded same-origin section knowledge endpoints', async () => {
+    const prefix = 'sections/11111111-1111-1111-1111-111111111111/knowledge-points';
+    const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: {} }));
+    const request = (body: string, headers = { 'X-Requested-With': 'structured-learning' }) => new Request('http://localhost/api/v1/' + prefix + '/generate', { method: 'POST', body, headers });
+    expect((await proxyBusiness(request('{}'), (prefix + '/generate').split('/'), upstream, environment)).status).toBe(200);
+    expect((await proxyBusiness(request('a'.repeat(512 * 1024 + 1)), prefix.split('/'), upstream, environment)).status).toBe(413);
+    expect((await proxyBusiness(request('{}', { 'X-Requested-With': '' }), prefix.split('/'), upstream, environment)).status).toBe(403);
+    expect((await proxyBusiness(new Request('http://localhost'), (prefix + '/internal').split('/'), upstream, environment)).status).toBe(404);
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
   it('proxies only the fixed discovery route for a provider', async () => {
     const path = 'ai/providers/11111111-1111-1111-1111-111111111111/discovery';
     const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: [] }));

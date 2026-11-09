@@ -236,7 +236,7 @@ describe('reviewed curriculum', () => {
     await screen.findByRole('button', { name: '核对并确认' });
     fireEvent.click(screen.getByRole('button', { name: '核对并确认' }));
     expect(screen.getByRole('button', { name: '确认应用目录' })).toBeDisabled();
-    fireEvent.click(screen.getByLabelText('我已核对上方全部归档项'));
+    fireEvent.click(screen.getByLabelText('我已核对上方全部归档项及受影响知识点'));
     expect(screen.getByRole('button', { name: '确认应用目录' })).toBeEnabled();
     expect(screen.getByText('移除的小节')).toBeTruthy();
   });

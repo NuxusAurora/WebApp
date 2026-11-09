@@ -203,7 +203,7 @@ node scripts/phase0.mjs down
 
 标题列表默认折叠：点击大标题展开，小标题宽度为大标题一半，序号随位置重排；名称单行省略，鼠标悬停显示全文。拖动左侧手柄排序，章节连同小节移动，小节可移到其他章节（落到章节行末尾或指定小节前后）。正式目录拖动进入草稿，不自动应用；保存并确认后持久化。右键标题行或点击行尾操作菜单：重命名在行内完成，大标题额外提供“添加小标题”；页码、上移/下移、移除在菜单中，所属章节在“编辑页码”内。编号只由当前位置生成，不进入名称输入框，导入的“第2章 / §2.1”等旧前缀在显示和保存时剥离；名称处理见 frontend/lib/curriculum-title.ts。支持 Shift+F10、菜单方向键、Enter 完成和 Escape 取消重命名；菜单随外部点击/滚动/禁用关闭。新增 UI 为 frontend/components/curriculum-outline.tsx，纯排序在 frontend/lib/curriculum-order.ts；后端 service 确认时保留小节 ID、页码并更新 chapter_id，旧版本快照不变。无需迁移；回归见 curriculum-outline.test.tsx、curriculum.test.tsx 与 backend/tests/test_curriculum.py。
 
-当前课程详情仅有“课程概览 / 教材目录”。学习资料页签及前端读取已移除；既有文本文件及上传后端接口保留，目录图片上传不受影响。
+当前课程详情提供“课程概览 / 教材目录 / 知识点”。学习资料页签及前端读取已移除；既有文本文件及上传后端接口保留，目录图片上传不受影响。
 
 入口：课程详情 → 教材目录。上传 PNG/JPEG，每张 1 字节至 5 MiB、最多 1600 万像素；图片经解码、纠正 EXIF 方向和重新编码为 PNG 后进入私有存储。每批按勾选顺序识别最多 5 张图片；单张 OCR 35 秒、整批 120 秒上限。Tesseract chi_sim+eng 随后端 Docker 镜像安装，通过管道处理，无本地临时图片。原有学习资料 .txt 的 1 MiB 限制不变。
 
@@ -215,7 +215,7 @@ node scripts/phase0.mjs down
 
 API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirmed_revision 与 versions 数组（仅最新 DRAFT，最多一份，确认后为空；兼容旧库多草稿时只读取最新）；GET/POST images 为独立目录图片；POST ocr 接收 image_ids；POST parse 接收 input_mode（images 或 text，默认 text）、ocr_text、image_ids、provider_id、model_id，图片模式要求 1–5 个归属当前课程的图片 ID 和视觉能力，文字模式要求非空 ocr_text。POST drafts 接收 payload 与 base_course_revision；PATCH 接收 version_id、revision、base_course_revision、payload；POST confirm 接收前三个版本字段与 accept_archives。图片下载/删除复用所有者校验的 uploads/{id} 入口；学习资料列表不混入图片。
 
-迁移 `0004_curriculum` 接在 `0003_ai_gateway` 后，建立 chapters、sections、structure_versions、workflow_runs、structure_events，并扩展 uploads。版本和正式修订分别校验，课程行锁串行化草稿替代与确认；重复确认返回首次结果。旧确认版本转 SUPERSEDED，替代草稿同时记录 REPLACED 事件；移除节点归档。来源、原始输出、模型/Prompt、校验与工作流失败状态留在私有数据库，不写应用日志；用户修改不覆盖原始来源。当前只有 CURRICULUM 类型，Phase 4 再扩展知识结构与其归档协调。
+迁移 `0004_curriculum` 接在 `0003_ai_gateway` 后，建立 chapters、sections、structure_versions、workflow_runs、structure_events，并扩展 uploads。版本和正式修订分别校验，课程行锁串行化草稿替代与确认；重复确认返回首次结果。旧确认版本转 SUPERSEDED，替代草稿同时记录 REPLACED 事件；移除节点归档。来源、原始输出、模型/Prompt、校验与工作流失败状态留在私有数据库，不写应用日志；用户修改不覆盖原始来源。`0005_knowledge` 扩展小节知识版本和知识点归档，目录接口只消费 CURRICULUM 类型。
 
 源码：`backend/app/curriculum/`、`backend/prompts/curriculum/parse-v1.md`、`backend/prompts/curriculum/vision-v1.md`、`frontend/components/curriculum.tsx`、`frontend/lib/curriculum.ts`。通用图片契约在 backend/app/ai/contracts.py，wire 编码在 adapters.py，仅允许有界内嵌 PNG/JPEG；图片不进入公开审计或来源 JSON，仅记录图片 ID。OCR 从 app.state.curriculum_ocr 注入；Gateway 和存储由组合根复用，不反向依赖目录领域。协议参考：[图片输入](https://developers.openai.com/api/docs/guides/images-vision)、[结构化输出](https://developers.openai.com/api/docs/guides/structured-outputs)。
 
@@ -242,3 +242,15 @@ API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirme
 源码：`backend/app/ai/`、版本为 gateway-v1 的 `backend/prompts/gateway/*`、`frontend/components/ai-settings.tsx` 和既有同源代理。模型与课程领域互不写入。实施约定见 `docs/plans/phase-2-implementation.md`。
 
 验收仍为 `node --test scripts/infra.test.mjs` 与 `node scripts/phase0.mjs verify`，后者含 `scripts/phase2-acceptance.mjs`。只对 p0c-verify-* 项目做迁移回退，复制 `scripts/fixtures/phase2-check.py` 和 `local-model.py` 到隔离容器 /tmp，经真实 HTTP 验证协议；fixture 不是 AI 推理服务，不进入运行镜像。成功/失败按原 finally 清理，--keep 仅供浏览器检查。真实模型质量未测，视觉限制见 HANDOFF。
+
+## Phase 4 首条闭环：小节知识点
+
+入口：课程详情 → 知识点。先在教材目录确认小节，选择小节后用首个已启用连接中的首个启用模型生成知识草稿；当前浏览器的默认连接偏好不参与自动选择。生成使用小节/章节标题、页码、课程目标及已有正式知识点，没有读取教材正文；模型输出须核对。也可手动编辑。名称、定义、学习目标、重要程度和掌握标准可修改，目标/标准每行一项。保存只写草稿，清除并保存待核对项后，通过 核对并确认知识点 → 确认应用知识点写入正式表。
+
+重新生成和从过期草稿重建都要求明确替换；失败保留原草稿。显式匹配已有UUID才能保留身份和学习状态，模型不写学习状态。新增节点初始化NOT_STARTED；内容实质改变显示复核掌握状态提示。移除知识点及目录小节均采用确认后归档，目录差异列出受影响知识点；没有依赖关系处理或教学流程。
+
+API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_revision、正式knowledge_points和draft；POST generate接收provider_id、model_id、base_course_revision；POST drafts接收payload及基线。已有草稿替换须附replace_version_id/replace_revision。PATCH接收version_id、expected_revision、base_course_revision和payload；POST confirm接收前三个版本字段及accept_archives。payload使用knowledge_points数组（最多50项；手动移除可空），每项temp_id、existing_knowledge_point_id（新增为null）、title、description、learning_objectives、importance（HIGH/MEDIUM/LOW）、mastery_criteria，以及uncertain_items。草稿revision与课程confirmed_revision不符返回409；跨小节/账户引用拒绝。只提供小节级读写/确认，单点入口和通用结构版本浏览留后续。
+
+迁移0005_knowledge接0004，保留现有目录数据，扩大共享版本类型约束及分范围唯一索引、新建knowledge_points。降级时如已有知识版本历史会拒绝执行，以免静默丢数据；勿在用户库回退。源码：backend/app/knowledge、backend/prompts/knowledge/extract-v1.md、frontend/components/knowledge.tsx及frontend/lib/knowledge.ts。Knowledge服务只依赖目录模型，目录通过其查询/归档函数协调，不反向调用目录服务。
+
+验证：node scripts/phase0.mjs verify在隔离p0c-verify-*栈运行迁移、测试与scripts/phase4-acceptance.mjs；覆盖真实Gateway协议fixture、PostgreSQL并发、跨范围/租户隔离、幂等、ID与重启持久化。fixture不是AI推理质量验收；本次实际结果与视觉限制集中见HANDOFF最新节。
