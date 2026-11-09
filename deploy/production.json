@@ -1,0 +1,64 @@
+{
+  "url": "https://learn.nuxusaurora.cn",
+  "server": {
+    "host": "111.229.103.70",
+    "user": "ubuntu",
+    "root": "/opt/learning-workbench",
+    "project": "learning-cloud"
+  },
+  "source_snapshot_revision": "abf79c5",
+  "image_source_revision": "7c70e0a",
+  "configuration_source_revision": "b858b4c34b9fa4ff209b454da332ccfe2df5e467",
+  "runtime_images": {
+    "backend": "learning-workbench-backend:3c1821b",
+    "frontend": "learning-workbench-frontend:3c1821b",
+    "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
+    "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
+    "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2",
+    "worker": "learning-workbench-backend:3c1821b"
+  },
+  "image_ids": {
+    "backend": "sha256:86078d88c15e2dbf7cbf108ffd536656482453a7048b49a280d835fa9bb11206",
+    "frontend": "sha256:418c6fbf1e4486491581a594d43585af7277d259b13b767354f035b0d237b814",
+    "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
+    "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
+    "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
+  },
+  "configuration_hashes": {
+    "scripts/production.mjs": "115d75bb2485a6d9ace5129d58739974e11e511e79683f3b7b9c9322a49c8b09",
+    "scripts/production.test.mjs": "22d1d832c604652e010e33acc7badb3b03ae7a7adafb60adae7eb8c277d081d7",
+    "deploy/compose.nginx.yaml": "a59baf7920af4a44bbde8d2a79c3024c46c881a9fdd91e5c6257e7aaeb8f4e08",
+    "deploy/nginx.conf.template": "79f4dcfd503a17524b08c472b30dafaf01758c914fbb7bbc40e4c3a16e4aa95f",
+    "deploy/README.md": "f444dc38c27a19ab96d62c554194f555518baddcd6214547519c3695f1fba0f0"
+  },
+  "schema_revision": "0003_ai_gateway",
+  "services": {
+    "learning-cloud-backend-1": "healthy",
+    "learning-cloud-worker-1": "healthy",
+    "learning-cloud-frontend-1": "healthy",
+    "learning-cloud-postgres-1": "healthy",
+    "learning-cloud-redis-1": "healthy",
+    "learning-cloud-storage-1": "healthy"
+  },
+  "new_cloud_database": true,
+  "local_data_migrated": false,
+  "smtp_configured": false,
+  "real_provider_call_verified": false,
+  "certificate": {
+    "name": "learning-workbench-cn",
+    "renewal": "webroot with targeted nginx deploy hook",
+    "renewal_dry_run": "passed",
+    "not_after_utc": "2027-02-07T03:49:49Z"
+  },
+  "validation": {
+    "frontend_tests": 38,
+    "backend_tests": 49,
+    "deployment_tests": 4,
+    "persistence_after_restart": "passed",
+    "private_downloads": "passed",
+    "worker_task": "passed",
+    "qa_data_removed": true,
+    "browser_login_and_system": "passed"
+  },
+  "server_cleanup_logical_bytes": 445558417
+}
