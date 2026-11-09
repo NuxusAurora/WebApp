@@ -2,13 +2,13 @@
 
 ## 2026-11-08 腾讯云完整部署（进行中）
 
-用户要求完整前后端及数据服务一起部署到腾讯云，并选择云端新建数据库、保留本地数据。SSH 目录已检查，存在 nuxusaurora.pem，但配置只有未核实为腾讯云的 ubuntu-server 别名；尚缺公网 IP/SSH 用户名和域名，已向用户请求。未连接远程主机、修改 DNS 或云资源，也未迁移本地数据。
+用户要求完整前后端及数据服务一起部署到腾讯云，云端新建数据库、保留本地数据。目标已确认 `ubuntu@111.229.103.70`、SSH 密钥 nuxusaurora.pem；用户采用 learn.nuxusaurora.com / files.learn.nuxusaurora.com，邮件配置暂缺但授权先部署。已连接只读核实 Ubuntu 24.04、2 GiB 内存、Docker/Compose、现有 Nginx；新增两个 DNS A 记录、独立 `/opt/learning-workbench` 目录和 ACME HTTP 路由，已有站点未替换。镜像正上传，最终运行/公网验收待完成。
 
 任务工作区 `D:/Code/codex/codex-work/Webapp-tencent-deploy`，分支 `codex/tencent-deploy`，来源 e1f19d1。准备了生产 Compose 覆盖层、Caddy HTTPS、独立机密初始化/检查/启动及运行文档；生产强制关闭测试登录、安全 Cookie，仅代理映射公网入口，文件使用独立下载域名和私有签名。既有 local 和 public Sites 均未更改。
 
-3 项部署工具测试通过：输入校验/防覆盖/机密不输出、生产合并后的端口/网络/开关、原本地配置保持。固定摘要 Caddy 镜像实际验证配置成功；原型诊断中临时生成的 init 探测文件已删除，未使用真实凭据。未执行云端构建/启动、DNS/证书、邮件/模型、持久化或浏览器验收。前置边界约定见 docs/plans/tencent-cloud-deployment.md；当前检查未引入应用 API 或状态依赖，最终解耦与运行验收在实际部署后复查。
+4 项部署工具、38 项前端、49 项后端测试及格式/类型/生产构建通过。额外支持已有 Nginx，只映射 loopback 的 13100/13900；应用动态登录提示由部署环境提供，公开环境无 SMTP 时明确 503，开发环境保留原 outbox。固定摘要 Caddy 配置验证成功，当前服务器不启用 Caddy。HTTP 证书验证被转向腾讯云备案提示，正改用 DNS 证明域名控制权。未将这些准备检查称作云端服务完成；前置边界见 docs/plans/tencent-cloud-deployment.md，最终解耦与线上验收继续执行。
 
-下一步：收到目标后只读核对服务器和现有服务；配置独立部署目录、域名及 SMTP，生成服务器专用机密，构建/迁移/启动并逐项验收。保留本任务工作区、必要缓存和 workbook 活动记录供继续，不提前合入或清理。无 GitHub 推送。
+下一步：完成镜像上传及 TLS，生成服务器专用机密，迁移空库、启动并逐项验收；配置邮件待补提示。保留本任务工作区、必要缓存和 workbook 活动记录供继续，不提前合入或清理。无 GitHub 推送。
 
 ## 2026-11-08 公开网页更新（当前）
 

@@ -31,6 +31,8 @@ services:
     build:
       args:
         NEXT_PUBLIC_TEST_LOGIN_ENABLED: 'false'
+    environment:
+      ACCOUNT_NOTICE: ${ACCOUNT_NOTICE:-}
     logging: *bounded-log
   proxy:
     profiles: [app]

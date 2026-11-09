@@ -24,25 +24,37 @@ export function productionEnv(template, app, storage, email) {
     '\nAI_ALLOWED_ORIGINS=https://api.nuxusaurora.com\n';
 }
 
-export function productionContext(envFile) {
+export function productionContext(envFile,{ingress='caddy'}={}) {
+  assert.ok(['caddy','nginx'].includes(ingress),'Use caddy or nginx ingress');
   const args=['compose','--env-file',resolve(envFile),'-f',resolve(root,'compose.yaml'),'-f',resolve(root,'deploy/compose.production.yaml')];
+  if(ingress==='nginx')args.push('-f',resolve(root,'deploy/compose.nginx.yaml'));
   const compose=(...tail)=>docker([...args,...tail]);
   return {compose,config:()=>JSON.parse(compose('--profile','app','config','--format','json'))};
 }
 
-export function validateProduction(config,{requireMail=true}={}) {
+export function validateProduction(config,{requireMail=true,ingress='caddy'}={}) {
   const services=config.services;
-  for(const name of ['postgres','redis','storage','backend','worker','frontend','proxy'])assert.ok(services[name],'Missing '+name);
-  const app=domain(services.proxy.environment.APP_DOMAIN),storage=domain(services.proxy.environment.STORAGE_DOMAIN);
+  for(const name of ['postgres','redis','storage','backend','worker','frontend'])assert.ok(services[name],'Missing '+name);
+  const app=domain(new URL(services.backend.environment.PUBLIC_ORIGIN).hostname);
+  const storage=domain(new URL(services.backend.environment.STORAGE_PUBLIC_ENDPOINT).hostname);
   assert.notEqual(app,storage);
   for(const [name,service] of Object.entries(services)) {
+    if(ingress==='nginx'&&['frontend','storage'].includes(name)) {
+      assert.equal(service.ports?.length,1);
+      assert.equal(service.ports[0].host_ip,'127.0.0.1','Host Nginx ports must be loopback-only');continue;
+    }
     if(name!=='proxy')assert.ok(!service.ports?.length,'Only the HTTPS proxy may publish ports');
   }
-  assert.deepEqual(services.proxy.ports.map(p=>p.published+'/'+p.protocol).sort(),['443/tcp','443/udp','80/tcp']);
+  if(ingress==='nginx')assert.ok(!services.proxy,'Host Nginx mode must not start Caddy');
+  else {
+    assert.ok(services.proxy,'Missing proxy');
+    assert.equal(services.proxy.environment.APP_DOMAIN,app);assert.equal(services.proxy.environment.STORAGE_DOMAIN,storage);
+    assert.deepEqual(services.proxy.ports.map(p=>p.published+'/'+p.protocol).sort(),['443/tcp','443/udp','80/tcp']);
+    assert.ok(!('data' in services.proxy.networks),'Proxy must not join the database network');
+  }
   for(const name of ['postgres','redis']) {
     assert.ok(Object.keys(services[name].networks).every(n=>config.networks[n].internal),'Database/cache networks must be internal');
   }
-  assert.ok(!('data' in services.proxy.networks),'Proxy must not join the database network');
   for(const name of ['backend','worker']) {
     const env=services[name].environment;
     assert.equal(env.COOKIE_SECURE,'true');assert.equal(env.TEST_LOGIN_ENABLED,'false');
@@ -57,7 +69,7 @@ export function validateProduction(config,{requireMail=true}={}) {
 async function main() {
   const [command,...flags]=process.argv.slice(2);const values={};
   for(let i=0;i<flags.length;i+=2){assert.ok(flags[i].startsWith('--')&&flags[i+1],'Flags need values');assert.ok(!Object.hasOwn(values,flags[i]),'Duplicate flag');values[flags[i]]=flags[i+1];}
-  const allowed=command==='init'?['--env-file','--domain','--storage-domain','--email']:['--env-file'];
+  const allowed=command==='init'?['--env-file','--domain','--storage-domain','--email']:['--env-file','--ingress','--allow-missing-mail','--no-build'];
   assert.ok(Object.keys(values).every(k=>allowed.includes(k)),'Unsupported flag');
   const envFile=resolve(values['--env-file']??resolve(root,'.env.production'));
   if(command==='init') {
@@ -66,10 +78,12 @@ async function main() {
     console.log('Created a new production environment. Configure SMTP before check/up. No existing file was replaced.');return;
   }
   assert.ok(['check','up','status'].includes(command),'Use init, check, up or status');
-  const ctx=productionContext(envFile);const config=ctx.config();const {app,storage}=validateProduction(config,{requireMail:command!=='status'});
+  const ingress=values['--ingress']??'caddy';
+  const ctx=productionContext(envFile,{ingress});const config=ctx.config();
+  const {app,storage}=validateProduction(config,{ingress,requireMail:command!=='status'&&values['--allow-missing-mail']!=='true'});
   if(command==='check'){console.log('PASS isolated production ports, TLS origins, secure cookies, disabled test login and SMTP configuration');return;}
   if(command==='status'){console.log(ctx.compose('--profile','app','ps'));return;}
-  ctx.compose('--profile','app','build','backend','frontend');
+  if(values['--no-build']!=='true')ctx.compose('--profile','app','build','backend','frontend');
   ctx.compose('up','-d','--wait','--wait-timeout','180','postgres','redis','storage');
   ctx.compose('--profile','app','run','--rm','--no-deps','backend','alembic','upgrade','head');
   ctx.compose('--profile','app','up','-d','--wait','--wait-timeout','180');

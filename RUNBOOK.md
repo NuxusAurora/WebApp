@@ -2,7 +2,7 @@
 
 ## 腾讯云正式应用（准备中）
 
-完整应用部署入口见 [deploy/README.md](deploy/README.md)，生产覆盖层为 `deploy/compose.production.yaml`，环境生成/检查/启动为 `scripts/production.mjs`。仅对生产部署生效，不改变本地 Compose。用户选择新建云端数据库、保留本地数据；尚待公网 IP、SSH 用户名和域名，未连接或部署腾讯云。准备工作的配置检查不能算作线上验收。
+完整应用部署入口见 [deploy/README.md](deploy/README.md)，生产覆盖层为 `deploy/compose.production.yaml`，已有 Nginx 时追加 `deploy/compose.nginx.yaml`，环境生成/检查/启动为 `scripts/production.mjs`。仅对生产部署生效，不改变本地 Compose。用户选择新建云端数据库、保留本地数据，目标为 `ubuntu@111.229.103.70`，域名 `learn.nuxusaurora.com` 和 `files.learn.nuxusaurora.com`，SMTP 先待补。最新部署/线上验收状态集中见 HANDOFF，配置检查不能代替线上部署。
 
 ## GPT Sites 公开体验入口
 

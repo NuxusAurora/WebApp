@@ -1,10 +1,10 @@
 # 腾讯云完整部署
 
-运行正式产品源码及全部后端服务。现有 GPT Sites 是独立体验站，不作为此部署的后端。目标服务器/域名尚待用户提供，**当前尚未部署到腾讯云**。
+运行正式产品源码及全部后端服务。现有 GPT Sites 是独立体验站，不作为此部署的后端。当前目标为 `ubuntu@111.229.103.70`，应用 `learn.nuxusaurora.com`，下载 `files.learn.nuxusaurora.com`；实际交付状态见 HANDOFF。
 
 ## 首次部署
 
-先通过已配置的 SSH 密钥连接用户指定的服务器，只读核对系统、资源、Docker、原有服务和端口。使用独立目录和 Compose 项目；不得覆盖现有项目或其机密。此方案要求 Node.js 24、Linux Docker Engine 与 Docker Compose 2.24.4 或更高版本。
+先通过已配置的 SSH 密钥连接用户指定的服务器，只读核对系统、资源、Docker、原有服务和端口。使用独立目录和 Compose 项目；不得覆盖现有项目或其机密。部署工具使用 Node.js 24；服务器也可直接使用 Docker Compose 命令运行已验收镜像，无需安装 Node。要求 Linux Docker Engine 与 Docker Compose 2.24.4 或更高版本。
 
 应用与签名下载使用两个不同的 HTTPS 主机名，例如 `learn.example.com` 与 `files.example.com`。将它们解析到该服务器，HTTPS 入口需要可访问 80/TCP、443/TCP；443/UDP 为 HTTP/3。数据库、Redis、后端、前端和存储管理端口不公开。若已有反向代理占用入口，先针对现有架构适配，不停用原服务。
 
@@ -23,6 +23,10 @@ node scripts/production.mjs status
 ```
 
 `up` 先构建，再启动数据依赖、执行 Alembic 升级，最后启动应用和 HTTPS 代理。不会清空卷；应用启动健康不等于公网 DNS、证书和真实邮件已验收。不要打印完整 `docker compose config` 或把环境文件放入源码/聊天。
+
+这台服务器已有 Nginx，生产命令须再加 `-f deploy/compose.nginx.yaml`；只映射 `127.0.0.1:13100` 的正式前端和 `127.0.0.1:13900` 的私有存储，Caddy 不启动。Nginx 配置源为 `deploy/nginx.conf.template`，保留 Host/路径/查询；文件入口仅允许下载方法。现有站点与数据库服务保持独立。Node 工具等效参数为 `--ingress nginx`，已验收预构建镜像可加 `--no-build true`。
+
+用户明确选择邮件配置待补，部署可显式添加 `--allow-missing-mail true`；设置 ACCOUNT_NOTICE 告知登录页注册/找回暂不可用。公开环境缺少 SMTP 时返回明确的 503，不使用开发 outbox 假称邮件已发送。未来填入服务器 SMTP 配置并清空 ACCOUNT_NOTICE 后，仅重新创建 backend/worker/frontend；不删除卷。
 
 单独的生产 Compose 命令前缀为：
 

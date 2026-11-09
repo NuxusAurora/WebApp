@@ -142,6 +142,12 @@ describe('desktop course workspace', () => {
 });
 
 describe('account and shell states', () => {
+  it('shows deployment account availability after resolving a signed-out session', async () => {
+    vi.mocked(api).mockRejectedValueOnce(new ApiError(401, '请登录'));
+    render(<Workspace accountNotice="邮件服务待配置，注册和找回密码暂不可用。" />);
+    expect(await screen.findByText('邮件服务待配置，注册和找回密码暂不可用。')).toHaveAttribute('role', 'status');
+    expect(screen.getByLabelText('邮箱')).toBeInTheDocument();
+  });
   it('continues password recovery into the reset form after requesting a code', async () => {
     vi.mocked(api).mockResolvedValue({ message: '重置邮件已发送' });
     render(<Account onLogin={vi.fn()} />);

@@ -1,0 +1,13 @@
+# Third file for a host that already runs Nginx. Never publishes the Caddy service.
+services:
+  proxy:
+    profiles: !override [standalone-caddy]
+  frontend:
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE to the verified release}
+    ports: !override ['127.0.0.1:${PRIVATE_WEB_PORT:-13100}:3000']
+  storage:
+    ports: !override ['127.0.0.1:${PRIVATE_STORAGE_PORT:-13900}:9000']
+  backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the verified release}
+  worker:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the verified release}

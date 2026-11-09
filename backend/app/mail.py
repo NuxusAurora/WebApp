@@ -3,7 +3,10 @@ import os
 import smtplib
 from email.message import EmailMessage
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
+
+from app.errors import AppError
 
 
 class Mailer:
@@ -24,6 +27,8 @@ class Mailer:
                     smtp.login(settings.smtp_user, settings.smtp_password.get_secret_value())
                 smtp.send_message(message)
             return
+        if urlsplit(settings.public_origin).hostname not in {"localhost", "127.0.0.1", "::1"}:
+            raise AppError("MAIL_NOT_CONFIGURED", "邮件服务待配置，请稍后重试", 503)
         directory = Path(settings.mail_outbox)
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         target = directory / f"{uuid4()}.json"

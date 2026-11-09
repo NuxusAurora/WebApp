@@ -1,0 +1,52 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @APP_DOMAIN@ @STORAGE_DOMAIN@;
+    location ^~ /.well-known/acme-challenge/ { root /var/lib/learning-workbench/acme; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name @APP_DOMAIN@;
+    ssl_certificate /etc/letsencrypt/live/learning-workbench/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/learning-workbench/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 2m;
+    access_log off;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    location / {
+        proxy_pass http://127.0.0.1:@WEB_PORT@;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Connection "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_buffering off;
+        proxy_read_timeout 150s;
+        proxy_send_timeout 150s;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name @STORAGE_DOMAIN@;
+    ssl_certificate /etc/letsencrypt/live/learning-workbench/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/learning-workbench/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    access_log off;
+    add_header X-Content-Type-Options nosniff always;
+    location / {
+        limit_except GET { deny all; }
+        # No URI rewrite: preserve Host, path and query for SigV4 downloads.
+        proxy_pass http://127.0.0.1:@STORAGE_PORT@;
+        proxy_set_header Host $http_host;
+        proxy_set_header Connection "";
+        proxy_http_version 1.1;
+        proxy_read_timeout 30s;
+    }
+}
