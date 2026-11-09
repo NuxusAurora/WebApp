@@ -6,32 +6,33 @@
     "root": "/opt/learning-workbench",
     "project": "learning-cloud"
   },
-  "source_snapshot_revision": "abf79c5",
-  "image_source_revision": "7c70e0a",
-  "configuration_source_revision": "b858b4c34b9fa4ff209b454da332ccfe2df5e467",
+  "source_snapshot_revision": "a9f0b5ba873253f6d8eec07f0c10586737659c60",
+  "image_source_revision": "dbeb13fb87a2ece8c93d8d701bcf0884bc9ab64f",
+  "configuration_source_revision": "a9f0b5ba873253f6d8eec07f0c10586737659c60",
   "runtime_images": {
-    "backend": "learning-workbench-backend:3c1821b",
-    "frontend": "learning-workbench-frontend:3c1821b",
+    "backend": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a",
+    "frontend": "sha256:8e719089d8dc76546eef6a756bb18ce902a8dc89c3b847f8bc941e6efb72129c",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2",
-    "worker": "learning-workbench-backend:3c1821b"
+    "worker": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a"
   },
   "image_ids": {
-    "backend": "sha256:86078d88c15e2dbf7cbf108ffd536656482453a7048b49a280d835fa9bb11206",
-    "frontend": "sha256:418c6fbf1e4486491581a594d43585af7277d259b13b767354f035b0d237b814",
+    "backend": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a",
+    "frontend": "sha256:8e719089d8dc76546eef6a756bb18ce902a8dc89c3b847f8bc941e6efb72129c",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
   },
   "configuration_hashes": {
-    "scripts/production.mjs": "115d75bb2485a6d9ace5129d58739974e11e511e79683f3b7b9c9322a49c8b09",
-    "scripts/production.test.mjs": "22d1d832c604652e010e33acc7badb3b03ae7a7adafb60adae7eb8c277d081d7",
+    "compose.yaml": "07db186bf70587e48d6080b85ee078bfce4bfeff41cbb698188d0c180bb0ad57",
+    "deploy/compose.production.yaml": "bd8c66634b309df0c657576c2b182fab4f8a6f1581c3a77bf7237c25b18a4559",
     "deploy/compose.nginx.yaml": "a59baf7920af4a44bbde8d2a79c3024c46c881a9fdd91e5c6257e7aaeb8f4e08",
-    "deploy/nginx.conf.template": "79f4dcfd503a17524b08c472b30dafaf01758c914fbb7bbc40e4c3a16e4aa95f",
-    "deploy/README.md": "f444dc38c27a19ab96d62c554194f555518baddcd6214547519c3695f1fba0f0"
+    "deploy/nginx.conf.template": "2161c87eccac0f5fc7efb96512a63558b55f1472e365dee3b224759d82267d6c",
+    "scripts/production.mjs": "115d75bb2485a6d9ace5129d58739974e11e511e79683f3b7b9c9322a49c8b09",
+    "scripts/production.test.mjs": "22d1d832c604652e010e33acc7badb3b03ae7a7adafb60adae7eb8c277d081d7"
   },
-  "schema_revision": "0003_ai_gateway",
+  "schema_revision": "0004_curriculum",
   "services": {
     "learning-cloud-backend-1": "healthy",
     "learning-cloud-worker-1": "healthy",
@@ -40,7 +41,7 @@
     "learning-cloud-redis-1": "healthy",
     "learning-cloud-storage-1": "healthy"
   },
-  "new_cloud_database": true,
+  "new_cloud_database": false,
   "local_data_migrated": false,
   "smtp_configured": false,
   "real_provider_call_verified": false,
@@ -51,14 +52,43 @@
     "not_after_utc": "2027-02-07T03:49:49Z"
   },
   "validation": {
-    "frontend_tests": 38,
-    "backend_tests": 49,
+    "frontend_tests": 82,
+    "backend_tests": 77,
     "deployment_tests": 4,
-    "persistence_after_restart": "passed",
-    "private_downloads": "passed",
-    "worker_task": "passed",
-    "qa_data_removed": true,
-    "browser_login_and_system": "passed"
+    "https_health_ready": "200",
+    "schema_upgrade": "0003_ai_gateway -> 0004_curriculum",
+    "existing_user_course_upload_counts": "0/0/0 before and after",
+    "test_login": "disabled; POST 404",
+    "unauthenticated_curriculum": "401",
+    "browser_public_login_and_status": "passed",
+    "authenticated_production_checks": "not run: SMTP pending and no cloud accounts",
+    "worker": "healthy; no new business task dispatched",
+    "private_downloads": "previous deployment evidence only; not repeated with authenticated data",
+    "production_qa_data_created": false
   },
-  "server_cleanup_logical_bytes": 445558417
+  "server_cleanup_logical_bytes": 402469880,
+  "service_source_revisions": {
+    "backend": "dbeb13fb87a2ece8c93d8d701bcf0884bc9ab64f",
+    "frontend": "a9f0b5ba873253f6d8eec07f0c10586737659c60"
+  },
+  "image_artifacts": {
+    "backend": {
+      "source": "webapp-release-backend:dbeb13f",
+      "id": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a"
+    },
+    "frontend": {
+      "source": "webapp-release-frontend:a9f0b5b",
+      "id": "sha256:8e719089d8dc76546eef6a756bb18ce902a8dc89c3b847f8bc941e6efb72129c"
+    }
+  },
+  "released_at_utc": "2026-11-09T10:22:40.961569+00:00",
+  "test_login_enabled": false,
+  "backup_before_upgrade": "consistent database/storage/env backup completed and removed after successful acceptance",
+  "obsolete_image_tags_removed": [
+    "learning-workbench-backend:3c1821b",
+    "learning-workbench-frontend:3c1821b",
+    "webapp-tencent-backend:release",
+    "webapp-tencent-frontend:release",
+    "webapp-release-frontend:dbeb13f"
+  ]
 }

@@ -2,12 +2,20 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
+## 2026-11-09 当前发布
+
+正式应用已升级：源码快照/前端为 a9f0b5ba873253f6d8eec07f0c10586737659c60，后端与 Worker 镜像基线为 dbeb13fb87a2ece8c93d8d701bcf0884bc9ab64f（两份快照的后端源码相同）。包含当前 Sidebar、视觉目录识别、目录编辑及单草稿行为。current 指向 /opt/learning-workbench/releases/a9f0b5b；实际 OCI 镜像索引与服务摘要见 production.json 和服务器 /opt/learning-workbench/release.json。
+
+82 项前端测试、TypeScript、生产构建及 4 项部署工具检查通过；后端同源码复用此前 77 项验证。先停写并备份 PostgreSQL、对象卷和独立环境，再执行 0003_ai_gateway → 0004_curriculum；用户/课程/上传数量在迁移前后均为 0/0/0。六项服务健康，公开 HTTPS health/ready 200，生产测试登录 POST 404，未登录目录 401。浏览器实查新版公共状态页、折叠登录入口和登录页，无测试登录按钮；本轮没有生产账户、真实模型调用或认证后的下载/持久化新验收。
+
+云端原密钥、独立数据库/对象卷、Nginx、证书、同域私有下载及 SMTP 缺失设置保持。本地运行未重建，未导入本机账户/课程/供应商密钥，也未更新 Sites 体验站。匿名折叠入口缺少可读名称已在最终前端补齐，并增加回归；只改变显示标签，不改认证或数据契约。发布验证通过后删除临时包/分块及受限备份，共 402,469,880 逻辑字节，并回收五个无依赖旧应用镜像标签；原始源快照与当前运行依赖保留。下方较早镜像/计数为首次部署历史，当前以本节及 production.json 为准。
+
 ## 实际部署
 
 - 服务器：ubuntu@111.229.103.70，Ubuntu 24.04，2 GiB 内存。使用本机既有 SSH 密钥 nuxusaurora.pem；不复制私钥到服务器或仓库。
 - 独立目录：/opt/learning-workbench；当前源码快照位于 current 链接。项目名 learning-cloud，独立 PostgreSQL/Redis/storage 持久卷。
 - 运行环境：/opt/learning-workbench/.env.production，仅 root 可读写。机密在服务器独立生成，不使用本机 .env。
-- 当前镜像源为 7c70e0a，源码发行基线 abf79c5；部署覆盖文件与运维文档另行同步并按摘要记录。实际镜像 ID、配置来源及域名以 /opt/learning-workbench/release.json 为准，不能根据目录名猜镜像版本。
+- 当前发布来源和镜像摘要见上节；实际镜像 ID、配置来源及域名以 /opt/learning-workbench/release.json 为准，不能根据目录名猜镜像版本。
 - Nginx 复用服务器既有实例，仅增加 /etc/nginx/sites-available/learning-workbench.conf；其他站点配置保留。正式前端 13100、存储 13900 仅监听 loopback，数据库/Redis/后端不发布宿主端口。
 - DNSPod 的 learn A 记录指向 111.229.103.70，用户已配置。正式入口直连腾讯云，不依赖本轮曾试用的 .com Cloudflare 代理；临时 .com DNS/规则均已撤销。
 
@@ -44,13 +52,13 @@ workbench_compose up -d --no-build --pull never --wait --wait-timeout 180
 sudo certbot renew --cert-name learning-workbench-cn --dry-run --run-deploy-hooks
 ~~~
 
-## 验收与限制
+## 首次部署验收与持续限制（历史）
 
 4 项部署工具、38 项前端、49 项后端测试及格式/类型/生产构建通过。云端真实验证 HTTPS、安全会话/CSRF、SMTP 缺失明确失败并回滚、课程与私有文本上传/签名下载、模型连接配置、Worker 任务，以及六服务重启后会话/课程/文件/连接持久化。临时用户、课程、文件和连接均已移除；最终数据库用户/课程/资料/供应商数量为 0，迁移版本 0003_ai_gateway。浏览器 1280×720 实查正式登录与连接状态，正文 14px/300、标题 400、炭灰背景，无测试登录或体验栏；未新增其他分辨率/浅色验收。
 
 配置边界复查通过：前端仍经既有同源 API，环境仅提供账户状态提示；生产覆盖层控制入口，数据库网络独立；私有 S3 保持签名授权和禁止缓存，公开无 SMTP 时不使用开发假投递。范围限本次及直接调用链，无独立评审。
 
-尚未配置 SMTP/真实模型或定时备份，未做灾难恢复演练；新空库没有可用账户，邮件配置后通过正式注册/验证创建。当前登录 IP 限流仍识别同源前端代理地址，大规模多用户需单独完善可信访客地址传播。当前部署不代表 Phase 3 内容解析已实现。
+尚未配置 SMTP/真实模型或定时备份，未做灾难恢复演练；新空库没有可用账户，邮件配置后通过正式注册/验证创建。当前登录 IP 限流仍识别同源前端代理地址，大规模多用户需单独完善可信访客地址传播。Phase 3 的当前发布状态见顶部更新，不把首次部署的旧状态当作新版本验收。
 
 ## 升级、备份与回退
 
