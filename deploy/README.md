@@ -26,6 +26,8 @@ node scripts/production.mjs status
 
 这台服务器已有 Nginx，生产命令须再加 `-f deploy/compose.nginx.yaml`；只映射 `127.0.0.1:13100` 的正式前端和 `127.0.0.1:13900` 的私有存储，Caddy 不启动。Nginx 配置源为 `deploy/nginx.conf.template`，保留 Host/路径/查询；文件入口仅允许下载方法。现有站点与数据库服务保持独立。Node 工具等效参数为 `--ingress nginx`，已验收预构建镜像可加 `--no-build true`。
 
+预构建模式需在服务器环境中设置 FRONTEND_IMAGE / BACKEND_IMAGE 为已验收版本标签，POSTGRES_IMAGE / REDIS_IMAGE / STORAGE_IMAGE 为实际导入并核对的 `sha256:` 镜像 ID。Docker 导入摘要引用可能不保留原仓库名，不能假定原标签可用或自动从网络换取其他镜像。启动时使用 `--pull never`，镜像清单与 ID 保存于服务器 release.json。
+
 用户明确选择邮件配置待补，部署可显式添加 `--allow-missing-mail true`；设置 ACCOUNT_NOTICE 告知登录页注册/找回暂不可用。公开环境缺少 SMTP 时返回明确的 503，不使用开发 outbox 假称邮件已发送。未来填入服务器 SMTP 配置并清空 ACCOUNT_NOTICE 后，仅重新创建 backend/worker/frontend；不删除卷。
 
 单独的生产 Compose 命令前缀为：

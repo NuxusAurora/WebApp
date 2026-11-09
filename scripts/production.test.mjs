@@ -44,7 +44,8 @@ test('production merge removes service ports, preserves internal boundaries and 
   const mail=structuredClone(config);mail.services.backend.environment.SMTP_HOST='';assert.throws(()=>validateProduction(mail));
 }));
 test('existing Nginx mode exposes only loopback app and storage ports and omits Caddy',()=>withEnvironment(file=>{
-  writeFileSync(file,readFileSync(file,'utf8')+'\nFRONTEND_IMAGE=webapp-frontend:verified\nBACKEND_IMAGE=webapp-backend:verified\n');
+  writeFileSync(file,readFileSync(file,'utf8')+'\nFRONTEND_IMAGE=webapp-frontend:verified\nBACKEND_IMAGE=webapp-backend:verified\n'+
+    ['POSTGRES','REDIS','STORAGE'].map((name,index)=>name+'_IMAGE=sha256:'+String(index+1).repeat(64)).join('\n')+'\n');
   const config=productionContext(file,{ingress:'nginx'}).config();validateProduction(config,{ingress:'nginx'});
   assert.equal(config.services.frontend.ports[0].published,'13100');assert.equal(config.services.storage.ports[0].published,'13900');
   const openStorage=structuredClone(config);openStorage.services.storage.ports[0].host_ip='0.0.0.0';
