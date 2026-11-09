@@ -14,5 +14,9 @@ services:
     ports: !override ['127.0.0.1:${PRIVATE_STORAGE_PORT:-13900}:9000']
   backend:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the verified release}
+    environment:
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_DOWNLOAD_ORIGIN:?Set STORAGE_DOWNLOAD_ORIGIN}
   worker:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the verified release}
+    environment:
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_DOWNLOAD_ORIGIN:?Set STORAGE_DOWNLOAD_ORIGIN}

@@ -50,4 +50,10 @@ test('existing Nginx mode exposes only loopback app and storage ports and omits 
   assert.equal(config.services.frontend.ports[0].published,'13100');assert.equal(config.services.storage.ports[0].published,'13900');
   const openStorage=structuredClone(config);openStorage.services.storage.ports[0].host_ip='0.0.0.0';
   assert.throws(()=>validateProduction(openStorage,{ingress:'nginx'}));
+  writeFileSync(file,readFileSync(file,'utf8')+'STORAGE_DOWNLOAD_ORIGIN=https://files.example.com\n');
+  assert.throws(()=>validateProduction(productionContext(file,{ingress:'nginx'}).config(),{ingress:'nginx'}));
+  writeFileSync(file,readFileSync(file,'utf8')+'STORAGE_DOWNLOAD_ORIGIN=https://learn.example.com\n');
+  const sameOrigin=productionContext(file,{ingress:'nginx'}).config();
+  validateProduction(sameOrigin,{ingress:'nginx'});
+  assert.equal(sameOrigin.services.backend.environment.STORAGE_PUBLIC_ENDPOINT,'https://learn.example.com');
 }));

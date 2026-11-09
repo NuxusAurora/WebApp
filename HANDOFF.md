@@ -1,14 +1,18 @@
 # 项目交接
 
-## 2026-11-08 腾讯云完整部署（进行中）
+## 2026-11-08 腾讯云完整部署（当前）
 
-用户要求完整前后端及数据服务一起部署到腾讯云，云端新建数据库、保留本地数据。目标已确认 `ubuntu@111.229.103.70`、SSH 密钥 nuxusaurora.pem；用户采用 learn.nuxusaurora.com / files.learn.nuxusaurora.com，邮件配置暂缺但授权先部署。已连接只读核实 Ubuntu 24.04、2 GiB 内存、Docker/Compose、现有 Nginx；新增两个 DNS A 记录、独立 `/opt/learning-workbench` 目录和 ACME HTTP 路由，已有站点未替换。镜像正上传，最终运行/公网验收待完成。
+正式入口为 https://learn.nuxusaurora.cn，按用户最终指定的 .cn 域名完成。服务器 ubuntu@111.229.103.70，独立 /opt/learning-workbench、learning-cloud 项目及新数据卷；本地账户/课程/密钥未迁移，本地运行不变。六服务均健康，浏览器登录和连接状态正常。SMTP 用户选择暂缺，登录页有简短提示，注册/找回返回明确 503；云端空库暂无账户，待邮件配置后正式注册。生产测试登录关闭。
 
-任务工作区 `D:/Code/codex/codex-work/Webapp-tencent-deploy`，分支 `codex/tencent-deploy`，来源 e1f19d1。准备了生产 Compose 覆盖层、Caddy HTTPS、独立机密初始化/检查/启动及运行文档；生产强制关闭测试登录、安全 Cookie，仅代理映射公网入口，文件使用独立下载域名和私有签名。既有 local 和 public Sites 均未更改。
+镜像应用源 7c70e0a、部署快照基线 abf79c5，后续同域下载/域名运维覆盖另行记录摘要；确切镜像/配置来源见 deploy/production.json 和服务器 release.json。运行、邮件配置、续期、升级/备份/回退集中见 deploy/README.md，云端运维副本为 /opt/learning-workbench/OPERATIONS.md。源码和配置都保留可重建配方，不把托管体验站当正式后端。
 
-4 项部署工具、38 项前端、49 项后端测试及格式/类型/生产构建通过。额外支持已有 Nginx，只映射 loopback 的 13100/13900；应用动态登录提示由部署环境提供，公开环境无 SMTP 时明确 503，开发环境保留原 outbox。固定摘要 Caddy 配置验证成功，当前服务器不启用 Caddy。HTTP 证书验证被转向腾讯云备案提示，正改用 DNS 证明域名控制权。未将这些准备检查称作云端服务完成；前置边界见 docs/plans/tencent-cloud-deployment.md，最终解耦与线上验收继续执行。
+4 项部署工具、38 项前端、49 项后端及生产构建/类型/格式检查通过；应用源码与验收镜像之间无变动，后续只调整生产配置。云端实际通过安全登录/CSRF、缺 SMTP 事务回滚、课程与文本私有下载、模型配置、真实 Worker，以及六服务重启后会话/课程/资料/连接持久化；删除课程后签名 URL 404，未签名读取 403。临时账户及数据精确清理，最终用户/课程/资料/供应商均为 0，迁移 0003_ai_gateway。真实 SMTP 和供应商调用未验收，备份/灾难恢复尚未实施。
 
-下一步：完成镜像上传及 TLS，生成服务器专用机密，迁移空库、启动并逐项验收；配置邮件待补提示。保留本任务工作区、必要缓存和 workbook 活动记录供继续，不提前合入或清理。无 GitHub 推送。
+1280×720 浏览器检查正式登录页和服务连接，字体 14px/300、标题 400、炭灰/白字保持，无测试登录或体验栏；未新增其他尺寸/浅色验收。证书采用 .cn HTTP webroot 自动续期，限定证书的 Nginx reload hook 及续期干跑通过。此前 .com 的备案拦截/连接问题已通过用户指定 .cn 解决，临时 Cloudflare DNS、TXT、代理规则/空规则集已撤销。原站点不变。Worker CLI 探针实测约 3.6 秒，生产超时改 15 秒后健康并执行真实任务通过。
+
+解耦复查通过，限部署层及 Mailer/账户提示直接链：公开无 SMTP 不落开发 outbox，Auth 的未提交事务自动回滚；Page 将非敏感账户状态传给 Workspace，既有 API/取消路径不变。Nginx 仅暴露同源前端和私有桶路径，移除对象请求 Cookie/Authorization，设置 private,no-store，保留签名所需 Host/路径/查询；数据库/缓存无公网端口。没有新增反向依赖、全局业务状态或将服务凭据放入浏览器。主代理复查，无独立评审。
+
+任务上传包、候选目录、原始脚本/缓存和工作区在合入交付后回收；保留当前云端镜像/数据/环境/证书、本地运行、其他改动及 Phase 3 工作区。仅本地提交按 master 队列合入，不推送 GitHub。
 
 ## 2026-11-08 公开网页更新（当前）
 

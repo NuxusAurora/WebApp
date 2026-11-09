@@ -2,7 +2,7 @@
 
 目标：在用户指定的腾讯云服务器运行正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和 S3 文件存储，公开页面与本地共用产品源码；现有 Sites 体验站保留。
 
-当前基线：`e1f19d1`。用户已确认 `ubuntu@111.229.103.70`，使用 `nuxusaurora.pem`；云端新建数据库、本地数据保留。域名采用 `learn.nuxusaurora.com` 与 `files.learn.nuxusaurora.com`，邮件服务暂缺，授权先部署并明确限制。服务器 Ubuntu 24.04/2 GiB 内存，已有 Nginx 占用 80/443；本机构建镜像后上传，复用 Nginx，不停用已有服务。
+当前基线：e1f19d1；用户最终采用 learn.nuxusaurora.cn，目标 ubuntu@111.229.103.70、nuxusaurora.pem。云端新建数据库，本地保留，邮件配置延期。部署与验收已完成，最终事实见 deploy/README.md 和部署回执；下方为执行约定。
 
 ## 实施顺序
 

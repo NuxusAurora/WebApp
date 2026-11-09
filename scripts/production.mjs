@@ -21,7 +21,7 @@ export function productionEnv(template, app, storage, email) {
     MAIL_FROM:email};
   for(const [key,value] of Object.entries(settings))env=env.replace(new RegExp('^'+key+'=.*$','m'),key+'='+value);
   return env+'\nAPP_DOMAIN='+app+'\nSTORAGE_DOMAIN='+storage+'\nACME_EMAIL='+email+
-    '\nAI_ALLOWED_ORIGINS=https://api.nuxusaurora.com\n';
+    '\nSTORAGE_DOWNLOAD_ORIGIN=https://'+app+'\nAI_ALLOWED_ORIGINS=https://api.nuxusaurora.com\n';
 }
 
 export function productionContext(envFile,{ingress='caddy'}={}) {
@@ -37,7 +37,8 @@ export function validateProduction(config,{requireMail=true,ingress='caddy'}={})
   for(const name of ['postgres','redis','storage','backend','worker','frontend'])assert.ok(services[name],'Missing '+name);
   const app=domain(new URL(services.backend.environment.PUBLIC_ORIGIN).hostname);
   const storage=domain(new URL(services.backend.environment.STORAGE_PUBLIC_ENDPOINT).hostname);
-  assert.notEqual(app,storage);
+  if(ingress==='nginx')assert.equal(app,storage,'Host Nginx downloads must use the same origin bucket route');
+  else assert.notEqual(app,storage);
   for(const [name,service] of Object.entries(services)) {
     if(ingress==='nginx'&&['frontend','storage'].includes(name)) {
       assert.equal(service.ports?.length,1);
@@ -80,8 +81,9 @@ async function main() {
   assert.ok(['check','up','status'].includes(command),'Use init, check, up or status');
   const ingress=values['--ingress']??'caddy';
   const ctx=productionContext(envFile,{ingress});const config=ctx.config();
-  const {app,storage}=validateProduction(config,{ingress,requireMail:command!=='status'&&values['--allow-missing-mail']!=='true'});
-  if(command==='check'){console.log('PASS isolated production ports, TLS origins, secure cookies, disabled test login and SMTP configuration');return;}
+  const requireMail=command!=='status'&&values['--allow-missing-mail']!=='true';
+  const {app,storage}=validateProduction(config,{ingress,requireMail});
+  if(command==='check'){console.log('PASS isolated production ports, TLS origins, secure cookies and disabled test login; '+(requireMail?'SMTP settings present':'email configuration deferred'));return;}
   if(command==='status'){console.log(ctx.compose('--profile','app','ps'));return;}
   if(values['--no-build']!=='true')ctx.compose('--profile','app','build','backend','frontend');
   ctx.compose('up','-d','--wait','--wait-timeout','180','postgres','redis','storage');
