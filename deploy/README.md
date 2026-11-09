@@ -2,7 +2,17 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
-## 2026-11-09 当前发布
+## 2026-11-09 线上测试登录（用户明确启用）
+
+当前来源/前后端与 Worker 为 637d32247a072c69b57dd79bafb258e468de6c2a，current 指向 /opt/learning-workbench/releases/637d322。用户明确要求正式站也开启测试登录，覆盖下方历史发布的关闭状态。仍默认关闭其他新环境；本次仅在云端 .env.production 设置 TEST_LOGIN_ENABLED=true、TEST_LOGIN_PUBLIC_ORIGIN=https://learn.nuxusaurora.cn，并构建 NEXT_PUBLIC_TEST_LOGIN_ENABLED=true 的前端。后端要求精确匹配 PUBLIC_ORIGIN、HTTPS、安全 Cookie 和启用开关；原限流、固定独立普通账户、会话/退出及冲突保护保持，不接收调用方指定账户/角色。
+
+线上“测试登录”使用访客共用的专用测试账户，与其他正常账户和本地数据隔离；页面明确显示共用账户说明。83 项后端、Ruff/格式、5 项部署检查及前端生产构建/类型通过，未改前端源码，沿用此前 82 项前端测试。实际 HTTPS 验证 200、普通 user、Secure/HttpOnly/SameSite=strict Cookie、课程读取、退出后 401、重复登录复用账户；浏览器实点按钮进入并刷新保留会话。保留用户要求的测试账户与当前浏览器会话，没有创建课程/文件。SMTP 仍未配置，正常注册/找回保持待配置。
+
+生产工具 check/up/status 对这一授权例外需附加 --allow-public-test-login true；缺 SMTP 时继续附加 --allow-missing-mail true。没有该显式选项或前后端/域名/安全 Cookie 不一致时校验拒绝。关闭时将 TEST_LOGIN_ENABLED=false、TEST_LOGIN_PUBLIC_ORIGIN=，并用 false 重建前端再更新服务，避免页面入口与 API 不一致。此开关不会自动启用其他环境或域名。
+
+此次复用云端已有镜像层、以已校验增量重建完整 OCI 镜像并比对加载摘要；无数据库迁移，无数据/密钥导入。本地运行保持。验收后删除云端层归档/增量包/临时环境备份共 464,007,971 逻辑字节与两个旧应用镜像标签，保留当前镜像、卷、密钥和源快照。当前来源、镜像索引和验证详情以 production.json 与服务器 release.json 为准。
+
+## 2026-11-09 当前发布（此前版本）
 
 正式应用已升级：源码快照/前端为 a9f0b5ba873253f6d8eec07f0c10586737659c60，后端与 Worker 镜像基线为 dbeb13fb87a2ece8c93d8d701bcf0884bc9ab64f（两份快照的后端源码相同）。包含当前 Sidebar、视觉目录识别、目录编辑及单草稿行为。current 指向 /opt/learning-workbench/releases/a9f0b5b；实际 OCI 镜像索引与服务摘要见 production.json 和服务器 /opt/learning-workbench/release.json。
 

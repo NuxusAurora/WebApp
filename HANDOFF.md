@@ -1,5 +1,13 @@
 # 项目交接
 
+## 2026-11-09 线上测试登录已启用
+
+用户明确要求“线上也开启”。已发布 637d322，正式站前后端与 Worker 使用显式 TEST_LOGIN_ENABLED=true、TEST_LOGIN_PUBLIC_ORIGIN=https://learn.nuxusaurora.cn，前端构建开关同步 true。默认新环境仍关闭；非本机只在精确 PUBLIC_ORIGIN、HTTPS、安全 Cookie 与启用开关同时满足时允许。生产工具新增 --allow-public-test-login true 显式校验例外；原普通账户、随机不可知密码、固定 ID/邮箱冲突保护、限流、会话与退出不变，无数据库迁移或本地数据导入。
+
+83 项后端、Ruff/格式、5 项部署检查与前端生产构建/类型通过；前端源码未变，复用此前 82 项。真实 HTTPS 验证两次登录复用同一普通账户、Cookie Secure/HttpOnly/SameSite=strict、课程可读和退出后 401；浏览器实际点击“测试登录”成功进入，刷新保持会话。保留这一用户要求的专用共用测试账户及浏览器会话，未创建课程/文件，其他账户/数据保留。SMTP 仍待配置，正常注册/找回尚不可用；页面补充共用账户说明。
+
+主代理解耦复查通过，限 Settings→auth、Compose/生产校验→前端构建开关：公共授权只来自服务端精确配置，UI 不持有密钥/账户控制，原会话与数据归属保持；失败沿用事务/限流/退出路径，无新依赖或反向引用。云端增量镜像加载已核验 OCI 摘要，六服务健康。验收后清理云端临时归档/分层包/环境备份 464,007,971 逻辑字节与两个旧应用镜像标签；本地缓存/标签及普通 worktree 收尾回收，保留运行数据/密钥和既有截图。本地运行未重建，Sites 未更新，mainbook/workbook 外部修改保留。运行/关闭方法及当前镜像以 deploy/README.md、production.json 与服务器 release.json 为准。
+
 ## 2026-11-09 推送与正式站升级
 
 按用户授权将原 dbeb13f 推送 GitHub origin/master，正式站 https://learn.nuxusaurora.cn 已升级到前端/源码快照 a9f0b5b，后端与 Worker 镜像源 dbeb13f；最终补充提交与发布回执按 master 队列交付。包含已完成 Sidebar 与目录功能；线上发现的匿名折叠登录入口无名称已补齐 aria-label/Tooltip，82 项前端/类型/生产构建及 4 项部署测试通过，后端同源码复用原 77 项验证。主代理解耦复查通过，新增标签只归 Sidebar 展示，无认证/API/数据契约变化。

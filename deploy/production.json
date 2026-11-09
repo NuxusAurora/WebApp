@@ -6,31 +6,31 @@
     "root": "/opt/learning-workbench",
     "project": "learning-cloud"
   },
-  "source_snapshot_revision": "a9f0b5ba873253f6d8eec07f0c10586737659c60",
-  "image_source_revision": "dbeb13fb87a2ece8c93d8d701bcf0884bc9ab64f",
-  "configuration_source_revision": "a9f0b5ba873253f6d8eec07f0c10586737659c60",
+  "source_snapshot_revision": "637d32247a072c69b57dd79bafb258e468de6c2a",
+  "image_source_revision": "637d32247a072c69b57dd79bafb258e468de6c2a",
+  "configuration_source_revision": "637d32247a072c69b57dd79bafb258e468de6c2a",
   "runtime_images": {
-    "backend": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a",
-    "frontend": "sha256:8e719089d8dc76546eef6a756bb18ce902a8dc89c3b847f8bc941e6efb72129c",
+    "backend": "sha256:aed94c0c50706d74c41990b8dad291b2c41ba7109c67318a160cb8625ece69f6",
+    "frontend": "sha256:81559f8231a72d4e4f66b89de20c3358eaf21ffd0df510a3f7115aee5c317aa0",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2",
-    "worker": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a"
+    "worker": "sha256:aed94c0c50706d74c41990b8dad291b2c41ba7109c67318a160cb8625ece69f6"
   },
   "image_ids": {
-    "backend": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a",
-    "frontend": "sha256:8e719089d8dc76546eef6a756bb18ce902a8dc89c3b847f8bc941e6efb72129c",
+    "backend": "sha256:aed94c0c50706d74c41990b8dad291b2c41ba7109c67318a160cb8625ece69f6",
+    "frontend": "sha256:81559f8231a72d4e4f66b89de20c3358eaf21ffd0df510a3f7115aee5c317aa0",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
   },
   "configuration_hashes": {
-    "compose.yaml": "07db186bf70587e48d6080b85ee078bfce4bfeff41cbb698188d0c180bb0ad57",
-    "deploy/compose.production.yaml": "bd8c66634b309df0c657576c2b182fab4f8a6f1581c3a77bf7237c25b18a4559",
+    "compose.yaml": "68dab0d71414e6d45ea0cc3b54e8df6c422c7edf384f7373599fac6231c64fb2",
+    "deploy/compose.production.yaml": "b0f2992fa249eaf18002aef68b43b7bf18d4d02a9762da5417cf93083d7a8e7c",
     "deploy/compose.nginx.yaml": "a59baf7920af4a44bbde8d2a79c3024c46c881a9fdd91e5c6257e7aaeb8f4e08",
     "deploy/nginx.conf.template": "2161c87eccac0f5fc7efb96512a63558b55f1472e365dee3b224759d82267d6c",
-    "scripts/production.mjs": "115d75bb2485a6d9ace5129d58739974e11e511e79683f3b7b9c9322a49c8b09",
-    "scripts/production.test.mjs": "22d1d832c604652e010e33acc7badb3b03ae7a7adafb60adae7eb8c277d081d7"
+    "scripts/production.mjs": "96c737e8e1e7358468804c6223d214c573f3d6087cbf4c54054513828b32a089",
+    "scripts/production.test.mjs": "a4805b70aefc5872583e11ada131ffe3b26cd8e14678243ae7aa80c5d5dc60cf"
   },
   "schema_revision": "0004_curriculum",
   "services": {
@@ -53,42 +53,46 @@
   },
   "validation": {
     "frontend_tests": 82,
-    "backend_tests": 77,
-    "deployment_tests": 4,
+    "backend_tests": 83,
+    "deployment_tests": 5,
     "https_health_ready": "200",
     "schema_upgrade": "0003_ai_gateway -> 0004_curriculum",
     "existing_user_course_upload_counts": "0/0/0 before and after",
-    "test_login": "disabled; POST 404",
+    "test_login": "explicitly enabled for the exact HTTPS public origin; 200",
     "unauthenticated_curriculum": "401",
-    "browser_public_login_and_status": "passed",
-    "authenticated_production_checks": "not run: SMTP pending and no cloud accounts",
+    "browser_public_login_and_status": "test login button and authenticated refresh persistence passed",
+    "authenticated_production_checks": "test account session, ordinary role, course read, logout and repeat login verified",
     "worker": "healthy; no new business task dispatched",
     "private_downloads": "previous deployment evidence only; not repeated with authenticated data",
-    "production_qa_data_created": false
+    "production_qa_data_created": "only the intended shared test account; no course or upload created"
   },
-  "server_cleanup_logical_bytes": 402469880,
+  "server_cleanup_logical_bytes": 464007971,
   "service_source_revisions": {
-    "backend": "dbeb13fb87a2ece8c93d8d701bcf0884bc9ab64f",
-    "frontend": "a9f0b5ba873253f6d8eec07f0c10586737659c60"
+    "backend": "637d32247a072c69b57dd79bafb258e468de6c2a",
+    "frontend": "637d32247a072c69b57dd79bafb258e468de6c2a"
   },
   "image_artifacts": {
     "backend": {
-      "source": "webapp-release-backend:dbeb13f",
-      "id": "sha256:9a8274e8d66a25344b4760d0e3dcedb9b765c2206eb829cb99ee1a0f5b55ee2a"
+      "source": "public-login-backend:release",
+      "id": "sha256:aed94c0c50706d74c41990b8dad291b2c41ba7109c67318a160cb8625ece69f6"
     },
     "frontend": {
-      "source": "webapp-release-frontend:a9f0b5b",
-      "id": "sha256:8e719089d8dc76546eef6a756bb18ce902a8dc89c3b847f8bc941e6efb72129c"
+      "source": "public-login-frontend:release",
+      "id": "sha256:81559f8231a72d4e4f66b89de20c3358eaf21ffd0df510a3f7115aee5c317aa0"
     }
   },
-  "released_at_utc": "2026-11-09T10:22:40.961569+00:00",
-  "test_login_enabled": false,
+  "released_at_utc": "2026-11-09T12:14:01.893668+00:00",
+  "test_login_enabled": true,
   "backup_before_upgrade": "consistent database/storage/env backup completed and removed after successful acceptance",
   "obsolete_image_tags_removed": [
-    "learning-workbench-backend:3c1821b",
-    "learning-workbench-frontend:3c1821b",
-    "webapp-tencent-backend:release",
-    "webapp-tencent-frontend:release",
-    "webapp-release-frontend:dbeb13f"
-  ]
+    "webapp-release-backend:dbeb13f",
+    "webapp-release-frontend:a9f0b5b"
+  ],
+  "test_login_public_origin": "https://learn.nuxusaurora.cn",
+  "public_test_login_verification": {
+    "api": "200; reusable user role account; secure HttpOnly SameSite=strict cookie; logout 401",
+    "browser": "button login and refresh persistence passed",
+    "test_account": "dedicated shared ordinary account retained as requested",
+    "courses_or_uploads_created": false
+  }
 }
