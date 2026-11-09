@@ -9,6 +9,7 @@ import { CourseEditor } from './course-editor';
 import { CurriculumEditor } from './curriculum';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
+import { PageContainer } from './ui';
 
 export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   onDirtyChange?: (dirty: boolean) => void;
@@ -204,9 +205,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
             <button className="icon-button" aria-label="下一页课程" disabled={busy || courses.length < 100}
               onClick={() => page(offset + 100)}><Icon name="chevron" size={16} /></button></div></div> : null}
       </section>
-      : <div className="detail-region" ref={detailRegion}>
+      : <PageContainer size={editing ? 'standard' : 'full'} className={'detail-region' + (editing ? ' course-form-page' : '')} ref={detailRegion}>
         <button className="text-button detail-back" disabled={busy} onClick={backToDirectory}>
-          <span className="rotate-icon"><Icon name="chevron" size={16} /></span>返回
+          <span className="rotate-icon"><Icon name="chevron" size={16} /></span>{editing ? '返回我的课程' : '返回'}
         </button>
         {editing ? <CourseEditor key={editing === 'new' ? 'new' : selected!.id} course={editing === 'new' ? null : selected}
           busy={busy} onSave={data => void save(data)} onCancel={cancelEditor} onDirty={() => setDirty(true)} /> :
@@ -243,6 +244,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
                 <button className="button" disabled={busy} onClick={() => setDeleteTarget(null)}>取消</button></div>
             </div> : null}
           </section> : null}
-      </div>}
+      </PageContainer>}
   </div>;
 }

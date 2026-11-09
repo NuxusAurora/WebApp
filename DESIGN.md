@@ -23,26 +23,26 @@ colors:
 typography:
   title:
     fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "22.5px"
-    fontWeight: 650
+    fontSize: "26px"
+    fontWeight: 400
     lineHeight: 1.35
     letterSpacing: "-0.02em"
   body:
     fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "12.6px"
-    fontWeight: 400
+    fontSize: "14px"
+    fontWeight: 300
     lineHeight: 1.6
   metadata:
     fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "10.8px"
-    fontWeight: 400
+    fontSize: "13px"
+    fontWeight: 300
     lineHeight: 1.6
 rounded:
-  control: "8px"
+  control: "6px"
   panel: "12px"
   bubble: "18px"
 spacing:
-  unit: "8px"
+  unit: "4px"
   group: "16px"
   section: "24px"
   page: "24px"
@@ -52,15 +52,15 @@ components:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.surface}"
     rounded: "{rounded.control}"
-    padding: "9px 16px"
-    height: "42px"
+    padding: "4px 12px"
+    height: "36px"
   button-primary-hover:
     backgroundColor: "{colors.accent-strong}"
   button-secondary:
     backgroundColor: "{colors.surface}"
     textColor: "#37516d"
     rounded: "{rounded.control}"
-    padding: "9px 16px"
+    padding: "4px 12px"
   button-danger:
     backgroundColor: "{colors.danger}"
     textColor: "{colors.surface}"
@@ -91,6 +91,19 @@ components:
 ---
 
 ## Overview
+
+2026-11-09 课程设计系统（Operate，以本节覆盖下文历史表单尺寸与深色全白字约定）：
+
+- `frontend/styles/tokens.css` 为原有主题变量的唯一来源，沿用 `--ink/--surface/--ground/--line/--accent` 等名称，并提供语义别名；继续随系统切换深浅色。深色保留 #181818 页面与 #222222 面板，输入底 #252a30，主文字 #f2f4f7、次文字 #b2bbc6、辅助字 #a1acb9。品牌实心按钮 #2869b0，悬停 #1e5592；链接/焦点仍用原主题 accent。
+- 间距以 4px 为单位：4/8/12/16/20/24/32/40/48；页面标题 26px、卡片标题 18px、字段/正文 14px、辅助字 13px。沿用系统中文字体和已有轻字重，连续曲率圆角继续由全局 `corner-shape: squircle` 负责。
+- PageContainer 统一 narrow 640 / standard 800 / wide 1120 / full 自适应，页面不自行定义任意宽度。课程新建与编辑使用 standard；其他现有业务布局保持。
+- `frontend/styles/ui.css` 维护既有 `.button`、`.form-stack` 和新的公共组件，避免平行组件体系。Button 支持 primary/secondary/ghost/danger，small/medium/large 高度 32/36/40px，禁用/loading 均有状态；手机按钮至少 44px。Input/Select 默认 40px，手机课程表单至少 44px，品牌蓝焦点在原边框内绘制；错误使用语义 danger。
+- `frontend/components/ui.tsx` 提供 Button、Input、Select、FormField、Card、PageHeader、PageContainer、Breadcrumb。原生 select 保留操作系统箭头、弹出层及键盘选择，不引入自绘菜单与第三方库。Card 有 default/secondary/interactive 外观；交互语义由调用者选择合适的按钮或链接。已有 `.status-tag` 与分隔线继续复用共享颜色/圆角变量；既有 Dialog 和 Sidebar 继续使用各自行为模块与受控主题变量。
+- 首张标准页：返回我的课程、卡片外标题/说明、内容自然撑开的卡片；名称独占一行，学科/教材桌面双列、<768px 单列，学习目标独占一行，取消/保存右对齐、间距 8px。卡片内边距桌面 24、平板 20、手机 16px。短屏仅主内容内滚动，所有操作可达。
+
+公共组件只负责呈现与原生属性传递，不依赖课程、API、用户或导航控制器。CourseEditor 持有目标选择与字段校验；CourseSpace 仍持有网络、忙碌、错误、持久化与离开保护。请求字段、旧自定义目标兼容及异步失败路径保持；没有引入全局状态、额外监听器或新依赖。
+
+复用示例：`<PageContainer size="standard"><PageHeader title="设置" /><Card>…</Card></PageContainer>`；提交按钮显式 `type="submit"`，默认 Button 为 `type="button"`。FormField 的 id 对应控件 id，说明使用 `${id}-description`，错误使用 `${id}-error` 与控件 `aria-describedby`/`aria-invalid` 关联。
 
 2026-11-09 Sidebar 局部重构（Operate，覆盖下文历史导航尺寸与配色）：品牌/学习与设置分组/连接入口/账户菜单四区，保留原 SVG 图标。展开 248px，折叠 64px，740px 以下以同一实例呈现模态抽屉，平板无偏好时默认折叠。侧栏深色 #17191d、hover #22262b、active #293746；文字 #e5e7eb、次级 #929aa5，活动文字白色、图标 #a9d1ff；主内容主题不变，浅色保留对应 token。产品名 20px/400，LEARNING STUDIO 10px，分组 11px/500；导航 40px 高、14px 字、18px 图标、12px 图文间距、8px 连续角。200ms ease-in-out 折叠/抽屉、150ms hover，减少动态关闭动画。底部连接入口保留真实检查页，36px 默认头像配真实用户菜单，不重复顶部用户名。URL 决定活动项；不加虚假菜单或路由。实现与运行截图见 docs/verification/sidebar-20261109。
 

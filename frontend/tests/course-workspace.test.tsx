@@ -42,6 +42,25 @@ async function ready() {
 }
 
 describe('desktop course workspace', () => {
+  it('preserves all form values after a failed create and retries the same API contract', async () => {
+    render(<CourseSpace />);
+    fireEvent.click(await screen.findByRole('button', { name: '新建课程' }));
+    fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '数值分析' } });
+    fireEvent.change(screen.getByLabelText('学科'), { target: { value: '数学' } });
+    fireEvent.change(screen.getByLabelText('教材'), { target: { value: '数值分析教材' } });
+    fireEvent.change(screen.getByLabelText('学习目标'), { target: { value: '大师之境' } });
+    vi.mocked(api).mockRejectedValueOnce(new Error('保存失败，请重试'));
+    fireEvent.submit(screen.getByRole('button', { name: '保存课程' }).closest('form')!);
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText(/课程名称/)).toHaveValue('数值分析');
+    expect(screen.getByLabelText('学习目标')).toHaveValue('大师之境');
+    vi.mocked(api).mockResolvedValueOnce({ ...courses[0], id: 'new-course', title: '数值分析', learning_goal: '大师之境' });
+    fireEvent.submit(screen.getByRole('button', { name: '保存课程' }).closest('form')!);
+    await screen.findByRole('heading', { name: '数值分析' });
+    const writes = vi.mocked(api).mock.calls.filter(([path, init]) => path === 'courses' && init?.method === 'POST');
+    expect(writes).toHaveLength(2);
+    expect(JSON.parse(writes[1][1]!.body as string)).toEqual({ title: '数值分析', subject: '数学', textbook: '数值分析教材', learning_goal: '大师之境' });
+  });
   it('keeps curriculum edits protected when the current tab is clicked again', async () => {
     vi.mocked(api).mockImplementation(async path => {
       if (path.startsWith('courses?')) return courses;
@@ -300,11 +319,11 @@ describe('account and shell states', () => {
     fireEvent.click(screen.getByRole('button', { name: '返回' }));
     fireEvent.click(screen.getByRole('button', { name: '新建课程' }));
     fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '尚未保存' } });
-    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回我的课程' }));
     expect(window.confirm).toHaveBeenCalledOnce();
     expect(screen.getByLabelText(/课程名称/)).toHaveValue('尚未保存');
     vi.mocked(window.confirm).mockReturnValue(true);
-    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    fireEvent.click(screen.getByRole('button', { name: '返回我的课程' }));
     expect(screen.queryByLabelText(/课程名称/)).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: '学习中的课程' }).closest('.course-space')).not.toHaveClass('showing-detail');
   });

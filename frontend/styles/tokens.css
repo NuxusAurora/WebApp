@@ -1,0 +1,65 @@
+/* Existing theme tokens live here; semantic aliases keep legacy callers compatible. */
+:root {
+  color-scheme: light dark;
+  --weight-body: 300;
+  --weight-emphasis: 400;
+  --ink: #24354a;
+  --ink-strong: #1b2b40;
+  --muted: #536a83;
+  --surface: #ffffff;
+  --ground: #edf3f9;
+  --line: #d8e2ed;
+  --line-soft: #e6edf4;
+  --accent: #2869b0;
+  --accent-strong: #1e5592;
+  --accent-soft: #eaf2fc;
+  --rail: #152d4b;
+  --rail-muted: #b3c5d9;
+  --rail-current: #294867;
+  --success: #256b53;
+  --success-bg: #edf6f1;
+  --danger: #a03831;
+  --danger-bg: #fff2ef;
+  --toast-bg: #e8f5bc;
+  --toast-ink: #344717;
+  --radius: 8px;
+  --panel-radius: 12px;
+  --space: 8px;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--ink);
+  background: var(--ground);
+  font-size: 14px;
+  font-weight: var(--weight-body);
+  line-height: 1.6;
+  font-synthesis: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #f2f4f7; --ink-strong: #f2f4f7; --muted: #b2bbc6; --surface: #222222; --ground: #181818;
+    --line: #454545; --line-soft: #363636; --accent: #8dbbff; --accent-strong: #b3d2ff; --accent-soft: #263342;
+    --rail: #191c1e; --rail-current: #2b2d2f; --rail-muted: #ffffff; --success: #ffffff; --success-bg: #233c31;
+    --danger: #f3a19a; --danger-bg: #42282b; --toast-bg: #425b25; --toast-ink: #ffffff; }
+}
+
+:root {
+  --background: var(--ground); --surface-secondary: #f5f7fa; --surface-hover: #edf2f7;
+  --border: var(--line); --border-strong: #a1afbe;
+  --text-primary: var(--ink); --text-secondary: var(--muted); --text-muted: #596c80;
+  --primary: #2869b0; --primary-hover: #1e5592; --on-primary: #ffffff;
+  --danger-solid: #a03831; --danger-hover: #832a25; --warning: #93600d;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+  --font-page-title: 26px; --font-card-title: 18px; --font-body: 14px; --font-caption: 13px;
+  --radius-small: 4px; --radius-control: 6px; --radius-card: 12px; --radius-special: 16px;
+  --container-narrow: 640px; --container-standard: 800px; --container-wide: 1120px;
+  --button-small: 32px; --button-medium: 36px; --button-large: 40px;
+  --control-height: 40px; --touch-target: 44px; --card-padding: var(--space-6);
+  --shadow-overlay: 0 8px 24px #14223320; --layer-overlay: 100;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-secondary: #252a30; --surface-hover: #2c323a;
+    --text-muted: #a1acb9; --border-strong: #56616e;
+    --warning: #e7b85d;
+    --shadow-overlay: 0 8px 24px #00000055;
+  }
+}

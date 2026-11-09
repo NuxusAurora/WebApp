@@ -1,5 +1,9 @@
 # 运行手册
 
+## 课程 UI 设计系统 · 2026-11-09
+
+当前入口仍为 `/` → 新建课程；新建/编辑共用 800px 标准表单，桌面双列、手机单列，取消/保存按内容宽度右对齐。Token 来源为 `frontend/styles/tokens.css`，原共享类名与新公共组件统一由 `frontend/styles/ui.css`、`frontend/components/ui.tsx` 维护。容器 640/800/1120/full，使用方式见 DESIGN.md 最新 Overview。后续页面复用这些组件，不另建主题/控件体系。检查继续使用 frontend 中 `npm run check`、`npm test`、`npm run build`；当前 85 项测试。截图、文件清单和实际验收限制见 `docs/verification/course-design-system-20261109/README.md`。
+
 ## 当前导航外壳 · 2026-11-09
 
 Workspace 与 /system 共用 frontend/components/app-sidebar.tsx；样式在 components/sidebar.css，经 globals.css 引入；URL/历史同步在 lib/workspace-navigation.ts。入口为 /（课程）、/?view=ai（模型）、/?view=profile（账户）、/system（原连接检查），刷新保持对应选中。侧栏 248/64px，折叠偏好仅保存浏览器 learning-workspace.sidebar-collapsed 布尔值；无偏好时 741–1100px 默认收起，<=740px 默认隐藏、由顶部菜单打开原生模态抽屉。账户区菜单提供现有账户设置和退出，无新增账户切换。未保存保护仍生效。

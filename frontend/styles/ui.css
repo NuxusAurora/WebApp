@@ -1,0 +1,76 @@
+/* Shared primitives also serve existing .button/.form-stack callers. */
+.button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: var(--button-medium); width: auto; padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-control);
+  background: var(--surface); color: var(--text-primary); font-size: var(--font-body);
+  line-height: 1.5; font-weight: var(--weight-emphasis); text-decoration: none; white-space: nowrap;
+}
+.button:hover:enabled, .button:active:enabled { background: var(--surface-hover); border-color: var(--border-strong); color: var(--text-primary); }
+.button.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.button.primary:hover:enabled, .button.primary:active:enabled { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--on-primary); }
+.button.danger { background: var(--danger-solid); border-color: var(--danger-solid); color: var(--on-primary); }
+.button.danger:hover:enabled { background: var(--danger-hover); border-color: var(--danger-hover); color: var(--on-primary); }
+.button.ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.button.ghost:hover:enabled { background: var(--surface-hover); color: var(--text-primary); }
+.button:disabled { background: var(--surface-secondary); border-color: var(--border); color: var(--text-muted); cursor: not-allowed; }
+.button-small { min-height: var(--button-small); font-size: var(--font-caption); padding-inline: var(--space-2); }
+.button-large { min-height: var(--button-large); padding-inline: var(--space-4); }
+.button[aria-busy="true"] { cursor: progress; }
+.form-stack :is(input:where(:not([type="checkbox"]):not([type="file"])), textarea, select), .upload-form input, .ui-input, .ui-select {
+  display: block; width: 100%; min-width: 0; min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control); background: var(--surface-secondary); color: var(--text-primary);
+  font-size: var(--font-body); font-weight: var(--weight-body); line-height: 1.5; caret-color: var(--accent);
+}
+.form-stack :is(input, textarea, select):hover:not(:disabled), :is(.ui-input, .ui-select):hover:not(:disabled) { border-color: var(--text-muted); }
+.form-stack :is(input, textarea, select):focus-visible, :is(.ui-input, .ui-select):focus-visible {
+  outline: none; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent);
+}
+input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }
+.search-field { background: var(--surface-secondary); border-color: var(--border-strong); }
+.form-stack :is(input, select, textarea):disabled, :is(.ui-input, .ui-select):disabled { color: var(--text-muted); cursor: not-allowed; }
+.form-stack :is(input, select, textarea)[aria-invalid="true"], .ui-input[aria-invalid="true"] { border-color: var(--danger); }
+.form-stack [aria-invalid="true"]:focus-visible { box-shadow: inset 0 0 0 1px var(--danger); }
+select { color-scheme: inherit; }
+select option { background: var(--surface); color: var(--text-primary); }
+.breadcrumb { color: var(--text-secondary); font-size: var(--font-caption); gap: var(--space-3); }
+.breadcrumb strong { color: var(--text-primary); }
+.page-container { width: 100%; min-width: 0; margin-inline: auto; }
+.page-container-narrow { max-width: var(--container-narrow); }
+.page-container-standard { max-width: var(--container-standard); }
+.page-container-wide { max-width: var(--container-wide); }
+.page-container-full { max-width: none; }
+.ui-page-header { margin-bottom: var(--space-6); }
+.ui-page-header h1 { font-size: var(--font-page-title); margin: 0 0 var(--space-2); line-height: 1.35; }
+.ui-page-header p { font-size: var(--font-body); line-height: 1.6; color: var(--text-secondary); margin: 0; text-wrap: pretty; }
+.ui-card { padding: var(--card-padding); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.ui-card-secondary { background: var(--surface-secondary); }
+.ui-card-interactive:hover, .ui-card-interactive:focus-within { border-color: var(--border-strong); }
+.form-field { display: grid; gap: var(--space-2); min-width: 0; }
+.form-stack .form-field > label { display: block; color: var(--text-primary); font-size: var(--font-body); line-height: 1.5; }
+.form-field .required { float: none; font-size: inherit; color: var(--text-secondary); }
+.form-field small { color: var(--text-secondary); font-size: var(--font-caption); line-height: 1.6; }
+.form-field .field-error { color: var(--danger); }
+.course-library .course-form-page { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--space-6); }
+.course-form-page .detail-back { color: var(--text-secondary); margin-bottom: var(--space-4); padding-inline: 0; }
+.course-editor { flex: none; min-width: 0; }
+.course-editor .form-stack { display: grid; gap: var(--space-6); }
+.course-form-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.course-editor .editor-fields { display: grid; min-width: 0; overflow: visible; padding: 0; gap: var(--space-6); }
+.course-editor .field-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.course-editor .editor-actions {
+  display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); margin: 0;
+  padding-top: var(--space-5); border-top: 1px solid var(--border);
+}
+.course-editor .editor-actions .button { flex: 0 0 auto; }
+.status-tag { border-radius: var(--radius-small); }
+.editor-actions, .index-footer, .detail-tabs { border-color: var(--border); }
+@media (min-width: 768px) and (max-width: 1023px) { :root { --card-padding: var(--space-5); } }
+@media (max-width: 767px) {
+  :root { --card-padding: var(--space-4); }
+  .course-editor .field-pair { grid-template-columns: minmax(0, 1fr); }
+  .course-editor .form-stack :is(input.ui-input, select.ui-select) { min-height: var(--touch-target); font-size: 16px; }
+  .button { min-height: var(--touch-target); }
+  .course-form-page .detail-back { min-height: var(--touch-target); }
+}

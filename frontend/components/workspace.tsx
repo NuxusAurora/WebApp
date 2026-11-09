@@ -9,6 +9,7 @@ import { AISettings } from './ai-settings';
 import { Icon } from './icon';
 import { AppSidebar } from './app-sidebar';
 import { ConnectionStatus } from './connection-status';
+import { Breadcrumb } from './ui';
 import { useWorkspaceNavigation, workspaceLabels } from '../lib/workspace-navigation';
 import { api, ApiError } from '../lib/api';
 
@@ -89,8 +90,8 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
     <AppSidebar user={user} loading={loading} view={view} busy={busy} error={notice} navigate={navigate} logout={logout} />
     <div className="app-body">
       <header className="workspace-topbar">
-        <div className="breadcrumb"><span>个人空间</span><Icon name="chevron" size={14} />
-          <strong>{workspaceLabels[view]}</strong></div>
+        <Breadcrumb><span>个人空间</span><Icon name="chevron" size={14} />
+          <strong aria-current="page">{workspaceLabels[view]}</strong></Breadcrumb>
       </header>
       <main id="main-content" className="workspace-main">
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
