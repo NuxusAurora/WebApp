@@ -1,5 +1,9 @@
 # 运行手册
 
+## 教材目录上传入口 · 2026-11-09
+
+课程详情→教材目录的空状态只显示“上传”。选择单张PNG/JPEG（最大5 MiB）后，自动选第一个已启用且明确支持图片的模型，上传后直接识别成待核对草稿；确认流程保持。模型下拉、图片选择列表、OCR/文字备用和手动新建入口已移除，旧图片/后端接口不删除。实现仍为 `frontend/components/curriculum.tsx`，按钮样式限 `.curriculum > .curriculum-upload`。原前端check/test/build命令继续适用，本轮90项测试及实际验收边界见HANDOFF最新节。
+
 ## 新建课程局部视觉 · 2026-11-09
 
 `/` → 新建课程使用 `frontend/styles/course-create.css`，由 `app/layout.tsx` 在共享UI样式后导入。`course-space.tsx` 仅在新建状态提供 `course-create-page` 类，外壳通过 `:has()` 限定局部Token；编辑及其他页面沿用共享设计系统。新建内容上限1040px，普通桌面控件50px，短屏48px，手机纵排；详情和编辑入口未变。验证继续使用原check/test/build命令；本轮清单、截图与限制见 `docs/verification/course-create-visual-20261109/README.md`。

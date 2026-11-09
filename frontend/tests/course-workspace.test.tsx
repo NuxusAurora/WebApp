@@ -84,7 +84,8 @@ describe('desktop course workspace', () => {
   it('keeps curriculum edits protected when the current tab is clicked again', async () => {
     vi.mocked(api).mockImplementation(async path => {
       if (path.startsWith('courses?')) return courses;
-      if (path.endsWith('/curriculum')) return { confirmed_revision: 0, curriculum: { chapters: [] }, versions: [] };
+      if (path.endsWith('/curriculum')) return { confirmed_revision: 1,
+        curriculum: { chapters: [{ id: 'chapter', title: '函数与极限', sections: [] }] }, versions: [] };
       if (path.endsWith('/uploads') || path.endsWith('/images') || path === 'ai/providers') return [];
       throw new Error('Unexpected request');
     });
@@ -93,7 +94,7 @@ describe('desktop course workspace', () => {
     fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
     await screen.findByRole('heading', { name: '高等数学' });
     fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
-    fireEvent.click(await screen.findByRole('button', { name: '手动编辑目录' }));
+    await screen.findByRole('button', { name: '章节 1 函数与极限' });
     fireEvent.contextMenu(screen.getByRole('button', { name: /^章节 1 / }));
     fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }));
     fireEvent.change(screen.getByLabelText('章节 1标题'), { target: { value: '未保存的目录' } });

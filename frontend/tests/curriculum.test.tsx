@@ -11,6 +11,8 @@ const version: Version = { id: 'v1', status: 'DRAFT', revision: 1, base_course_r
   applied_course_revision: null, payload, change_summary: { added: [{ id: 'tmp-c1', title: '第一章 函数与极限' }], modified: [], archived: [] },
   source: { kind: 'manual' }, created_at: '2026-11-08T12:00:00Z' };
 const empty: Curriculum = { curriculum: { chapters: [] }, confirmed_revision: 0, versions: [] };
+const visionProvider = { id: 'provider', provider_name: '视觉模型', enabled: true,
+  models: [{ id: 'model', model_name: 'vision-model', enabled: true, capabilities: { vision: true } }] };
 function renameChapter() {
   fireEvent.contextMenu(screen.getByRole('button', { name: /^章节 1 / }));
   fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }));
@@ -23,21 +25,48 @@ const success = (data: unknown) => Promise.resolve(Response.json({ success: true
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('reviewed curriculum', () => {
+  it('shows only an upload button for an empty curriculum', async () => {
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) : success(empty));
+    vi.stubGlobal('fetch', fetcher);
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    await screen.findByRole('button', { name: '上传' });
+    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['上传']);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/已确认目录|尚未确认目录|导入目录|解析模型|PNG \/ JPEG/)).not.toBeInTheDocument();
+  });
+
+  it('uploads through the existing image endpoint and reports failures without losing retry access', async () => {
+    const fetcher = vi.fn((url: string, init?: RequestInit) => init?.method === 'POST' ?
+      Promise.resolve(Response.json({ success: false, error: { message: '上传失败，请重试' } }, { status: 503 })) :
+      url.endsWith('ai/providers') ? success([visionProvider]) : success(empty));
+    vi.stubGlobal('fetch', fetcher);
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    await screen.findByRole('button', { name: '上传' });
+    const file = new File(['image'], '目录.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [file] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('上传失败，请重试');
+    expect(screen.getByRole('button', { name: '上传' })).toBeEnabled();
+    const request = fetcher.mock.calls.find(([, init]) => init?.method === 'POST')!;
+    expect(request[0]).toBe('/api/v1/courses/' + courseId + '/curriculum/images');
+    expect(request[1]?.body).toBe(file);
+    expect(request[1]?.headers).toMatchObject({ 'Content-Type': 'image/png', 'X-Filename': encodeURIComponent('目录.png') });
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/parse') || url.endsWith('/confirm'))).toBe(false);
+  });
+
   it('automatically resumes the latest draft and omits historical selection and metadata', async () => {
     const latest = { ...version, id: 'latest', payload: { chapters: [{ id: 'tmp-new', title: '当前草稿', sections: [] }] },
       source: { kind: 'ai', model_name: 'private-model-name' } };
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
       success({ ...empty, versions: [{ ...version, status: 'CONFIRMED' }, latest, version] })));
-    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    const { unmount } = render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
     await screen.findByRole('button', { name: '章节 1 当前草稿' });
     expect(screen.queryByLabelText('历史与草稿')).not.toBeInTheDocument();
     expect(screen.queryByText(/草稿修订|private-model-name/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '章节 1 函数与极限' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '关闭编辑' }));
-    fireEvent.click(screen.getByRole('button', { name: '手动编辑目录' }));
-    expect(screen.getByRole('button', { name: '章节 1 当前草稿' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '关闭编辑' }));
-    fireEvent.click(screen.getByRole('button', { name: '重新加载目录' }));
+    expect(screen.queryByRole('button', { name: '章节 1 当前草稿' })).not.toBeInTheDocument();
+    unmount();
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
     await screen.findByRole('button', { name: '章节 1 当前草稿' });
   });
   it('keeps inline rename alive when a confirmed outline first becomes a draft', async () => {
@@ -54,28 +83,71 @@ describe('reviewed curriculum', () => {
     expect(screen.getByRole('button', { name: '章节 1 重命名章节' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
   });
-  it('sends selected images directly to a vision model without running local OCR', async () => {
-    const provider = { id: 'provider', provider_name: '视觉模型', enabled: true,
-      models: [{ id: 'model', model_name: 'vision-model', enabled: true, capabilities: { vision: true } }] };
-    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([provider]) :
-      url.endsWith('/images') ? success([{ id: 'photo', filename: '目录.jpg' }]) : url.endsWith('/parse') ? success(version) : success(empty));
+  it('uploads and automatically uses the first enabled vision model without local OCR or automatic confirmation', async () => {
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([
+      { ...visionProvider, id: 'disabled', enabled: false },
+      { ...visionProvider, id: 'text', models: [{ id: 'text-model', enabled: true, capabilities: {} }] }, visionProvider,
+    ]) : url.endsWith('/images') ? success({ id: 'photo', filename: '目录.jpg' }) : url.endsWith('/parse') ? success(version) : success(empty));
     vi.stubGlobal('fetch', fetcher);
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: /目录.jpg/ }));
-    fireEvent.click(screen.getByRole('button', { name: '模型识别目录' }));
+    await screen.findByRole('button', { name: '上传' });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [new File(['image'], '目录.jpg', { type: 'image/jpeg' })] } });
     await screen.findByText('草稿已生成，请核对后确认');
     const parse = fetcher.mock.calls.find(([url]) => url.endsWith('/parse')) as unknown as [string, RequestInit];
     expect(JSON.parse(String(parse[1].body))).toEqual({ input_mode: 'images', image_ids: ['photo'], ocr_text: '', provider_id: 'provider', model_id: 'model' });
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/ocr') || url.endsWith('/confirm'))).toBe(false);
+    expect(screen.getByRole('button', { name: '核对并确认' })).toBeEnabled();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
   it('does not send images to a model without confirmed vision capability', async () => {
-    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') ? success([{ id: 'p', provider_name: '文字', enabled: true,
-      models: [{ id: 'm', model_name: 'text-model', enabled: true }] }]) : url.endsWith('/images') ? success([{ id: 'photo', filename: '目录.jpg' }]) : success(empty)));
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([{ id: 'p', provider_name: '文字', enabled: true,
+      models: [{ id: 'm', model_name: 'text-model', enabled: true }] }]) : success(empty));
+    vi.stubGlobal('fetch', fetcher);
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: /目录.jpg/ }));
-    expect(screen.getByRole('button', { name: '模型识别目录' })).toBeDisabled();
-    expect(screen.getByText(/确认该模型支持图片识别/)).toBeInTheDocument();
+    await screen.findByRole('button', { name: '上传' });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [new File(['image'], '目录.jpg', { type: 'image/jpeg' })] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('请先在模型设置中启用支持图片的模型。');
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/images') || url.endsWith('/parse'))).toBe(false);
+  });
+
+  it('keeps the previous draft and allows another upload when model parsing fails', async () => {
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([visionProvider]) :
+      url.endsWith('/images') ? success({ id: 'photo', filename: '目录.png' }) : url.endsWith('/parse') ?
+        Promise.resolve(Response.json({ success: false, error: { message: '模型暂时不可用' } }, { status: 503 })) :
+        success({ ...empty, versions: [version] }));
+    vi.stubGlobal('fetch', fetcher);
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    await screen.findByRole('button', { name: '章节 1 函数与极限' });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [new File(['image'], '目录.png', { type: 'image/png' })] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('模型暂时不可用');
+    expect(screen.getByRole('button', { name: '章节 1 函数与极限' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '上传' })).toBeEnabled();
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/confirm'))).toBe(false);
+  });
+
+  it('disables uploads while busy and stops before model parsing after unmount', async () => {
+    let finishUpload!: (value: Response) => void;
+    let signal: AbortSignal | undefined;
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith('/images')) {
+        signal = init?.signal as AbortSignal;
+        return new Promise<Response>(resolve => { finishUpload = resolve; });
+      }
+      return url.endsWith('ai/providers') ? success([visionProvider]) : success(empty);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const { unmount } = render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    await screen.findByRole('button', { name: '上传' });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [new File(['image'], '目录.png', { type: 'image/png' })] } });
+    expect(screen.getByRole('button', { name: '上传' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('上传中…');
+    unmount();
+    expect(signal?.aborted).toBe(true);
+    finishUpload(Response.json({ success: true, data: { id: 'photo', filename: '目录.png' } }));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/parse'))).toBe(false);
   });
   it('keeps unknown pages blank and requires reviewing uncertain titles before confirmation', async () => {
     const uncertain = { ...version, payload: { ...payload, uncertain_items: ['核对函数标题'] } };
@@ -96,16 +168,17 @@ describe('reviewed curriculum', () => {
   });
   it('saves a draft without applying formal structure, and requires an explicit confirmation', async () => {
     let stored = false; let applied = false;
+    const savedVersion = { ...version, base_course_revision: 1 };
     const fetcher = vi.fn((url: string, init?: RequestInit) => {
       if (url.endsWith('ai/providers') || url.endsWith('/images')) return success([]);
-      if (url.endsWith('/drafts')) { stored = true; return success(version); }
-      if (url.endsWith('/confirm')) { applied = true; return success({ ...version, status: 'CONFIRMED' }); }
-      return success({ ...empty, versions: stored ? [version] : [], ...(applied ? { curriculum: payload, confirmed_revision: 1 } : {}) });
+      if (url.endsWith('/drafts')) { stored = true; return success(savedVersion); }
+      if (url.endsWith('/confirm')) { applied = true; return success({ ...savedVersion, status: 'CONFIRMED' }); }
+      return success({ ...empty, curriculum: payload, confirmed_revision: applied ? 2 : 1, versions: stored && !applied ? [savedVersion] : [] });
     });
     vi.stubGlobal('fetch', fetcher);
     const dirty = vi.fn();
     render(<CurriculumEditor courseId={courseId} onDirtyChange={dirty} />);
-    fireEvent.click(await screen.findByRole('button', { name: '手动编辑目录' }));
+    await screen.findByRole('button', { name: '章节 1 函数与极限' });
     renameChapter();
     fireEvent.change(screen.getByLabelText('章节 1标题'), { target: { value: '第一章 函数与极限' } });
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
@@ -115,7 +188,7 @@ describe('reviewed curriculum', () => {
     fireEvent.click(screen.getByRole('button', { name: '核对并确认' }));
     fireEvent.click(screen.getByRole('button', { name: '确认应用目录' }));
     expect(await screen.findByText('目录已确认')).toBeTruthy();
-    expect(screen.getByText('修订 1')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '章节 1 函数与极限' })).toBeInTheDocument();
     expect(fetcher.mock.calls.find(([url]) => url.endsWith('/confirm'))?.[1]?.body).toContain('"revision":1');
   });
 
@@ -144,10 +217,10 @@ describe('reviewed curriculum', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       if (url.endsWith('ai/providers') || url.endsWith('/images')) return success([]);
       if (url.endsWith('/drafts')) return Promise.resolve(Response.json({ success: false, error: { message: '保存失败，请重试' } }, { status: 503 }));
-      return success(empty);
+      return success({ ...empty, curriculum: payload, confirmed_revision: 1 });
     }));
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
-    fireEvent.click(await screen.findByRole('button', { name: '手动编辑目录' }));
+    await screen.findByRole('button', { name: '章节 1 函数与极限' });
     renameChapter();
     fireEvent.change(screen.getByLabelText('章节 1标题'), { target: { value: '修正的章节标题' } });
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
