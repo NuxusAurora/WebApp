@@ -5,4 +5,6 @@
 .demo-root .application-shell,.demo-root .entry-shell{height:100%;min-height:0}
 .demo-intro{margin:12px 0}
 .demo-enter{width:100%;margin-top:20px}
+@media(min-width:941px){.demo-root .app-sidebar{height:100%}}
+@media(prefers-color-scheme:dark){.demo-bar button{color:inherit}}
 @media(max-width:400px){.demo-bar{font-size:10px;gap:6px;padding:0 6px}}
