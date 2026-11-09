@@ -180,6 +180,8 @@ node scripts/phase0.mjs down
 
 ## Phase 3 教材目录
 
+标题列表默认折叠：点击大标题展开，小标题宽度为大标题一半，序号随位置重排；名称单行省略，鼠标悬停显示全文。拖动左侧手柄排序，章节连同小节移动，小节可移到其他章节（落到章节行末尾或指定小节前后）。正式目录拖动进入草稿，不自动应用；保存并确认后持久化。选中项下方编辑名称/页码，可用“上移/下移”和“所属章节”替代拖动。新增 UI 为 frontend/components/curriculum-outline.tsx，纯排序在 frontend/lib/curriculum-order.ts；后端 service 确认时保留小节 ID、页码并更新 chapter_id，旧版本快照不变。无需迁移；回归见 curriculum-outline.test.tsx、curriculum.test.tsx 与 backend/tests/test_curriculum.py。
+
 当前课程详情仅有“课程概览 / 教材目录”。学习资料页签及前端读取已移除；既有文本文件及上传后端接口保留，目录图片上传不受影响。
 
 入口：课程详情 → 教材目录。上传 PNG/JPEG，每张 1 字节至 5 MiB、最多 1600 万像素；图片经解码、纠正 EXIF 方向和重新编码为 PNG 后进入私有存储。每批按勾选顺序识别最多 5 张图片；单张 OCR 35 秒、整批 120 秒上限。Tesseract chi_sim+eng 随后端 Docker 镜像安装，通过管道处理，无本地临时图片。原有学习资料 .txt 的 1 MiB 限制不变。

@@ -99,20 +99,10 @@ def test_regeneration_archives_explicitly_and_preserves_history_and_other_drafts
     client.portal.call(verify)
 
 
-def test_foreign_ids_duplicate_ids_parent_moves_and_tenant_boundaries(account_app):
+def test_foreign_ids_duplicate_ids_and_tenant_boundaries(account_app):
     app, client, path, cookie = setup(account_app)
     first = draft(client, path)
     apply(client, path, first)
-    formal = client.get(path).json()["data"]["curriculum"]
-    moved = json.loads(json.dumps(formal))
-    child = moved["chapters"][0]["sections"].pop()
-    moved["chapters"].append({"id": "tmp-c2", "title": "第二章", "sections": [child]})
-    assert (
-        client.post(
-            path + "/drafts", json={"payload": moved, "base_course_revision": 1}
-        ).status_code
-        == 400
-    )
     for bad_id in (str(uuid4()), "not-a-node"):
         bad = {"chapters": [{"id": bad_id, "title": "x", "sections": []}]}
         assert client.post(
@@ -136,6 +126,51 @@ def test_foreign_ids_duplicate_ids_parent_moves_and_tenant_boundaries(account_ap
         assert client.request(method, path + suffix, json=body).status_code == 404
     client.cookies.set("learning_session", cookie)
     assert client.get(path).status_code == 200
+
+
+@pytest.mark.parametrize("existing_parent", [False, True])
+def test_cross_chapter_move_preserves_identity_pages_and_old_snapshot(account_app, existing_parent):
+    app, client, path, _ = setup(account_app)
+    initial = json.loads(json.dumps(PAYLOAD))
+    initial["chapters"][0]["sections"][0].update(page_start=7, page_end=12)
+    if existing_parent:
+        initial["chapters"].append({"id": "tmp-c2", "title": "第二章", "sections": []})
+    first = draft(client, path, initial)
+    assert apply(client, path, first).status_code == 200
+    formal = client.get(path).json()["data"]["curriculum"]
+    moved = json.loads(json.dumps(formal))
+    child = moved["chapters"][0]["sections"].pop()
+    if existing_parent:
+        moved["chapters"][1]["sections"].append(child)
+    else:
+        moved["chapters"].append({"id": "tmp-c2", "title": "第二章", "sections": [child]})
+    # Moving out and removing the former parent must not archive the retained child.
+    moved["chapters"].pop(0)
+    response = client.post(path + "/drafts", json={"payload": moved, "base_course_revision": 1})
+    assert response.status_code == 201, response.text
+    second = response.json()["data"]
+    assert child["id"] in [item["id"] for item in second["change_summary"]["modified"]]
+    assert [item["id"] for item in second["change_summary"]["archived"]] == [
+        formal["chapters"][0]["id"]
+    ]
+    assert client.get(path).json()["data"]["curriculum"] == formal
+    assert apply(client, path, second).status_code == 409
+    assert apply(client, path, second, accept_archives=True).status_code == 200
+    current = client.get(path).json()["data"]
+    assert current["curriculum"]["chapters"][0]["sections"] == [child]
+    assert current["confirmed_revision"] == 2
+    assert apply(client, path, second, accept_archives=True).status_code == 200
+
+    async def verify():
+        async with app.state.resources.session() as db:
+            row = await db.get(Section, UUID(child["id"]))
+            assert not row.archived
+            assert str(row.chapter_id) == current["curriculum"]["chapters"][0]["id"]
+            old = await db.get(StructureVersion, UUID(first["id"]))
+            assert old.payload == first["payload"]
+            assert await db.scalar(select(func.count()).select_from(Section)) == 1
+
+    client.portal.call(verify)
 
 
 def png():

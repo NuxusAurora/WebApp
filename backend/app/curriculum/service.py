@@ -77,14 +77,13 @@ async def changes(db, course_id, payload):
             old = current.get(node_id)
             if not old or (si == 0) != (node_id in chapter_ids):
                 raise AppError("INVALID_REFERENCE", "目录引用不属于当前课程的有效节点")
-            if si and str(old.chapter_id) != chapter["id"]:
-                raise AppError("INVALID_REFERENCE", "不能将已有小节移至其他章节")
             position = ci if si == 0 else si - 1
             if (
                 old.title != item["title"]
                 or old.order_index != position
                 or old.page_start != item.get("page_start")
                 or old.page_end != item.get("page_end")
+                or (si and str(old.chapter_id) != chapter["id"])
             ):
                 result["modified"].append(
                     {
@@ -197,6 +196,7 @@ async def confirm(db, course, version, actor_id, revision, base, accept_archives
                 db.add(child)
                 mapping[section_id] = str(child.id)
             child.title, child.order_index, child.archived = section["title"], section_index, False
+            child.chapter_id = record.id
             child.page_start, child.page_end = section.get("page_start"), section.get("page_end")
     for removed in summary["archived"]:
         old[removed["id"]].archived = True

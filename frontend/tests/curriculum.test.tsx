@@ -69,13 +69,33 @@ describe('reviewed curriculum', () => {
     fireEvent.change(screen.getByLabelText('第 1 章标题'), { target: { value: '第一章 函数与极限' } });
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
     expect(await screen.findByText('草稿已保存，尚未应用到正式目录')).toBeTruthy();
-    expect(screen.getByText('尚未确认目录。可从图片识别或手动录入。')).toBeTruthy();
+    expect(screen.queryByText('已确认目录')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/confirm'))).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: '核对并确认' }));
     fireEvent.click(screen.getByRole('button', { name: '确认应用目录' }));
     expect(await screen.findByText('目录已确认')).toBeTruthy();
     expect(screen.getByText('修订 1')).toBeTruthy();
     expect(fetcher.mock.calls.find(([url]) => url.endsWith('/confirm'))?.[1]?.body).toContain('"revision":1');
+  });
+
+  it('saves cross-chapter moves in the draft without confirming automatically', async () => {
+    const two = { ...version, payload: { chapters: [...payload.chapters, { id: 'tmp-c2', title: '矩阵', sections: [] }] } };
+    const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
+      init?.method === 'PATCH' ? success({ ...two, payload: JSON.parse(String(init.body)).payload }) : success({ ...empty, versions: [two] }));
+    vi.stubGlobal('fetch', fetcher);
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText('历史与草稿'), { target: { value: 'v1' } });
+    fireEvent.click(screen.getByRole('button', { name: /章节 1 第一章/ }));
+    fireEvent.click(screen.getByRole('button', { name: /小节 1.1 1.1/ }));
+    fireEvent.change(screen.getByLabelText('所属章节'), { target: { value: 'tmp-c2' } });
+    expect(screen.getByLabelText('小节 2.1')).toHaveValue('1.1 映射与函数');
+    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
+    await screen.findByText('草稿已保存，尚未应用到正式目录');
+    const saved = (fetcher.mock.calls as unknown as [string, RequestInit][]).find(([, init]) => init?.method === 'PATCH')!;
+    const body = JSON.parse(String(saved[1].body));
+    expect(body.payload.chapters[0].sections).toEqual([]);
+    expect(body.payload.chapters[1].sections[0].id).toBe('tmp-s1');
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/confirm'))).toBe(false);
   });
 
   it('retains typed corrections on a save failure', async () => {
