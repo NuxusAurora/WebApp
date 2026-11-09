@@ -76,13 +76,14 @@
     "cornerFallback": "ordinary-radius; continuous shape unverified in unsupported engines",
     "systemTheme": {
       "media": "prefers-color-scheme: dark",
-      "ground": "#000000",
-      "surface": "#0a0a0a",
+      "ground": "#181818",
+      "surface": "#222222",
       "accent": "#8dbbff",
       "toastBackground": "#d6eca5",
       "toastInk": "#2c3e18",
-      "rail": "#000000",
-      "line": "#353535"
+      "rail": "#191c1e",
+      "line": "#454545",
+      "control": "#363636"
     }
   },
   "components": [
