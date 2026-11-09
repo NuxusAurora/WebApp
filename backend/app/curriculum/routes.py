@@ -1,15 +1,17 @@
 import asyncio
+import base64
 from pathlib import Path
+from typing import Literal
 from urllib.parse import unquote
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, model_validator
 from sqlalchemy import select, update
 from starlette.concurrency import run_in_threadpool
 
-from app.ai.contracts import AIError, Call, Message
-from app.ai.service import prepare
+from app.ai.contracts import AIError, Call, ImageInput, Message
+from app.ai.service import owned_model, prepare
 from app.auth import DB, Actor, Input, limit
 from app.courses import owned, owned_by_id, upload_data
 from app.curriculum.contracts import CurriculumInput, output_schema
@@ -31,6 +33,9 @@ router = APIRouter(prefix="/api/v1/courses/{course_id}/curriculum")
 PROMPT = (Path(__file__).resolve().parents[2] / "prompts/curriculum/parse-v1.md").read_text(
     encoding="utf-8"
 )
+VISION_PROMPT = (Path(__file__).resolve().parents[2] / "prompts/curriculum/vision-v1.md").read_text(
+    encoding="utf-8"
+)
 
 
 class ImagesInput(Input):
@@ -38,10 +43,19 @@ class ImagesInput(Input):
 
 
 class ParseInput(Input):
-    ocr_text: str = Field(min_length=1, max_length=20000, pattern=r"\S")
+    ocr_text: str = Field(default="", max_length=20000)
+    input_mode: Literal["text", "images"] = "text"
     image_ids: list[UUID] = Field(default_factory=list, max_length=5)
     provider_id: UUID
     model_id: UUID
+
+    @model_validator(mode="after")
+    def source_required(self):
+        if self.input_mode == "text" and not self.ocr_text.strip():
+            raise ValueError("Directory text is required")
+        if self.input_mode == "images" and not self.image_ids:
+            raise ValueError("Directory images are required")
+        return self
 
 
 class DraftInput(Input):
@@ -180,18 +194,41 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
         "textbook": course.textbook,
         "course_title": course.title,
         "image_count": len(body.image_ids),
+        "input_mode": body.input_mode,
     }
-    await image_records(db, course_id, body.image_ids)
+    records = await image_records(db, course_id, body.image_ids)
+    keys = [row.object_key for row in records]
+    vision = body.input_mode == "images"
+    if vision:
+        model = await owned_model(db, actor_id, body.model_id)
+        if not model.capabilities.get("vision"):
+            raise AppError("VISION_MODEL_REQUIRED", "请选择已启用图片识别能力的模型")
     await db.rollback()
+    inputs = []
+    if vision:
+        try:
+            async with asyncio.timeout(30):
+                for key in keys:
+                    content = await run_in_threadpool(request.app.state.store.read, key, MAX_IMAGE)
+                    inputs.append(
+                        ImageInput(
+                            data_url="data:image/png;base64," + base64.b64encode(content).decode()
+                        )
+                    )
+        except TimeoutError:
+            raise AppError("IMAGE_READ_TIMEOUT", "图片读取超时，请重试", 504) from None
     call = Call(
         task_type="curriculum_parse",
-        prompt_version="curriculum-parse-v1",
+        prompt_version="curriculum-vision-v1" if vision else "curriculum-parse-v1",
         task_context=context,
         messages=[
-            Message(role="system", content=PROMPT),
-            Message(role="user", content=body.ocr_text),
+            Message(role="system", content=VISION_PROMPT if vision else PROMPT),
+            Message(
+                role="user", content=body.ocr_text or "按图片顺序提取教材目录，只输出规定 JSON。"
+            ),
         ],
-        output_schema=output_schema(),
+        images=inputs,
+        output_schema=output_schema(strict=vision),
         max_output_tokens=8192,
         timeout=90,
     )
@@ -206,6 +243,7 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
         "model_id": str(body.model_id),
         "log_id": str(log_id),
         "ocr_text": body.ocr_text,
+        "input_mode": body.input_mode,
         "image_ids": [str(key) for key in body.image_ids],
     }
     run_id = uuid4()
@@ -244,7 +282,7 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
         await asyncio.shield(record_failure())
         if isinstance(error, (AIError, ValidationError)):
             raise AppError(
-                "CURRICULUM_PARSE_FAILED", "目录解析失败，请检查模型与文字后重试", 502
+                "CURRICULUM_PARSE_FAILED", "目录解析失败，请检查模型、图片或文字后重试", 502
             ) from None
         raise
 

@@ -85,6 +85,21 @@ class HTTPProvider:
 
     def payload(self, target: Target, call: Call, stream: bool):
         messages = [item.model_dump() for item in call.messages]
+        if call.images:
+            if not target.capabilities.vision:
+                raise AIError("AI_UNSUPPORTED_CAPABILITY")
+            user = next(
+                (message for message in reversed(messages) if message["role"] == "user"), None
+            )
+            if user is None:
+                raise AIError("AI_INVALID_IMAGE")
+            user["content"] = [{"type": "text", "text": user["content"]}] + [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": image.data_url.get_secret_value(), "detail": "high"},
+                }
+                for image in call.images
+            ]
         if call.task_context:
             messages.append(
                 {

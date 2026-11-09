@@ -262,6 +262,115 @@ def test_parse_uses_gateway_with_private_provenance_and_schema_failures(account_
     client.portal.call(transport_client.aclose)
 
 
+def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
+    account_app, monkeypatch, caplog
+):
+    app, client, path, _ = setup(account_app)
+    monkeypatch.setattr(
+        app.state.store, "read", lambda key, size: app.state.store.objects[key], raising=False
+    )
+    provider = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "vision", "base_url": "http://localhost:1234/v1"},
+    ).json()["data"]
+    model = client.post(
+        f"/api/v1/ai/providers/{provider['id']}/models",
+        json={
+            "model_name": "vision-test",
+            "capabilities": {"vision": True, "structured_output": True},
+            "capabilities_confirmed": True,
+        },
+    ).json()["data"]
+    image = client.post(
+        path + "/images", content=png(), headers={"X-Filename": "photo.png"}
+    ).json()["data"]
+    expected = {
+        "chapters": [
+            {
+                "id": "tmp-c1",
+                "title": "第1章 行列式",
+                "page_start": 1,
+                "page_end": None,
+                "sections": [
+                    {
+                        "id": "tmp-s1",
+                        "title": "1.1 n阶行列式的定义",
+                        "page_start": 1,
+                        "page_end": None,
+                    }
+                ],
+            }
+        ],
+        "uncertain_items": [],
+    }
+    requests = []
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": json.dumps(expected)}, "finish_reason": "stop"}]
+            },
+        )
+
+    wire = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.state.ai_gateway = Gateway({"openai": OpenAIProvider(wire)})
+    response = client.post(
+        path + "/parse",
+        json={
+            "input_mode": "images",
+            "image_ids": [image["id"]],
+            "provider_id": provider["id"],
+            "model_id": model["id"],
+        },
+    )
+    assert response.status_code == 201, response.text
+    data = response.json()["data"]
+    assert data["payload"] == expected
+    assert data["source"]["input_mode"] == "images"
+    assert data["source"]["prompt_version"] == "curriculum-vision-v1"
+    parts = next(
+        message["content"]
+        for message in requests[0]["messages"]
+        if isinstance(message["content"], list)
+    )
+    assert parts[1]["image_url"]["url"].startswith("data:image/png;base64,")
+    assert parts[1]["image_url"]["detail"] == "high"
+    assert requests[0]["response_format"]["json_schema"]["strict"] is True
+    assert "uncertain_items" in requests[0]["response_format"]["json_schema"]["schema"]["required"]
+    assert "data:image" not in response.text and "data:image" not in caplog.text
+    assert client.get(path).json()["data"]["curriculum"]["chapters"] == []
+    client.portal.call(wire.aclose)
+
+
+def test_image_parse_requires_owned_images_and_confirmed_vision_model(account_app):
+    app, client, path, _ = setup(account_app)
+    provider = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "text", "base_url": "http://localhost:1234/v1"},
+    ).json()["data"]
+    model = client.post(
+        f"/api/v1/ai/providers/{provider['id']}/models", json={"model_name": "text-only"}
+    ).json()["data"]
+    image = client.post(
+        path + "/images", content=png(), headers={"X-Filename": "photo.png"}
+    ).json()["data"]
+    body = {
+        "input_mode": "images",
+        "image_ids": [image["id"]],
+        "provider_id": provider["id"],
+        "model_id": model["id"],
+    }
+    result = client.post(path + "/parse", json=body)
+    assert result.status_code == 400 and result.json()["error"]["code"] == "VISION_MODEL_REQUIRED"
+    assert client.post(path + "/parse", json={**body, "image_ids": []}).status_code == 422
+    assert (
+        client.post(path + "/parse", json={**body, "image_ids": [str(uuid4())]}).status_code == 404
+    )
+    assert client.get(path).json()["data"]["versions"] == []
+
+
 def test_image_decoder_rejects_animated_and_oversized_images():
     with pytest.raises(AppError):
         normalize_image(b"not-a-photo")

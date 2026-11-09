@@ -106,6 +106,20 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   }
 
   const models = providers.filter(p => p.enabled).flatMap(p => p.models.filter(m => m.enabled).map(m => ({ ...m, provider: p })));
+  const selectedModel = models.find(model => model.id === modelId);
+  async function generate(inputMode: 'images' | 'text') {
+    if (busy || !selectedModel) return;
+    if ((dirty || inputMode === 'images' && textDirty) && !window.confirm('生成新草稿将替换未保存的目录修改，继续？')) return;
+    await run(inputMode === 'images' ? '模型识别中…' : '解析中…', async signal => {
+      const next = await api<Version>(path + '/parse', { method: 'POST', signal,
+        body: JSON.stringify({ input_mode: inputMode, ocr_text: inputMode === 'text' ? text : '',
+          image_ids: photoIds, provider_id: selectedModel.provider.id, model_id: modelId }) });
+      if (!signal.aborted) {
+        adopt(next); setTextDirty(false); if (inputMode === 'images') setText('');
+        await load(signal); setNotice('草稿已生成，请核对后确认');
+      }
+    });
+  }
   const editable = Boolean(payload && (!version || version.status === 'DRAFT'));
   const stale = Boolean(version && data && version.base_course_revision !== data.confirmed_revision && version.status === 'DRAFT');
 
@@ -119,7 +133,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
         <p className="muted">尚未确认目录。可从图片识别或手动录入。</p>}
       <details className="curriculum-import" open={!data.curriculum.chapters.length}>
         <summary>导入目录</summary>
-        <p className="muted">图片在应用内识别；核对后的文字会发送给所选模型。</p>
+        <p className="muted">所选图片将发送给模型，生成待核对的目录草稿。</p>
         <label className="curriculum-label">目录图片<input type="file" accept="image/png,image/jpeg" disabled={Boolean(busy)}
           onChange={event => {
             const file = event.target.files?.[0]; event.target.value = '';
@@ -146,28 +160,26 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
                 setPhotos(previous => previous.filter(p => p.id !== photo.id)); setPhotoIds(previous => previous.filter(id => id !== photo.id));
               }); }}>删除</button>
         </li>)}</ul> : null}
+        <label className="curriculum-label">解析模型<select value={modelId} disabled={Boolean(busy)} onChange={event => setModelId(event.target.value)}>
+          <option value="">选择模型</option>{models.map(model => <option key={model.id} value={model.id}>{model.provider.provider_name} · {model.model_name}{model.capabilities?.vision ? ' · 支持图片' : ''}</option>)}
+        </select></label>
+        {!models.length ? <p className="muted">请先在模型设置中添加并启用模型，也可手动录入目录。</p> :
+          selectedModel && !selectedModel.capabilities?.vision ? <p className="muted">请在模型设置中确认该模型支持图片识别，或使用文字整理。</p> : null}
+        <button className="button primary" disabled={Boolean(busy) || !photoIds.length || !selectedModel?.capabilities?.vision}
+          onClick={() => void generate('images')}>模型识别目录</button>
+        <details className="curriculum-import"><summary>从文字整理（备用）</summary>
         <button className="button" disabled={Boolean(busy) || !photoIds.length} onClick={() => {
           if (textDirty && !window.confirm('识别结果将替换尚未保存的文字，继续？')) return;
           void run('识别中…', async signal => {
             const result = await api<{ ocr_text: string }>(path + '/ocr', { method: 'POST', signal, body: JSON.stringify({ image_ids: photoIds }) });
             if (!signal.aborted) { setText(result.ocr_text); setTextDirty(true); setNotice('请核对识别文字，再生成草稿'); }
           });
-        }}>识别所选图片</button>
+        }}>本地 OCR 识别文字</button>
         <label className="curriculum-label">目录文字<textarea rows={7} maxLength={20000} value={text} disabled={Boolean(busy)}
           placeholder="识别图片，或粘贴目录文字" onChange={event => { setText(event.target.value); setTextDirty(true); }} /></label>
-        <label className="curriculum-label">解析模型<select value={modelId} disabled={Boolean(busy)} onChange={event => setModelId(event.target.value)}>
-          <option value="">选择模型</option>{models.map(model => <option key={model.id} value={model.id}>{model.provider.provider_name} · {model.model_name}</option>)}
-        </select></label>
-        {!models.length ? <p className="muted">请先在模型设置中添加并启用模型，也可手动录入目录。</p> : null}
-        <button className="button" disabled={Boolean(busy) || !modelId || !text.trim()} onClick={() => {
-          if (dirty && !window.confirm('放弃未保存的目录修改并生成新草稿？')) return;
-          void run('解析中…', async signal => {
-            const model = models.find(m => m.id === modelId)!;
-            const next = await api<Version>(path + '/parse', { method: 'POST', signal,
-              body: JSON.stringify({ ocr_text: text, image_ids: photoIds, provider_id: model.provider.id, model_id: modelId }) });
-            if (!signal.aborted) { adopt(next); setTextDirty(false); await load(signal); setNotice('草稿已生成，请核对后确认'); }
-          });
-        }}>生成新草稿</button>
+        <button className="button" disabled={Boolean(busy) || !modelId || !text.trim()}
+          onClick={() => void generate('text')}>从文字生成草稿</button>
+        </details>
       </details>
       <div className="curriculum-toolbar"><h3>目录草稿</h3><button className="text-button" disabled={Boolean(busy)} onClick={() => {
         if (!canLeave()) return; setVersion(null); setPayload(null); setDirty(false); setTextDirty(false); void refresh();

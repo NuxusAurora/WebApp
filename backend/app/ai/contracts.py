@@ -1,7 +1,9 @@
+import base64
+import binascii
 from collections.abc import AsyncIterator
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
 class Contract(BaseModel):
@@ -21,6 +23,25 @@ class Message(Contract):
     content: str = Field(min_length=1, max_length=24000)
 
 
+class ImageInput(Contract):
+    data_url: SecretStr = Field(max_length=7_000_000, repr=False)
+
+    @field_validator("data_url")
+    @classmethod
+    def embedded_image(cls, value):
+        header, separator, encoded = value.get_secret_value().partition(",")
+        if not separator or header not in {"data:image/png;base64", "data:image/jpeg;base64"}:
+            raise ValueError("Only embedded PNG/JPEG images are supported")
+        try:
+            content = base64.b64decode(encoded, validate=True)
+        except binascii.Error, ValueError:
+            raise ValueError("Invalid image encoding") from None
+        signature = b"\x89PNG\r\n\x1a\n" if header == "data:image/png;base64" else b"\xff\xd8\xff"
+        if not content.startswith(signature) or len(content) > 5 * 1024 * 1024:
+            raise ValueError("Invalid or oversized image")
+        return value
+
+
 class RetryPolicy(Contract):
     max_retries: int = Field(default=2, ge=0, le=2)
 
@@ -28,6 +49,7 @@ class RetryPolicy(Contract):
 class Call(Contract):
     task_type: str = Field(default="connection_test", pattern=r"^[a-z][a-z0-9_]{0,63}$")
     messages: list[Message] = Field(min_length=1, max_length=32)
+    images: list[ImageInput] = Field(default_factory=list, max_length=5, repr=False)
     task_context: dict[str, Any] = Field(default_factory=dict)
     output_schema: dict[str, Any] | None = None
     timeout: float = Field(default=60, ge=0.05, le=120)

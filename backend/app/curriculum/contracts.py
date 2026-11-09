@@ -40,7 +40,7 @@ class CurriculumInput(Input):
         return self
 
 
-def output_schema():
+def output_schema(strict=False):
     # Inline the small schema: the Gateway deliberately rejects all $ref references.
     node = {
         "type": "object",
@@ -50,7 +50,7 @@ def output_schema():
             "page_start": {"type": ["integer", "null"], "minimum": 1, "maximum": 100000},
             "page_end": {"type": ["integer", "null"], "minimum": 1, "maximum": 100000},
         },
-        "required": ["id", "title"],
+        "required": ["id", "title", "page_start", "page_end"] if strict else ["id", "title"],
         "additionalProperties": False,
     }
     chapter = {
@@ -59,7 +59,9 @@ def output_schema():
             **node["properties"],
             "sections": {"type": "array", "items": node, "maxItems": 100},
         },
-        "required": ["id", "title", "sections"],
+        "required": ["id", "title", "page_start", "page_end", "sections"]
+        if strict
+        else ["id", "title", "sections"],
     }
     return {
         "type": "object",
@@ -71,6 +73,6 @@ def output_schema():
                 "maxItems": 100,
             },
         },
-        "required": ["chapters"],
+        "required": ["chapters", "uncertain_items"] if strict else ["chapters"],
         "additionalProperties": False,
     }

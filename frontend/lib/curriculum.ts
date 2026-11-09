@@ -11,7 +11,7 @@ export type Version = {
 export type Curriculum = { confirmed_revision: number; curriculum: Payload; versions: Version[] };
 export type Photo = { id: string; filename: string; size: number };
 export type Provider = { id: string; provider_name: string; enabled: boolean;
-  models: { id: string; model_name: string; enabled: boolean }[] };
+  models: { id: string; model_name: string; enabled: boolean; capabilities?: { vision?: boolean } }[] };
 export function temporaryId() { return 'tmp-' + crypto.randomUUID(); }
 export function validPayload(payload: Payload) {
   const nodes = payload.chapters.flatMap(chapter => [chapter, ...chapter.sections]);

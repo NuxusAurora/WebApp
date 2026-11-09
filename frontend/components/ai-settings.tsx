@@ -244,7 +244,7 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const saved = await onSave(model, { model_name: values.get('model_name'), enabled: values.get('enabled') === 'on',
-      capabilities: { ...draft.capabilities, streaming: values.get('streaming') === 'on', structured_output: values.get('structured_output') === 'on',
+      capabilities: { ...draft.capabilities, vision: values.get('vision') === 'on', streaming: values.get('streaming') === 'on', structured_output: values.get('structured_output') === 'on',
         max_context_tokens: Number(values.get('context')) }, capabilities_confirmed: true });
     if (saved) { setSelected(saved.id); setCatalogSelection(''); setDirty(false); }
   }
@@ -274,6 +274,8 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
         onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, max_context_tokens: event.target.valueAsNumber } }))} required disabled={busy} /></label>
       <p className="field-hint">服务未返回的字段可手动填写；上下文默认 4096，能力可在保存后测试确认。</p>
       <fieldset className="ai-capabilities" disabled={busy}><legend>模型能力</legend>
+        <label className="ai-check"><input name="vision" type="checkbox" checked={draft.capabilities.vision}
+          onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, vision: event.target.checked } }))} />支持图片识别</label>
         <label className="ai-check"><input name="streaming" type="checkbox" checked={draft.capabilities.streaming}
           onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, streaming: event.target.checked } }))} />支持流式输出</label>
         <label className="ai-check"><input name="structured_output" type="checkbox" checked={draft.capabilities.structured_output}

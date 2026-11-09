@@ -64,6 +64,8 @@ class Gateway:
             "output_tokens": None,
         }
         try:
+            if call.images and not target.capabilities.vision:
+                raise AIError("AI_UNSUPPORTED_CAPABILITY")
             validator = (
                 schema_validator(call.output_schema) if call.output_schema is not None else None
             )

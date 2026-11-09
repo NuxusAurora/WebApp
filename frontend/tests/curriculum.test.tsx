@@ -15,6 +15,29 @@ const success = (data: unknown) => Promise.resolve(Response.json({ success: true
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('reviewed curriculum', () => {
+  it('sends selected images directly to a vision model without running local OCR', async () => {
+    const provider = { id: 'provider', provider_name: '视觉模型', enabled: true,
+      models: [{ id: 'model', model_name: 'vision-model', enabled: true, capabilities: { vision: true } }] };
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([provider]) :
+      url.endsWith('/images') ? success([{ id: 'photo', filename: '目录.jpg' }]) : url.endsWith('/parse') ? success(version) : success(empty));
+    vi.stubGlobal('fetch', fetcher);
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /目录.jpg/ }));
+    fireEvent.click(screen.getByRole('button', { name: '模型识别目录' }));
+    await screen.findByText('草稿已生成，请核对后确认');
+    const parse = fetcher.mock.calls.find(([url]) => url.endsWith('/parse')) as unknown as [string, RequestInit];
+    expect(JSON.parse(String(parse[1].body))).toEqual({ input_mode: 'images', image_ids: ['photo'], ocr_text: '', provider_id: 'provider', model_id: 'model' });
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/ocr') || url.endsWith('/confirm'))).toBe(false);
+  });
+
+  it('does not send images to a model without confirmed vision capability', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') ? success([{ id: 'p', provider_name: '文字', enabled: true,
+      models: [{ id: 'm', model_name: 'text-model', enabled: true }] }]) : url.endsWith('/images') ? success([{ id: 'photo', filename: '目录.jpg' }]) : success(empty)));
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /目录.jpg/ }));
+    expect(screen.getByRole('button', { name: '模型识别目录' })).toBeDisabled();
+    expect(screen.getByText(/确认该模型支持图片识别/)).toBeInTheDocument();
+  });
   it('keeps unknown pages blank and requires reviewing uncertain titles before confirmation', async () => {
     const uncertain = { ...version, payload: { ...payload, uncertain_items: ['核对函数标题'] } };
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
