@@ -8,6 +8,7 @@ type Capabilities = { vision: boolean; streaming: boolean; structured_output: bo
 type Model = { id: string; provider_id: string; model_name: string; enabled: boolean; capabilities: Capabilities;
   capability_source: string; tested_capabilities: Record<string, boolean> };
 type Provider = { id: string; provider_name: string; base_url: string; has_api_key: boolean; enabled: boolean; models: Model[] };
+type DiscoveredModel = { model_name: string; capabilities: Partial<Capabilities> };
 type CallLog = { id: string; model_id: string; model_name: string; provider_name: string; task_type: string; status: string; duration_ms: number;
   attempts: number; input_tokens: number | null; output_tokens: number | null; error_code: string | null; created_at: string };
 const defaults: Capabilities = { vision: false, streaming: false, structured_output: false, tool_calling: false, max_context_tokens: 4096 };
@@ -110,7 +111,7 @@ export function AISettings({ onDirtyChange, onSessionExpired }: {
           markDirty(false); setSelected(''); setRevision(value => value + 1); notify('连接已删除');
         })} /> : !provider ? <div className="ai-content ai-empty"><h2>先保存一个本地连接</h2><p className="muted">随后添加模型并测试连接。</p>
           <button className="button" onClick={() => switchTab('connection')}>填写连接</button></div> :
-        <ModelForm key={provider.id} provider={provider} busy={busy} onDirty={markDirty}
+        <ModelForm key={provider.id} provider={provider} busy={busy} onDirty={markDirty} onSessionExpired={onSessionExpired}
           onSave={(model, data) => run(async signal => {
             const saved = await api<Model>(model ? `ai/models/${model.id}` : `ai/providers/${provider.id}/models`, {
               method: model ? 'PUT' : 'POST', body: JSON.stringify(data), signal,
@@ -164,43 +165,94 @@ function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey,
   </form>;
 }
 
-function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest }: {
+function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessionExpired }: {
   provider: Provider; busy: boolean; onDirty: (value: boolean) => void;
   onSave: (model: Model | undefined, data: object) => Promise<Model | undefined>;
   onDelete: (model: Model) => Promise<void>; onTest: (model: Model, kind: string) => Promise<void>;
+  onSessionExpired: () => void;
 }) {
   const [selected, setSelected] = useState('');
   const [dirty, setDirty] = useState(false);
+  const [catalog, setCatalog] = useState<DiscoveredModel[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  const [catalogSelection, setCatalogSelection] = useState('');
+  const [draft, setDraft] = useState({ model_name: '', capabilities: { ...defaults } });
+  const expired = useRef(onSessionExpired);
+  expired.current = onSessionExpired;
   const model = provider.models.find(item => item.id === selected);
+  useEffect(() => {
+    if (catalogSelection) return;
+    setDraft({ model_name: model?.model_name ?? '', capabilities: { ...defaults, ...model?.capabilities } });
+  }, [model, catalogSelection]);
+  useEffect(() => {
+    if (!provider.enabled) { setCatalogLoading(false); setCatalogError('请先启用连接'); return; }
+    const abort = new AbortController();
+    let current = true;
+    setCatalogLoading(true); setCatalogError('');
+    api<DiscoveredModel[]>(`ai/providers/${provider.id}/discovery`, { signal: abort.signal })
+      .then(items => { if (current) setCatalog(items); })
+      .catch(reason => {
+        if (!current) return;
+        if (reason instanceof ApiError && reason.status === 401) expired.current();
+        else setCatalogError(reason instanceof Error ? reason.message : '模型列表读取失败');
+      })
+      .finally(() => { if (current) setCatalogLoading(false); });
+    return () => { current = false; abort.abort(); };
+  }, [provider.id, provider.enabled, catalogRevision]);
   useEffect(() => { if (selected && !model) setSelected(''); }, [model, selected]);
   function select(value: string) {
     if (dirty && !window.confirm('模型修改尚未保存。放弃修改？')) return;
-    setDirty(false); onDirty(false); setSelected(value);
+    setDirty(false); onDirty(false); setSelected(value); setCatalogSelection('');
+  }
+  function applyDiscovered(name: string) {
+    const item = catalog.find(item => item.model_name === name);
+    if (!item || dirty && !window.confirm('替换当前模型填写内容？未保存的修改将被覆盖。')) return;
+    const existing = provider.models.find(model => model.model_name === name);
+    setSelected(existing?.id ?? '');
+    setCatalogSelection(name);
+    setDraft({ model_name: name, capabilities: { ...defaults, ...existing?.capabilities, ...item.capabilities } });
+    setDirty(true); onDirty(true);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const saved = await onSave(model, { model_name: values.get('model_name'), enabled: values.get('enabled') === 'on',
-      capabilities: { ...defaults, streaming: values.get('streaming') === 'on', structured_output: values.get('structured_output') === 'on',
+      capabilities: { ...draft.capabilities, streaming: values.get('streaming') === 'on', structured_output: values.get('structured_output') === 'on',
         max_context_tokens: Number(values.get('context')) }, capabilities_confirmed: true });
-    if (saved) { setSelected(saved.id); setDirty(false); }
+    if (saved) { setSelected(saved.id); setCatalogSelection(''); setDirty(false); }
   }
   useEffect(() => { setDirty(false); }, [provider]);
   return <form key={selected + JSON.stringify(model)} className="ai-content" onSubmit={submit} onChange={event => {
-    if ((event.target as HTMLElement).getAttribute('aria-label') === '选择模型') return;
+    if (['选择模型', '服务模型'].includes((event.target as HTMLElement).getAttribute('aria-label') ?? '')) return;
     setDirty(true); onDirty(true);
   }}>
     <div className="ai-fields form-stack">
-      <div><h2>模型与能力</h2><p className="muted">按本地服务中的实际名称填写，不会自动下载模型。</p></div>
+      <div><h2>模型与能力</h2><p className="muted">从服务读取模型信息，选择后自动填入。</p></div>
       <label>选择模型<select aria-label="选择模型" value={selected} onChange={event => select(event.target.value)} disabled={busy}>
         <option value="">添加模型</option>{provider.models.map(item => <option key={item.id} value={item.id}>{item.model_name}</option>)}
       </select></label>
-      <label>模型名称<input name="model_name" defaultValue={model?.model_name ?? ''} maxLength={160} required
+      <label>服务模型<select aria-label="服务模型" value={catalogSelection} disabled={busy || catalogLoading || Boolean(catalogError) || !catalog.length}
+        onChange={event => applyDiscovered(event.target.value)}>
+        <option value="">{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>
+        {catalog.map(item => <option key={item.model_name} value={item.model_name}>{item.model_name}</option>)}
+      </select></label>
+      <div className="ai-secondary-actions"><button className="button" type="button" disabled={busy || catalogLoading || !provider.enabled}
+        onClick={() => setCatalogRevision(value => value + 1)}>刷新模型列表</button>
+        {catalogLoading ? <span className="field-hint" role="status">正在读取模型列表…</span> : null}</div>
+      {catalogError ? <p className="notice error" role="alert">{catalogError}，可手动填写。</p> :
+        !catalogLoading && !catalog.length ? <p className="field-hint" role="status">服务暂无可用模型，可手动填写。</p> : null}
+      <label>模型名称<input name="model_name" value={draft.model_name} onChange={event => setDraft(value => ({ ...value, model_name: event.target.value }))} maxLength={160} required
         pattern="[a-zA-Z0-9][a-zA-Z0-9._:/\-]*" placeholder="本地服务返回的模型 ID" disabled={busy} /></label>
-      <label>上下文长度（Token）<input name="context" type="number" min={256} max={2000000} defaultValue={model?.capabilities.max_context_tokens ?? 4096} required disabled={busy} /></label>
-      <fieldset className="ai-capabilities" disabled={busy}><legend>确认模型能力</legend>
-        <label className="ai-check"><input name="streaming" type="checkbox" defaultChecked={model?.capabilities.streaming ?? false} />支持流式输出</label>
-        <label className="ai-check"><input name="structured_output" type="checkbox" defaultChecked={model?.capabilities.structured_output ?? false} />支持原生 JSON Schema</label>
+      <label>上下文长度（Token）<input name="context" type="number" min={256} max={2000000} value={Number.isFinite(draft.capabilities.max_context_tokens) ? draft.capabilities.max_context_tokens : ''}
+        onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, max_context_tokens: event.target.valueAsNumber } }))} required disabled={busy} /></label>
+      <p className="field-hint">服务未返回的字段可手动填写；上下文默认 4096，能力可在保存后测试确认。</p>
+      <fieldset className="ai-capabilities" disabled={busy}><legend>模型能力</legend>
+        <label className="ai-check"><input name="streaming" type="checkbox" checked={draft.capabilities.streaming}
+          onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, streaming: event.target.checked } }))} />支持流式输出</label>
+        <label className="ai-check"><input name="structured_output" type="checkbox" checked={draft.capabilities.structured_output}
+          onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, structured_output: event.target.checked } }))} />支持原生 JSON Schema</label>
       </fieldset>
       <p className="field-hint">不支持原生 JSON Schema 时，使用文本生成与结构校验；失败后最多修复两次。</p>
       <label className="ai-check"><input name="enabled" type="checkbox" defaultChecked={model?.enabled ?? true} disabled={busy} />启用模型</label>

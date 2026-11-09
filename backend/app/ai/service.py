@@ -1,7 +1,9 @@
 from uuid import UUID
 
+from pydantic import SecretStr
 from sqlalchemy import select, update
 
+from app.ai.adapters import OpenAIProvider
 from app.ai.contracts import Call, Capabilities, Target
 from app.ai.credentials import KeyVault, validate_endpoint
 from app.ai.models import AICallLog, AIModel, AIProvider
@@ -57,6 +59,21 @@ async def reset_tests(db, provider_id):
         .where(AIModel.provider_id == provider_id)
         .values(tested_capabilities={}, capability_source="user_confirmed")
     )
+
+
+async def discover_models(request, db, actor_id, provider_id):
+    provider = await owned_provider(db, actor_id, provider_id)
+    if not provider.enabled:
+        raise AppError("AI_CONFIG_DISABLED", "请先启用连接")
+    endpoint = validate_endpoint(provider.base_url, request.app.state.settings.ai_allowed_origins)
+    key = (
+        KeyVault(request.app.state.settings.encryption_key).decrypt(provider.encrypted_api_key)
+        if provider.encrypted_api_key
+        else SecretStr("")
+    )
+    # Discovery is read-only; release the database connection before network I/O.
+    await db.rollback()
+    return await OpenAIProvider(request.app.state.ai_client).discover_models(endpoint, key)
 
 
 async def prepare(request, db, actor_id: UUID, provider_id: UUID, model_id: UUID, call: Call):

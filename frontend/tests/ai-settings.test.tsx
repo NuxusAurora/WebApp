@@ -50,6 +50,7 @@ describe('local model settings', () => {
     const model = { id: '22222222-2222-2222-2222-222222222222', provider_id: provider.id, model_name: 'local-model', enabled: true, capabilities: caps, capability_source: 'user_confirmed', tested_capabilities: {} };
     const fetcher = vi.fn((url: string, init?: RequestInit) => {
       if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
+      if (url.endsWith('/discovery')) return success([]);
       if (init?.method === 'POST' && url.endsWith('/models')) { models = [model]; return success(model); }
       if (init?.method === 'PUT') return success(model);
       return success([{ ...provider, models }]);
@@ -79,6 +80,101 @@ describe('local model settings', () => {
     await waitFor(() => expect(expired).toHaveBeenCalled());
     view.unmount();
     expect(signals.every(signal => signal.aborted)).toBe(true);
+  });
+});
+
+describe('provider model discovery', () => {
+  async function openModels(fetcher: ReturnType<typeof vi.fn>) {
+    vi.stubGlobal('fetch', fetcher);
+    render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByLabelText('连接名称');
+    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
+    fireEvent.click(screen.getByRole('button', { name: '模型与测试' }));
+    await screen.findByLabelText('服务模型');
+  }
+
+  it('reads automatically and prefills explicit metadata without saving or probing', async () => {
+    const fetcher = vi.fn((url: string) => {
+      if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
+      if (url.endsWith('/discovery')) return success([{ model_name: 'server-model', capabilities: { max_context_tokens: 32768, streaming: true } }]);
+      return success([provider]);
+    });
+    await openModels(fetcher);
+    await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'server-model' } });
+    expect(screen.getByLabelText('模型名称')).toHaveValue('server-model');
+    expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(32768);
+    expect(screen.getByLabelText('支持流式输出')).toBeChecked();
+    expect(screen.getByLabelText('支持原生 JSON Schema')).not.toBeChecked();
+    expect(fetcher.mock.calls.every(([, init]: [string, RequestInit?]) => !init?.method)).toBe(true);
+  });
+
+  it('keeps unknown metadata conservative and refresh never overwrites manual edits', async () => {
+    const fetcher = vi.fn((url: string) => {
+      if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
+      if (url.endsWith('/discovery')) return success([{ model_name: 'vision-128k', capabilities: {} }]);
+      return success([provider]);
+    });
+    await openModels(fetcher);
+    await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'vision-128k' } });
+    expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(4096);
+    fireEvent.change(screen.getByLabelText('上下文长度（Token）'), { target: { value: '8192' } });
+    fireEvent.click(screen.getByRole('button', { name: '刷新模型列表' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '刷新模型列表' })).toBeEnabled());
+    expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(8192);
+    expect(fetcher.mock.calls.filter(([url]) => url.endsWith('/discovery'))).toHaveLength(2);
+  });
+
+  it('uses an existing saved model when the discovered model matches', async () => {
+    const model = { id: '22222222-2222-2222-2222-222222222222', provider_id: provider.id, model_name: 'same-model', enabled: true, capabilities: caps, tested_capabilities: {} };
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
+      if (url.endsWith('/discovery')) return success([{ model_name: 'same-model', capabilities: { max_context_tokens: 16384 } }]);
+      if (init?.method === 'PUT') return success({ ...model, capabilities: { ...caps, max_context_tokens: 16384 } });
+      return success([{ ...provider, models: [model] }]);
+    });
+    await openModels(fetcher);
+    await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'same-model' } });
+    expect(screen.getByLabelText('选择模型')).toHaveValue(model.id);
+    expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(16384);
+    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
+    const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
+    expect(JSON.parse(String(mutation[1]?.body)).capabilities.max_context_tokens).toBe(16384);
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
+  it('falls back to manual input when listing fails and lets the user retry', async () => {
+    let fail = true;
+    const fetcher = vi.fn((url: string) => {
+      if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
+      if (url.endsWith('/discovery')) return fail ? Promise.resolve(Response.json({ success: false, error: { message: '服务未提供模型列表' } }, { status: 502 })) : success([]);
+      return success([provider]);
+    });
+    await openModels(fetcher);
+    await screen.findByRole('alert');
+    fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: 'manual-model' } });
+    fail = false;
+    fireEvent.click(screen.getByRole('button', { name: '刷新模型列表' }));
+    await screen.findByText('服务暂无可用模型，可手动填写。');
+    expect(screen.getByLabelText('模型名称')).toHaveValue('manual-model');
+  });
+
+  it('protects a modified draft when choosing a discovered model', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const fetcher = vi.fn((url: string) => {
+      if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
+      if (url.endsWith('/discovery')) return success([{ model_name: 'remote', capabilities: {} }]);
+      return success([provider]);
+    });
+    await openModels(fetcher);
+    await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: 'my-draft' } });
+    fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'remote' } });
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText('模型名称')).toHaveValue('my-draft');
   });
 });
 // @vitest-environment jsdom

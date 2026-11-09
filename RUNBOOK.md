@@ -198,6 +198,8 @@ API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirme
 
 ## Phase 2 本地 OpenAI 兼容模型
 
+模型发现：选择已保存且启用的连接，进入“模型与测试”即自动读取“服务模型”，可刷新、选择后保存。GET /api/v1/ai/providers/{id}/discovery 对该服务的 /models 只读请求，仅填入服务明确提供的上下文/能力；未知项可手工补充或保存后显式测试。实现位于 backend/app/ai/discovery.py、adapters.py、service.py、routes.py 与 frontend/components/ai-settings.tsx；测试见 backend/tests/test_model_discovery.py 和前端 ai-settings/business-proxy 测试。认证/权限拒绝时检查该连接的密钥与服务权限，不会自动更换凭据。
+
 入口：登录后“模型设置”，依次填写“连接与密钥 → 模型与测试”。密钥可留空；已有密钥在编辑时留空保留，可单独删除。更换地址必须重新输入或先删除密钥，防止把旧密钥发送给新地址。密钥以 Fernet 认证加密保存，读取只返回 has_api_key。保留现有 ENCRYPTION_KEY；轮换应用加密主密钥需要独立重新加密迁移，本阶段不提供自动迁移。
 
 - 默认允许 localhost、127.0.0.1、host.docker.internal 的 1234/11434 端口。Docker 内 localhost 指容器自身，宿主机服务通常填写 `http://host.docker.internal:1234/v1` 或 `:11434/v1`。实际模型需自行运行并允许容器访问，应用不下载或启动模型。其他端口在既有 `.env` 添加 `AI_ALLOWED_ORIGINS`：逗号分隔的精确源（scheme://host:port，不含 /v1），然后重启后端，保留原凭据。仅允许可信本地服务；禁止重定向和环境代理。

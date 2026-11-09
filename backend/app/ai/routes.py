@@ -13,6 +13,7 @@ from app.ai.credentials import KeyVault, validate_endpoint
 from app.ai.models import AICallLog, AIModel, AIProvider
 from app.ai.prompts import prompt
 from app.ai.service import (
+    discover_models,
     owned_model,
     owned_provider,
     prepare,
@@ -192,6 +193,22 @@ async def add_model(provider_id: UUID, body: ModelInput, db: DB, actor: Actor):
     db.add(model)
     await db.commit()
     return ok(public_model(model))
+
+
+@router.get("/providers/{provider_id}/discovery")
+async def discover(provider_id: UUID, request: Request, db: DB, actor: Actor):
+    await limit(request, "ai", str(actor.id))
+    try:
+        return ok(await discover_models(request, db, actor.id, provider_id))
+    except AIError as error:
+        message = {
+            "AI_INVALID_RESPONSE": "服务未返回有效的模型列表",
+            "AI_REQUEST_REJECTED": "服务未提供模型列表，请手动填写或稍后重试",
+            "AI_RESPONSE_TOO_LARGE": "服务返回的模型列表过大，请手动填写",
+        }.get(error.code)
+        if message:
+            raise AppError(error.code, message, 502) from None
+        raise public_error(error) from None
 
 
 @router.put("/models/{model_id}")

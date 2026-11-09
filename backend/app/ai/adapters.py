@@ -5,8 +5,10 @@ import json
 from collections.abc import AsyncIterator
 
 import httpx
+from pydantic import SecretStr
 
 from app.ai.contracts import AIError, Call, Capabilities, Chunk, Message, Result, Target, Usage
+from app.ai.discovery import model_catalog
 from app.ai.prompts import prompt
 
 MAX_RESPONSE = 1024 * 1024
@@ -58,6 +60,28 @@ class HTTPProvider:
     def headers(self, target: Target):
         key = target.api_key.get_secret_value()
         return {"Authorization": f"Bearer {key}"} if key else {}
+
+    async def discover_models(self, base_url: str, api_key: SecretStr):
+        key = api_key.get_secret_value()
+        headers = {"Authorization": f"Bearer {key}"} if key else {}
+        try:
+            async with self.client.stream(
+                "GET", base_url + "/models", headers=headers, timeout=15, follow_redirects=False
+            ) as response:
+                if response.status_code != 200:
+                    raise status_error(response.status_code)
+                body = bytearray()
+                async for chunk in response.aiter_bytes():
+                    body.extend(chunk)
+                    if len(body) > MAX_RESPONSE:
+                        raise AIError("AI_RESPONSE_TOO_LARGE")
+                return model_catalog(json.loads(body))
+        except httpx.TimeoutException:
+            raise AIError("AI_TIMEOUT", True) from None
+        except httpx.HTTPError:
+            raise AIError("AI_UNAVAILABLE", True) from None
+        except ValueError, KeyError, TypeError:
+            raise AIError("AI_INVALID_RESPONSE") from None
 
     def payload(self, target: Target, call: Call, stream: bool):
         messages = [item.model_dump() for item in call.messages]

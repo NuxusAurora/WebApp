@@ -4,6 +4,14 @@ import { proxyBusiness } from '../lib/business-proxy.server';
 
 const environment = { BACKEND_INTERNAL_URL: 'http://backend:8000' };
 describe('authenticated same-origin proxy', () => {
+  it('proxies only the fixed discovery route for a provider', async () => {
+    const path = 'ai/providers/11111111-1111-1111-1111-111111111111/discovery';
+    const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: [] }));
+    const response = await proxyBusiness(new Request('http://localhost/api/v1/' + path), path.split('/'), upstream, environment);
+    expect(response.status).toBe(200);
+    expect(upstream.mock.calls[0][0].pathname).toBe('/api/v1/' + path);
+    expect((await proxyBusiness(new Request('http://localhost'), (path + '/private').split('/'), upstream, environment)).status).toBe(404);
+  });
   it('proxies bounded curriculum images and rejects unrelated course routes', async () => {
     const prefix = 'courses/11111111-1111-1111-1111-111111111111/curriculum';
     const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: {} }));
