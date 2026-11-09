@@ -89,6 +89,11 @@
       "placeholder": "#ffffff",
       "primaryBackground": "#2869b0",
       "dangerBackground": "#a03831"
+    },
+    "typographyScale": {
+      "factor": 0.9,
+      "minimum": "10px",
+      "scope": "all themes and responsive breakpoints; font sizes only"
     }
   },
   "components": [
@@ -98,7 +103,7 @@
       "refersTo": "button-primary",
       "description": "真实按钮状态与共享连续圆角。",
       "html": "<button class=\"ds-button-primary\">保存课程</button>",
-      "css": ".ds-button-primary{font:550 13px \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:white;background:var(--accent,#2869b0);} .ds-button-primary:hover{background:var(--accent-strong,#1e5592);} .ds-button-primary:active{filter:brightness(.95);} .ds-button-primary:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-primary:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
+      "css": ".ds-button-primary{font:550 max(10px,calc(13px * var(--type-scale,.9))) \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:white;background:var(--accent,#2869b0);} .ds-button-primary:hover{background:var(--accent-strong,#1e5592);} .ds-button-primary:active{filter:brightness(.95);} .ds-button-primary:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-primary:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
     },
     {
       "name": "普通操作",
@@ -106,7 +111,7 @@
       "refersTo": "button-secondary",
       "description": "真实按钮状态与共享连续圆角。",
       "html": "<button class=\"ds-button-secondary\">编辑课程</button>",
-      "css": ".ds-button-secondary{font:550 13px \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:#37516d;background:var(--surface,white);} .ds-button-secondary:hover{background:#f4f8fc;} .ds-button-secondary:active{filter:brightness(.95);} .ds-button-secondary:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-secondary:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
+      "css": ".ds-button-secondary{font:550 max(10px,calc(13px * var(--type-scale,.9))) \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:#37516d;background:var(--surface,white);} .ds-button-secondary:hover{background:#f4f8fc;} .ds-button-secondary:active{filter:brightness(.95);} .ds-button-secondary:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-secondary:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
     },
     {
       "name": "危险操作",
@@ -114,7 +119,7 @@
       "refersTo": "button-danger",
       "description": "真实按钮状态与共享连续圆角。",
       "html": "<button class=\"ds-button-danger\">确认删除</button>",
-      "css": ".ds-button-danger{font:550 13px \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:white;background:var(--danger,#a03831);} .ds-button-danger:hover{background:#832a25;} .ds-button-danger:active{filter:brightness(.95);} .ds-button-danger:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-danger:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
+      "css": ".ds-button-danger{font:550 max(10px,calc(13px * var(--type-scale,.9))) \"Segoe UI\",\"Microsoft YaHei\",sans-serif;min-height:42px;padding:9px 16px;border:1px solid #bdcddd;border-radius:var(--radius,8px);corner-shape:squircle;cursor:pointer;transition:background-color 150ms ease;color:white;background:var(--danger,#a03831);} .ds-button-danger:hover{background:#832a25;} .ds-button-danger:active{filter:brightness(.95);} .ds-button-danger:focus-visible{outline:3px solid #78a8dd;outline-offset:3px} .ds-button-danger:disabled{background:#f0f4f8;color:#6d7d8e;cursor:not-allowed;}"
     },
     {
       "name": "课程输入",
@@ -122,7 +127,7 @@
       "refersTo": "input",
       "description": "可见标签、占位文字与焦点。",
       "html": "<label class=\"ds-label\">课程名称<input class=\"ds-input\" placeholder=\"例如：高等数学\" /></label>",
-      "css": ".ds-label{display:grid;gap:8px;font:13px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-input{font:inherit;background:var(--surface,white);color:var(--ink,#24354a);padding:11px 12px;border:1px solid #c7d5e4;border-radius:var(--radius,8px);corner-shape:squircle}.ds-input::placeholder{color:#60748b}.ds-input:hover{border-color:#87a7c8}.ds-input:focus-visible{outline:none;border-color:var(--accent,#2869b0);box-shadow:inset 0 0 0 1px var(--accent,#2869b0)}"
+      "css": ".ds-label{display:grid;gap:8px;font:max(10px,calc(13px * var(--type-scale,.9))) \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-input{font:inherit;background:var(--surface,white);color:var(--ink,#24354a);padding:11px 12px;border:1px solid #c7d5e4;border-radius:var(--radius,8px);corner-shape:squircle}.ds-input::placeholder{color:#60748b}.ds-input:hover{border-color:#87a7c8}.ds-input:focus-visible{outline:none;border-color:var(--accent,#2869b0);box-shadow:inset 0 0 0 1px var(--accent,#2869b0)}"
     },
     {
       "name": "全局导航",
@@ -130,7 +135,7 @@
       "refersTo": "navigation",
       "description": "深蓝底与当前页面。",
       "html": "<nav class=\"ds-rail\"><button class=\"ds-nav\" aria-current=\"page\">我的课程</button><button class=\"ds-nav\">账户设置</button></nav>",
-      "css": ".ds-rail{background:var(--rail,#152d4b);padding:20px;display:grid;gap:7px}.ds-nav{font:14px \"Microsoft YaHei\",sans-serif;min-height:44px;border:0;border-radius:var(--radius,8px);corner-shape:squircle;text-align:left;padding:11px 14px;color:var(--rail-muted,#b3c5d9);background:transparent;cursor:pointer}.ds-nav[aria-current]{background:var(--rail-current,#294867);color:white;font-weight:550}.ds-nav:hover{background:#213f5e;color:white}.ds-nav:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
+      "css": ".ds-rail{background:var(--rail,#152d4b);padding:20px;display:grid;gap:7px}.ds-nav{font:max(10px,calc(14px * var(--type-scale,.9))) \"Microsoft YaHei\",sans-serif;min-height:44px;border:0;border-radius:var(--radius,8px);corner-shape:squircle;text-align:left;padding:11px 14px;color:var(--rail-muted,#b3c5d9);background:transparent;cursor:pointer}.ds-nav[aria-current]{background:var(--rail-current,#294867);color:white;font-weight:550}.ds-nav:hover{background:#213f5e;color:white}.ds-nav:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
     },
     {
       "name": "课程状态",
@@ -138,7 +143,7 @@
       "refersTo": "status",
       "description": "状态是文字含义，不依赖颜色识别。",
       "html": "<span class=\"ds-status\">学习中</span> <span class=\"ds-status ds-archived\">已归档</span>",
-      "css": ".ds-status{display:inline-flex;align-items:center;min-height:25px;padding:3px 8px;border-radius:5px;corner-shape:squircle;font:500 11px \"Microsoft YaHei\",sans-serif;color:var(--success,#256b53);background:var(--success-bg,#edf6f1)}.ds-archived{color:#566c84;background:#edf1f6}"
+      "css": ".ds-status{display:inline-flex;align-items:center;min-height:25px;padding:3px 8px;border-radius:5px;corner-shape:squircle;font:500 max(10px,calc(11px * var(--type-scale,.9))) \"Microsoft YaHei\",sans-serif;color:var(--success,#256b53);background:var(--success-bg,#edf6f1)}.ds-archived{color:#566c84;background:#edf1f6}"
     },
     {
       "name": "详情面板",
@@ -146,7 +151,7 @@
       "refersTo": "panel",
       "description": "白色内容面板、单线边界。",
       "html": "<section class=\"ds-panel\"><h2 class=\"ds-title\">高等数学</h2><p class=\"ds-caption\">学习目标</p><p class=\"ds-goal\">多学一点</p></section>",
-      "css": ".ds-panel{padding:20px;border:1px solid var(--line,#d8e2ed);border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);font:14px \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-title{font-size:24px;line-height:1.45;font-weight:650;margin:0 0 23px;color:var(--ink-strong,#1b2b40)}.ds-caption{font-size:13px;color:var(--muted,#536a83);margin:0 0 8px}.ds-goal{margin:0}"
+      "css": ".ds-panel{padding:20px;border:1px solid var(--line,#d8e2ed);border-radius:var(--panel-radius,12px);corner-shape:squircle;background:var(--surface,white);font:max(10px,calc(14px * var(--type-scale,.9))) \"Microsoft YaHei\",sans-serif;color:var(--ink,#24354a)}.ds-title{font-size:max(10px,calc(24px * var(--type-scale,.9)));line-height:1.45;font-weight:650;margin:0 0 23px;color:var(--ink-strong,#1b2b40)}.ds-caption{font-size:max(10px,calc(13px * var(--type-scale,.9)));color:var(--muted,#536a83);margin:0 0 8px}.ds-goal{margin:0}"
     },
     {
       "name": "成功通知",
@@ -154,7 +159,7 @@
       "refersTo": "toast-success",
       "description": "黄绿色成功气泡；此处静态展示，应用中 3 秒淡入淡出、手动关闭 180ms；减少动态时关闭动画。",
       "html": "<div class=\"ds-toast\" role=\"status\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg><span class=\"ds-toast-message\">课程已保存</span><button class=\"ds-toast-close\" aria-label=\"关闭提示\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m6 6 12 12M18 6 6 18\"/></svg></button></div>",
-      "css": ".ds-toast{display:flex;align-items:center;gap:10px;min-width:220px;max-width:420px;padding:10px 12px 10px 16px;border-radius:18px;corner-shape:squircle;background:var(--toast-bg,#e8f5bc);color:var(--toast-ink,#344717);box-shadow:0 4px 18px #152d4b22;font:13px \"Microsoft YaHei\",sans-serif;line-height:1.6}.ds-toast-message{flex:1;min-width:0;overflow-wrap:anywhere}.ds-toast-close{display:grid;place-items:center;width:30px;height:30px;padding:5px;border:0;border-radius:7px;corner-shape:squircle;color:inherit;background:transparent;cursor:pointer}.ds-toast-close:hover{color:inherit;background:#34471712}.ds-toast-close:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
+      "css": ".ds-toast{display:flex;align-items:center;gap:10px;min-width:220px;max-width:420px;padding:10px 12px 10px 16px;border-radius:18px;corner-shape:squircle;background:var(--toast-bg,#e8f5bc);color:var(--toast-ink,#344717);box-shadow:0 4px 18px #152d4b22;font:max(10px,calc(13px * var(--type-scale,.9))) \"Microsoft YaHei\",sans-serif;line-height:1.6}.ds-toast-message{flex:1;min-width:0;overflow-wrap:anywhere}.ds-toast-close{display:grid;place-items:center;width:30px;height:30px;padding:5px;border:0;border-radius:7px;corner-shape:squircle;color:inherit;background:transparent;cursor:pointer}.ds-toast-close:hover{color:inherit;background:#34471712}.ds-toast-close:focus-visible{outline:3px solid #78a8dd;outline-offset:3px}"
     },
     {
       "name": "账户概览",
@@ -162,7 +167,7 @@
       "refersTo": "account-overview",
       "description": "居中身份与五项真实统计槽位；无统计接口显示 —，修改邮箱待接入。",
       "html": "<section class=\"ds-account\"><div class=\"ds-avatar\" aria-hidden=\"true\">学</div><h2>学习者</h2><p>learner@example.com</p><dl class=\"ds-stats\"><div><dt>消耗 Token</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>Token 使用峰值</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>最长学习项目用时</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>最长连续学习天数</dt><dd aria-label=\"暂无统计\">—</dd></div><div><dt>当前连续学习天数</dt><dd aria-label=\"暂无统计\">—</dd></div></dl><p>学习统计待接入</p><div class=\"ds-actions\"><button>修改密码</button><button>修改昵称</button><button disabled>修改邮箱 · 待接入</button></div></section>",
-      "css": ".ds-account{text-align:center;padding:32px 20px;color:var(--ink,#24354a);font:14px \"Microsoft YaHei\",sans-serif}.ds-avatar{display:grid;place-items:center;width:76px;height:76px;margin:auto;border-radius:50%;background:var(--accent-soft,#eaf2fc);color:var(--accent,#2869b0);font-size:28px}.ds-account h2{margin:16px 0 8px;font-size:24px}.ds-account p{color:var(--muted,#536a83)}.ds-stats{display:grid;grid-template-columns:repeat(5,1fr);margin:36px 0 12px;padding:24px 0;border:1px solid var(--line,#d3dfeb);border-radius:12px;corner-shape:squircle}.ds-stats div+div{border-left:1px solid var(--line,#d3dfeb)}.ds-stats dt{font-size:12px;color:var(--muted,#536a83)}.ds-stats dd{margin:8px 0 0;font-size:24px}.ds-actions{display:flex;justify-content:center;gap:12px;margin-top:28px}.ds-actions button{padding:10px 16px;color:inherit;background:var(--surface,white);border:1px solid var(--line,#d3dfeb);border-radius:8px;corner-shape:squircle}.ds-actions button:disabled{opacity:.6}@media(max-width:600px){.ds-stats{grid-template-columns:1fr;gap:16px}.ds-stats div+div{border:0}.ds-actions{flex-wrap:wrap}}"
+      "css": ".ds-account{text-align:center;padding:32px 20px;color:var(--ink,#24354a);font:max(10px,calc(14px * var(--type-scale,.9))) \"Microsoft YaHei\",sans-serif}.ds-avatar{display:grid;place-items:center;width:76px;height:76px;margin:auto;border-radius:50%;background:var(--accent-soft,#eaf2fc);color:var(--accent,#2869b0);font-size:max(10px,calc(28px * var(--type-scale,.9)))}.ds-account h2{margin:16px 0 8px;font-size:max(10px,calc(24px * var(--type-scale,.9)))}.ds-account p{color:var(--muted,#536a83)}.ds-stats{display:grid;grid-template-columns:repeat(5,1fr);margin:36px 0 12px;padding:24px 0;border:1px solid var(--line,#d3dfeb);border-radius:12px;corner-shape:squircle}.ds-stats div+div{border-left:1px solid var(--line,#d3dfeb)}.ds-stats dt{font-size:max(10px,calc(12px * var(--type-scale,.9)));color:var(--muted,#536a83)}.ds-stats dd{margin:8px 0 0;font-size:max(10px,calc(24px * var(--type-scale,.9)))}.ds-actions{display:flex;justify-content:center;gap:12px;margin-top:28px}.ds-actions button{padding:10px 16px;color:inherit;background:var(--surface,white);border:1px solid var(--line,#d3dfeb);border-radius:8px;corner-shape:squircle}.ds-actions button:disabled{opacity:.6}@media(max-width:600px){.ds-stats{grid-template-columns:1fr;gap:16px}.ds-stats div+div{border:0}.ds-actions{flex-wrap:wrap}}"
     }
   ],
   "narrative": {
