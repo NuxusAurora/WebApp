@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type FormEvent } from 'react';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { Icon } from './icon';
 
 export type User = { id: string; display_name: string; email: string };
@@ -44,10 +44,15 @@ export function Account({ onLogin, notice = '', testLoginEnabled = false }: {
       else {
         setMessage(result.message);
         if (mode === 'register') setMode('verify-email');
+        else if (mode === 'forgot-password') setMode('reset-password');
+        else if (mode === 'resend-verification') setMode('verify-email');
         else if (mode === 'verify-email' || mode === 'reset-password') setMode('login');
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : '操作失败，请重试');
+      if (mode === 'login' && error instanceof ApiError && error.status === 403 && error.message === '请先验证邮箱') {
+        setMode('verify-email');
+      }
       requestAnimationFrame(() => errorElement.current?.focus());
     } finally { setBusy(false); }
   }
@@ -89,13 +94,10 @@ export function Account({ onLogin, notice = '', testLoginEnabled = false }: {
       <button className="button primary account-submit" disabled={busy}>
         {busy ? '处理中…' : titles[mode]}{!busy ? <Icon name="arrow" size={18} /> : null}
       </button>
+      {mode === 'verify-email' ? <button type="button" className="text-button" disabled={busy}
+        onClick={() => changeMode('resend-verification')}>重新发送验证码</button> : null}
     </form>
     {testLoginEnabled && mode === 'login' ? <button className="button test-login" type="button" disabled={busy}
       onClick={() => void testLogin()}>测试登录</button> : null}
-    <div className="account-links">
-      {(['verify-email', 'resend-verification', 'reset-password'] as Mode[]).filter(tab => tab !== mode).map(tab =>
-        <button type="button" key={tab} className="text-button" disabled={busy}
-          onClick={() => changeMode(tab)}>{titles[tab]}</button>)}
-    </div>
   </section>;
 }

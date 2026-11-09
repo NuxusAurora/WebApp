@@ -239,10 +239,10 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
             <div><div className="skeleton" /><div className="skeleton skeleton-short" /></div></div>)}
         </div> : loadError ? <div className="index-empty inline-error" role="alert"><Icon name="alert" size={30} />
           <h3>课程读取失败</h3><p>{loadError}</p><button className="button" onClick={() => setReload(value => value + 1)}>重新加载课程</button></div> :
-          !visible.length ? <div className="index-empty"><Icon name={hasFilters ? 'search' : 'book'} size={34} />
-            <h3>{hasFilters ? '没有找到匹配的课程' : '还没有课程'}</h3>
-            <p>{hasFilters ? '换个关键词，或清除筛选查看当前页课程。' : '新建一门课程，添加教材和学习目标。'}</p>
-            {hasFilters ? <button className="text-button" onClick={() => { setQuery(''); setFilter('all'); }}>清除筛选</button> : null}</div> :
+          !visible.length && hasFilters ? <div className="index-empty"><Icon name="search" size={34} />
+            <h3>没有找到匹配的课程</h3>
+            <p>换个关键词，或清除筛选查看当前页课程。</p>
+            <button className="text-button" onClick={() => { setQuery(''); setFilter('all'); }}>清除筛选</button></div> :
             <ul className="course-list">{visible.map(course => <li key={course.id}>
               <button className={'course-row' + (selected?.id === course.id && editing !== 'new' ? ' is-selected' : '')}
                 aria-pressed={selected?.id === course.id && editing !== 'new'} disabled={busy} onClick={() => openCourse(course)}>
@@ -299,8 +299,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
                 onClick={() => void removeCourse()}>{busy ? '删除中…' : '确认删除'}</button>
                 <button className="button" disabled={busy} onClick={() => setDeleteTarget(null)}>取消</button></div>
             </div> : null}
-          </section> : <section className="detail-placeholder"><span className="placeholder-book"><Icon name="folder" size={36} /></span>
-            <h2>课程详情</h2><p>选择一门课程，查看学习目标<br />和课程资料。</p></section>}
+          </section> : null}
       </div>
     </div>
   </div>;

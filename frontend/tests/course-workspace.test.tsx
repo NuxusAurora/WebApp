@@ -8,7 +8,7 @@ import { Workspace } from '../components/workspace';
 import { CourseEditor } from '../components/course-editor';
 import { Toast, useToast } from '../components/toast';
 import { Profile } from '../components/profile';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import type { Course } from '../lib/course-types';
 
 vi.mock('../lib/api', async importOriginal => ({
@@ -142,6 +142,32 @@ describe('desktop course workspace', () => {
 });
 
 describe('account and shell states', () => {
+  it('continues password recovery into the reset form after requesting a code', async () => {
+    vi.mocked(api).mockResolvedValue({ message: '重置邮件已发送' });
+    render(<Account onLogin={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '忘记密码？' }));
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'student@example.com' } });
+    fireEvent.submit(screen.getByLabelText('邮箱').closest('form')!);
+    await screen.findByRole('heading', { name: '重置密码' });
+    expect(screen.getByLabelText('邮件验证码')).toBeInTheDocument();
+    expect(screen.getByLabelText('密码', { exact: true })).toBeInTheDocument();
+    expect(vi.mocked(api).mock.calls[0][0]).toBe('auth/forgot-password');
+  });
+
+  it('lets an unverified account request another code and return to verification', async () => {
+    vi.mocked(api).mockRejectedValueOnce(new ApiError(403, '请先验证邮箱'))
+      .mockResolvedValue({ message: '验证邮件已发送' });
+    render(<Account onLogin={vi.fn()} />);
+    fireEvent.submit(screen.getByLabelText('邮箱').closest('form')!);
+    await screen.findByRole('heading', { name: '验证邮箱' });
+    fireEvent.click(screen.getByRole('button', { name: '重新发送验证码' }));
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'student@example.com' } });
+    fireEvent.submit(screen.getByLabelText('邮箱').closest('form')!);
+    await screen.findByRole('heading', { name: '验证邮箱' });
+    expect(screen.getByLabelText('邮件验证码')).toBeInTheDocument();
+    expect(vi.mocked(api).mock.calls.map(([path]) => path)).toEqual(['auth/login', 'auth/resend-verification']);
+  });
+
   it('requires confirmation before returning from an unsaved compact editor to the directory', async () => {
     await ready();
     fireEvent.click(screen.getByRole('button', { name: '新建课程' }));
