@@ -36,6 +36,11 @@ select { color-scheme: inherit; }
 select option { background: var(--surface); color: var(--text-primary); }
 .breadcrumb { color: var(--text-secondary); font-size: var(--font-caption); gap: var(--space-3); }
 .breadcrumb strong { color: var(--text-primary); }
+.breadcrumb { min-width: 0; }
+.breadcrumb > :is(button, strong) { min-width: 0; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumb button { flex-shrink: 0; padding: var(--space-1) 0; min-height: 32px; border: 0; border-radius: var(--radius-small); background: transparent; color: var(--text-secondary); text-align: left; }
+.breadcrumb button:hover:enabled { color: var(--text-primary); text-decoration: underline; text-underline-offset: 4px; }
+.breadcrumb button:disabled { cursor: progress; }
 .page-container { width: 100%; min-width: 0; margin-inline: auto; }
 .page-container-narrow { max-width: var(--container-narrow); }
 .page-container-standard { max-width: var(--container-standard); }
@@ -53,7 +58,6 @@ select option { background: var(--surface); color: var(--text-primary); }
 .form-field small { color: var(--text-secondary); font-size: var(--font-caption); line-height: 1.6; }
 .form-field .field-error { color: var(--danger); }
 .course-library .course-form-page { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--space-6); }
-.course-form-page .detail-back { color: var(--text-secondary); margin-bottom: var(--space-4); padding-inline: 0; }
 .course-editor { flex: none; min-width: 0; }
 .course-editor .form-stack { display: grid; gap: var(--space-6); }
 .course-form-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -72,5 +76,7 @@ select option { background: var(--surface); color: var(--text-primary); }
   .course-editor .field-pair { grid-template-columns: minmax(0, 1fr); }
   .course-editor .form-stack :is(input.ui-input, select.ui-select) { min-height: var(--touch-target); font-size: 16px; }
   .button { min-height: var(--touch-target); }
-  .course-form-page .detail-back { min-height: var(--touch-target); }
+  .breadcrumb { gap: var(--space-2); }
+  .breadcrumb > :is(button, strong) { max-width: 18ch; }
+  .breadcrumb button { min-height: var(--touch-target); flex-shrink: 1; }
 }

@@ -99,7 +99,7 @@ components:
 - PageContainer 统一 narrow 640 / standard 800 / wide 1120 / full 自适应，页面不自行定义任意宽度。课程新建与编辑使用 standard；其他现有业务布局保持。
 - `frontend/styles/ui.css` 维护既有 `.button`、`.form-stack` 和新的公共组件，避免平行组件体系。Button 支持 primary/secondary/ghost/danger，small/medium/large 高度 32/36/40px，禁用/loading 均有状态；手机按钮至少 44px。Input/Select 默认 40px，手机课程表单至少 44px，品牌蓝焦点在原边框内绘制；错误使用语义 danger。
 - `frontend/components/ui.tsx` 提供 Button、Input、Select、FormField、Card、PageHeader、PageContainer、Breadcrumb。原生 select 保留操作系统箭头、弹出层及键盘选择，不引入自绘菜单与第三方库。Card 有 default/secondary/interactive 外观；交互语义由调用者选择合适的按钮或链接。已有 `.status-tag` 与分隔线继续复用共享颜色/圆角变量；既有 Dialog 和 Sidebar 继续使用各自行为模块与受控主题变量。
-- 首张标准页：返回我的课程、卡片外标题/说明、内容自然撑开的卡片；名称独占一行，学科/教材桌面双列、<768px 单列，学习目标独占一行，取消/保存右对齐、间距 8px。卡片内边距桌面 24、平板 20、手机 16px。短屏仅主内容内滚动，所有操作可达。
+- 首张标准页：顶部面包屑返回上级、卡片外标题/说明、内容自然撑开的卡片；不再显示独立返回按钮。面包屑显示“个人空间 > 我的课程 > 新建课程”或课程详情/编辑层级，祖先名称可点击、当前页为文本；保留忙碌禁用与未保存确认。名称独占一行，学科/教材桌面双列、<768px 单列，学习目标独占一行，取消/保存右对齐、间距 8px。卡片内边距桌面 24、平板 20、手机 16px。短屏仅主内容内滚动，所有操作可达。
 
 公共组件只负责呈现与原生属性传递，不依赖课程、API、用户或导航控制器。CourseEditor 持有目标选择与字段校验；CourseSpace 仍持有网络、忙碌、错误、持久化与离开保护。请求字段、旧自定义目标兼容及异步失败路径保持；没有引入全局状态、额外监听器或新依赖。
 

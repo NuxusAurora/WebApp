@@ -9,11 +9,12 @@ import { CourseEditor } from './course-editor';
 import { CurriculumEditor } from './curriculum';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
-import { PageContainer } from './ui';
+import { PageContainer, type BreadcrumbItem } from './ui';
 
-export function CourseSpace({ onDirtyChange, onSessionExpired }: {
+export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange }: {
   onDirtyChange?: (dirty: boolean) => void;
   onSessionExpired?: () => void;
+  onBreadcrumbChange?: (items: BreadcrumbItem[]) => void;
 }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selected, setSelected] = useState<Course | null>(null);
@@ -40,6 +41,21 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  useEffect(() => () => onBreadcrumbChange?.([]), [onBreadcrumbChange]);
+
+  // Course state and guarded navigation stay here; the shell only renders this snapshot.
+  useEffect(() => {
+    const items: BreadcrumbItem[] = [{ label: '我的课程' }];
+    if (editing || selected) {
+      items[0] = { label: '我的课程', disabled: busy, onSelect: () => { if (!busy) backToDirectory(); } };
+      if (editing === 'new') items.push({ label: '新建课程' });
+      else if (selected) {
+        items.push({ label: selected.title, ...(editing ? { disabled: busy, onSelect: () => { if (!busy) cancelEditor(); } } : {}) });
+        if (editing) items.push({ label: '编辑课程' });
+      }
+    }
+    onBreadcrumbChange?.(items);
+  }, [editing, selected, dirty, busy, onBreadcrumbChange]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -206,9 +222,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
               onClick={() => page(offset + 100)}><Icon name="chevron" size={16} /></button></div></div> : null}
       </section>
       : <PageContainer size={editing ? 'standard' : 'full'} className={'detail-region' + (editing ? ' course-form-page' : '')} ref={detailRegion}>
-        <button className="text-button detail-back" disabled={busy} onClick={backToDirectory}>
-          <span className="rotate-icon"><Icon name="chevron" size={16} /></span>{editing ? '返回我的课程' : '返回'}
-        </button>
         {editing ? <CourseEditor key={editing === 'new' ? 'new' : selected!.id} course={editing === 'new' ? null : selected}
           busy={busy} onSave={data => void save(data)} onCancel={cancelEditor} onDirty={() => setDirty(true)} /> :
           selected ? <section className="detail-panel" aria-labelledby="course-detail-title">

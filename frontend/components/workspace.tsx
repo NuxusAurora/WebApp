@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Account, type User } from './account';
 import { CourseSpace } from './course-space';
@@ -9,7 +9,7 @@ import { AISettings } from './ai-settings';
 import { Icon } from './icon';
 import { AppSidebar } from './app-sidebar';
 import { ConnectionStatus } from './connection-status';
-import { Breadcrumb } from './ui';
+import { Breadcrumb, type BreadcrumbItem } from './ui';
 import { useWorkspaceNavigation, workspaceLabels } from '../lib/workspace-navigation';
 import { api, ApiError } from '../lib/api';
 
@@ -23,6 +23,7 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [courseCrumbs, setCourseCrumbs] = useState<BreadcrumbItem[]>([]);
   const { view, navigate } = useWorkspaceNavigation(systemView ? 'system' : 'courses', leaveEditor, () => setDirty(false));
 
   useEffect(() => {
@@ -91,14 +92,18 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
     <div className="app-body">
       <header className="workspace-topbar">
         <Breadcrumb><span>个人空间</span><Icon name="chevron" size={14} />
-          <strong aria-current="page">{workspaceLabels[view]}</strong></Breadcrumb>
+          {view === 'courses' && courseCrumbs.length ? courseCrumbs.map((item, index) => <Fragment key={index}>
+            {index ? <Icon name="chevron" size={14} /> : null}
+            {item.onSelect ? <button type="button" disabled={item.disabled} onClick={item.onSelect} title={item.label}>{item.label}</button> :
+              <strong aria-current={index === courseCrumbs.length - 1 ? 'page' : undefined} title={item.label}>{item.label}</strong>}
+          </Fragment>) : <strong aria-current="page">{workspaceLabels[view]}</strong>}</Breadcrumb>
       </header>
       <main id="main-content" className="workspace-main">
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
         {view === 'system' ? <div className="status-page"><div className="page-heading"><div><h1>连接状态</h1>
           <p>查看工作台与基础服务的连接情况。</p></div></div><ConnectionStatus /></div> : user && (view === 'ai' ? <AISettings key={user.id} userId={user.id} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
-        }} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired} />)}
+        }} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired} onBreadcrumbChange={setCourseCrumbs} />)}
       </main>
     </div>
   </div>;

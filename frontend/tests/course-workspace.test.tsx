@@ -28,6 +28,7 @@ beforeEach(() => {
   vi.spyOn(window, 'confirm').mockReturnValue(false);
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(0), 0));
   vi.mocked(api).mockImplementation(async path => {
+    if (path === 'users/me') return { id: 'user', display_name: '学生', email: 'student@example.com' };
     if (path.startsWith('courses?')) return courses;
     if (path.endsWith('/uploads')) return [];
     throw new Error('Unexpected request');
@@ -36,12 +37,31 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function ready() {
-  render(<CourseSpace />);
+  render(<Workspace />);
   fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
   await screen.findByRole('heading', { name: '高等数学' });
 }
 
 describe('desktop course workspace', () => {
+  it('navigates each course breadcrumb level and protects unsaved changes', async () => {
+    await ready();
+    expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '编辑课程' }));
+    fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '尚未保存的课程' } });
+    fireEvent.click(screen.getByRole('button', { name: '高等数学' }));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText(/课程名称/)).toHaveValue('尚未保存的课程');
+    vi.mocked(window.confirm).mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: '高等数学' }));
+    expect(screen.queryByLabelText(/课程名称/)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '高等数学' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
+    expect(screen.getByRole('region', { name: '学习中的课程' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '新建课程' }));
+    expect(screen.queryByRole('button', { name: '返回我的课程' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
+    expect(screen.queryByLabelText(/课程名称/)).not.toBeInTheDocument();
+  });
   it('preserves all form values after a failed create and retries the same API contract', async () => {
     render(<CourseSpace />);
     fireEvent.click(await screen.findByRole('button', { name: '新建课程' }));
@@ -85,7 +105,7 @@ describe('desktop course workspace', () => {
     expect(screen.getByLabelText('章节 1标题')).toHaveValue('未保存的目录');
   });
   it('shows only active courses in one container and opens detail explicitly', async () => {
-    render(<CourseSpace />);
+    render(<Workspace />);
     const enter = await screen.findByRole('button', { name: '进入高等数学' });
     expect(screen.queryByRole('heading', { name: '高等数学' })).not.toBeInTheDocument();
     expect(screen.queryByText('大学物理')).not.toBeInTheDocument();
@@ -97,7 +117,7 @@ describe('desktop course workspace', () => {
     fireEvent.click(enter);
     expect(screen.getByRole('heading', { name: '高等数学' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '学习中的课程' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索当前页课程' }), { target: { value: '上册' } });
     expect(screen.getByRole('button', { name: /高等数学/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /大学物理/ })).not.toBeInTheDocument();
@@ -110,7 +130,7 @@ describe('desktop course workspace', () => {
 
   it('protects an unsaved editor and sends only the existing course fields on save', async () => {
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     fireEvent.click(screen.getByRole('button', { name: '新建课程' }));
     fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '概率论' } });
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
@@ -143,7 +163,7 @@ describe('desktop course workspace', () => {
     await ready();
     expect(screen.getAllByRole('tab')).toHaveLength(2);
     expect(screen.queryByRole('tab', { name: /学习资料/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     fireEvent.click(screen.getByRole('button', { name: '进入高等数学' }));
     expect(vi.mocked(api).mock.calls.some(([path]) => path.endsWith('/uploads'))).toBe(false);
   });
@@ -316,14 +336,14 @@ describe('account and shell states', () => {
 
   it('requires confirmation before returning from an unsaved compact editor to the directory', async () => {
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: '返回' }));
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     fireEvent.click(screen.getByRole('button', { name: '新建课程' }));
     fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '尚未保存' } });
-    fireEvent.click(screen.getByRole('button', { name: '返回我的课程' }));
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     expect(window.confirm).toHaveBeenCalledOnce();
     expect(screen.getByLabelText(/课程名称/)).toHaveValue('尚未保存');
     vi.mocked(window.confirm).mockReturnValue(true);
-    fireEvent.click(screen.getByRole('button', { name: '返回我的课程' }));
+    fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     expect(screen.queryByLabelText(/课程名称/)).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: '学习中的课程' }).closest('.course-space')).not.toHaveClass('showing-detail');
   });

@@ -337,7 +337,6 @@ html, body { height: 100%; overflow: hidden; }
 .index-empty { padding: 28px 22px; }
 .index-footer { min-height: 44px; padding: 4px 14px 4px 20px; flex-shrink: 0; }
 .detail-region { display: flex; flex-direction: column; min-height: 0; }
-.detail-back { display: none; }
 .detail-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 20px; overflow: hidden; }
 .detail-heading, .panel-heading, .panel-description, .detail-tabs, .last-edited, .course-detail-title { flex-shrink: 0; }
 .course-detail-title { margin: 12px 0 4px; font-size: 22px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
@@ -388,7 +387,6 @@ html, body { height: 100%; overflow: hidden; }
   .course-workarea { grid-template-columns: 1fr; gap: 0; }
   .course-space:not(.showing-detail) .detail-region { display: none; }
   .showing-detail .page-heading, .showing-detail .library-toolbar, .showing-detail .course-index { display: none; }
-  .detail-back { display: inline-flex; align-self: flex-start; margin-bottom: 8px; flex-shrink: 0; min-height: 32px; }
   .detail-panel { padding: 16px; }
   .detail-placeholder { display: none; }
   .course-row { min-height: 84px; padding: 16px; }
@@ -654,7 +652,6 @@ html, body { height: 100%; overflow: hidden; }
 .course-library .course-enter { flex-shrink: 0; background: #256b45; border-color: #256b45; color: #ffffff; min-width: 90px; }
 .course-library .course-enter:hover:enabled { background: #1c5335; border-color: #1c5335; }
 .course-library .detail-region { flex: 1; }
-.course-library .detail-back { display: inline-flex; align-self: flex-start; flex-shrink: 0; margin-bottom: 12px; min-height: 36px; }
 .account-page:has(.archived-courses) { overflow: auto; overscroll-behavior: contain; }
 .account-page:has(.archived-courses) .account-overview { overflow: visible; flex-shrink: 0; }
 .archived-courses { width: 100%; max-width: 1260px; align-self: center; flex-shrink: 0; margin: 12px 0 24px; border-top: 1px solid var(--line); }

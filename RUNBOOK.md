@@ -2,7 +2,9 @@
 
 ## 课程 UI 设计系统 · 2026-11-09
 
-当前入口仍为 `/` → 新建课程；新建/编辑共用 800px 标准表单，桌面双列、手机单列，取消/保存按内容宽度右对齐。Token 来源为 `frontend/styles/tokens.css`，原共享类名与新公共组件统一由 `frontend/styles/ui.css`、`frontend/components/ui.tsx` 维护。容器 640/800/1120/full，使用方式见 DESIGN.md 最新 Overview。后续页面复用这些组件，不另建主题/控件体系。检查继续使用 frontend 中 `npm run check`、`npm test`、`npm run build`；当前 85 项测试。截图、文件清单和实际验收限制见 `docs/verification/course-design-system-20261109/README.md`。
+追加：课程页不再提供独立返回按钮；顶部面包屑的“我的课程”返回列表，编辑时可点课程名回详情，保留未保存确认及保存期间禁用。当前前端测试 86 项。导航快照与受保护回调由 CourseSpace 提供，Workspace 负责顶部呈现。
+
+当前入口仍为 `/` → 新建课程；新建/编辑共用 800px 标准表单，桌面双列、手机单列，取消/保存按内容宽度右对齐。Token 来源为 `frontend/styles/tokens.css`，原共享类名与新公共组件统一由 `frontend/styles/ui.css`、`frontend/components/ui.tsx` 维护。容器 640/800/1120/full，使用方式见 DESIGN.md 最新 Overview。后续页面复用这些组件，不另建主题/控件体系。检查继续使用 frontend 中 `npm run check`、`npm test`、`npm run build`；当前 86 项测试。截图、文件清单和实际验收限制见 `docs/verification/course-design-system-20261109/README.md`。
 
 ## 当前导航外壳 · 2026-11-09
 

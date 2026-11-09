@@ -33,4 +33,5 @@ export function PageHeader({ id, title, description }: { id?: string; title: str
   return <header className="ui-page-header"><h1 id={id}>{title}</h1>{description ? <p>{description}</p> : null}</header>;
 }
 
+export type BreadcrumbItem = { label: string; onSelect?: () => void; disabled?: boolean };
 export function Breadcrumb({ children }: { children: ReactNode }) { return <nav className="breadcrumb" aria-label="面包屑">{children}</nav>; }
