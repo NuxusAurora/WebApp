@@ -744,3 +744,27 @@ html, body { height: 100%; overflow: hidden; }
 .curriculum-pages > label { flex: 1; }
 .curriculum-uncertainties { margin-bottom: 20px; font-size: 12px; line-height: 1.7; }
 .curriculum-uncertainties li { padding: 4px 0; overflow-wrap: anywhere; }
+/* Course library: one list surface, then a separate full-width detail view. */
+.course-library > .course-index { flex: 1; width: 100%; }
+.course-library .library-toolbar { padding: 20px; margin: 0; gap: 16px; border-bottom: 1px solid var(--line-soft); }
+.course-library .search-field { width: min(360px, 100%); }
+.course-library .library-toolbar > .button { flex-shrink: 0; }
+.course-library .course-row { background: var(--surface); }
+.course-library .course-enter { flex-shrink: 0; background: #256b45; border-color: #256b45; color: #ffffff; min-width: 90px; }
+.course-library .course-enter:hover:enabled { background: #1c5335; border-color: #1c5335; }
+.course-library .detail-region { flex: 1; }
+.course-library .detail-back { display: inline-flex; align-self: flex-start; flex-shrink: 0; margin-bottom: 12px; min-height: 36px; }
+.account-page:has(.archived-courses) { overflow: auto; overscroll-behavior: contain; }
+.account-page:has(.archived-courses) .account-overview { overflow: visible; flex-shrink: 0; }
+.archived-courses { width: 100%; max-width: 1260px; align-self: center; flex-shrink: 0; margin: 12px 0 24px; border-top: 1px solid var(--line); }
+.archive-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 56px; padding: 12px 8px; border: 0; background: transparent; color: var(--ink); text-align: left; }
+.archive-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.archive-content { padding: 0 8px 16px; }
+.archive-row { display: flex; align-items: center; gap: 16px; padding: 16px 0; }
+.archive-row > .button { flex-shrink: 0; }
+@media (max-width: 740px) {
+  .course-library .library-toolbar { padding: 16px; flex-wrap: wrap; gap: 12px; }
+  .course-library .search-field { flex: 1; width: auto; min-width: 150px; }
+  .course-library .course-row { gap: 12px; padding: 16px; }
+  .course-library .course-enter { min-width: 68px; padding-inline: 10px; }
+}

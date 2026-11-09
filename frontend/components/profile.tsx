@@ -5,11 +5,13 @@ import { api } from '../lib/api';
 import type { User } from './account';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
+import { ArchivedCourses } from './archived-courses';
 
 const statistics = ['消耗 Token', 'Token 使用峰值', '最长学习项目用时', '最长连续学习天数', '当前连续学习天数'];
 
-export function Profile({ user, onUpdate, onPasswordChanged }: {
+export function Profile({ user, onUpdate, onPasswordChanged, onSessionExpired }: {
   user: User; onUpdate: (user: User) => void; onPasswordChanged: () => void;
+  onSessionExpired?: () => void;
 }) {
   const [editing, setEditing] = useState<'nickname' | 'password' | null>(null);
   const [pending, setPending] = useState(false);
@@ -82,6 +84,7 @@ export function Profile({ user, onUpdate, onPasswordChanged }: {
         <button className="button" disabled>修改邮箱<span className="action-state">待接入</span></button>
       </div>
     </div>
+    <ArchivedCourses onSessionExpired={onSessionExpired} />
     {editing ? <dialog ref={dialog} className="profile-dialog" aria-labelledby="profile-dialog-title"
       aria-describedby={editing === 'password' ? 'password-note' : undefined}
       onCancel={event => { event.preventDefault(); closeEditor(); }}>

@@ -24,12 +24,10 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   const [error, setError] = useState('');
   const { notification, notify: setMessage, dismiss } = useToast();
   const [offset, setOffset] = useState(0);
-  const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('all');
   const [query, setQuery] = useState('');
   const [reload, setReload] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'curriculum'>('overview');
-  const [mobileDetail, setMobileDetail] = useState(false);
   const newButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
   const errorElement = useRef<HTMLParagraphElement>(null);
@@ -62,7 +60,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
       .then(rows => {
         if (!active) return;
         setCourses(rows);
-        setSelected(current => rows.find(row => row.id === current?.id) ?? rows[0] ?? null);
       })
       .catch(error => { if (active) handleError(error, setLoadError); })
       .finally(() => { if (active) setLoading(false); });
@@ -92,14 +89,14 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     if (!leaveEditor()) return;
     setSelected(course); setEditing(null); setDirty(false); setDeleteTarget(null);
     setDetailTab('overview'); setError(''); setMessage('');
-    setMobileDetail(true);
-    if (window.innerWidth < 741) requestAnimationFrame(() => document.getElementById('course-detail-title')?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => document.getElementById('course-detail-title')?.focus({ preventScroll: true }));
   }
 
   function backToDirectory() {
     if (!leaveEditor()) return;
-    setEditing(null); setDirty(false); setMobileDetail(false); setDeleteTarget(null);
-    requestAnimationFrame(() => newButton.current?.focus({ preventScroll: true }));
+    const previousId = selected?.id;
+    setSelected(null); setEditing(null); setDirty(false); setDeleteTarget(null); setError('');
+    requestAnimationFrame(() => (document.getElementById('enter-' + previousId) ?? newButton.current)?.focus({ preventScroll: true }));
   }
 
   function newCourse() {
@@ -109,8 +106,13 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
 
   function cancelEditor() {
     if (!leaveEditor()) return;
+    const wasNew = editing === 'new';
     setEditing(null); setDirty(false);
-    requestAnimationFrame(() => newButton.current?.focus({ preventScroll: true }));
+    if (wasNew) {
+      setSelected(null);
+      requestAnimationFrame(() => newButton.current?.focus({ preventScroll: true }));
+    }
+    else requestAnimationFrame(() => document.getElementById('course-detail-title')?.focus({ preventScroll: true }));
   }
 
   async function run(action: () => Promise<void>) {
@@ -129,12 +131,12 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
       const course = await api<Course>(isNew ? 'courses' : 'courses/' + selected!.id, {
         method: isNew ? 'POST' : 'PATCH', body: JSON.stringify(data),
       });
-      setSelected(course); setEditing(null); setDirty(false);
-      setMobileDetail(true);
+      setSelected(course.status === 'active' ? course : null); setEditing(null); setDirty(false);
       setCourses(previous => isNew ? [course, ...previous].slice(0, 100) :
         previous.map(row => row.id === course.id ? course : row));
       if (isNew && offset !== 0) setOffset(0);
-      setQuery(''); setFilter('all'); setDetailTab('overview'); setMessage('课程已保存');
+      setQuery(''); setDetailTab('overview'); setMessage(course.status === 'archived' ? '课程已归档，可在账户设置中恢复学习' : '课程已保存');
+      requestAnimationFrame(() => (document.getElementById('course-detail-title') ?? newButton.current)?.focus({ preventScroll: true }));
     });
   }
 
@@ -143,7 +145,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
     await run(async () => {
       await api('courses/' + deleteTarget.id, { method: 'DELETE' });
       setDeleteTarget(null); setSelected(null); setMessage('课程已删除');
-      setMobileDetail(false);
       if (courses.length === 1 && offset > 0) setOffset(previous => Math.max(0, previous - 100));
       else setReload(previous => previous + 1);
       requestAnimationFrame(() => newButton.current?.focus({ preventScroll: true }));
@@ -153,43 +154,31 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   function page(next: number) {
     if (!leaveEditor()) return;
     setEditing(null); setDirty(false); setDeleteTarget(null);
-    setQuery(''); setFilter('all'); setOffset(next);
+    setSelected(null); setQuery(''); setOffset(next);
   }
 
   const needle = query.trim().toLocaleLowerCase();
   const visible = courses.filter(course =>
-    (filter === 'all' || course.status === filter) &&
+    course.status === 'active' &&
     (!needle || [course.title, course.subject, course.textbook].some(value => value.toLocaleLowerCase().includes(needle))));
-  const activeCount = courses.filter(course => course.status === 'active').length;
-  const hasFilters = Boolean(needle || filter !== 'all');
+  const hasFilters = Boolean(needle);
+  const showingDetail = Boolean(editing || selected);
 
-  return <div className={'course-space' + (editing || mobileDetail ? ' showing-detail' : '')}>
-    <div className="page-heading">
-      <div><h1>我的课程</h1><p>管理课程和教材目录。</p></div>
-      <button ref={newButton} className="button primary" disabled={busy} onClick={newCourse}>
-        <Icon name="plus" size={18} />新建课程</button>
-    </div>
+  return <div className={'course-space course-library' + (showingDetail ? ' showing-detail' : '')}>
     {error ? <p ref={errorElement} tabIndex={-1} className="notice error" role="alert">
       <Icon name="alert" size={18} />{error}</p> : null}
     <Toast notification={notification} onDismiss={dismiss} />
+    {!showingDetail ? <section className="course-index" aria-label="学习中的课程" aria-busy={loading}>
     <div className="library-toolbar">
-      <div className="segmented-control course-filters" aria-label="当前页课程状态">
-        {([['all', '全部', courses.length], ['active', '学习中', activeCount],
-          ['archived', '已归档', courses.length - activeCount]] as const).map(([value, label, count]) =>
-          <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>
-            {label}<span className="filter-count">{count}</span></button>)}
-      </div>
       <div className="search-field"><Icon name="search" size={18} />
         <label className="visually-hidden" htmlFor="course-search">搜索当前页课程</label>
         <input id="course-search" type="search" value={query} onChange={event => setQuery(event.target.value)}
           placeholder="搜索课程、学科或教材" autoComplete="off" />
         {query ? <button className="icon-button" aria-label="清空课程搜索" onClick={() => setQuery('')}><Icon name="close" size={16} /></button> : null}
       </div>
+      <button ref={newButton} className="button primary" disabled={busy} onClick={newCourse}>
+        <Icon name="plus" size={18} />新建课程</button>
     </div>
-    <div className="course-workarea">
-      <section className="course-index" aria-label="课程列表" aria-busy={loading}>
-        <div className="index-heading"><h2>课程目录</h2>
-          <span className="count-label">{loading ? '读取中…' : hasFilters ? visible.length + ' 门匹配' : courses.length + ' 门课程'}</span></div>
         {loading ? <div className="course-skeleton" role="status" aria-label="正在加载课程">
           {[1, 2, 3].map(row => <div className="skeleton-row" key={row}><div className="skeleton skeleton-square" />
             <div><div className="skeleton" /><div className="skeleton skeleton-short" /></div></div>)}
@@ -197,16 +186,16 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
           <h3>课程读取失败</h3><p>{loadError}</p><button className="button" onClick={() => setReload(value => value + 1)}>重新加载课程</button></div> :
           !visible.length && hasFilters ? <div className="index-empty"><Icon name="search" size={34} />
             <h3>没有找到匹配的课程</h3>
-            <p>换个关键词，或清除筛选查看当前页课程。</p>
-            <button className="text-button" onClick={() => { setQuery(''); setFilter('all'); }}>清除筛选</button></div> :
+            <p>换个关键词，或清除搜索查看当前页课程。</p>
+            <button className="text-button" onClick={() => setQuery('')}>清除搜索</button></div> :
             <ul className="course-list">{visible.map(course => <li key={course.id}>
-              <button className={'course-row' + (selected?.id === course.id && editing !== 'new' ? ' is-selected' : '')}
-                aria-pressed={selected?.id === course.id && editing !== 'new'} disabled={busy} onClick={() => openCourse(course)}>
+              <div className="course-row">
                 <span className="course-symbol"><Icon name="book" size={22} /></span>
                 <span className="course-description"><strong>{course.title}</strong>
                   <span>{course.subject || '未设置学科'}{course.textbook ? ' · ' + course.textbook : ''}</span></span>
-                <span className={'status-tag' + (course.status === 'archived' ? ' neutral' : '')}>{course.status === 'active' ? '学习中' : '已归档'}</span>
-              </button>
+                <button id={'enter-' + course.id} className="button course-enter" disabled={busy}
+                  aria-label={'进入' + course.title} onClick={() => openCourse(course)}>进入<Icon name="arrow" size={16} /></button>
+              </div>
             </li>)}</ul>}
         {!loading && !loadError ? <div className="index-footer">
           <span>当前第 {Math.floor(offset / 100) + 1} 页{hasFilters ? ' · 筛选仅作用于本页' : ''}</span>
@@ -215,9 +204,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
             <button className="icon-button" aria-label="下一页课程" disabled={busy || courses.length < 100}
               onClick={() => page(offset + 100)}><Icon name="chevron" size={16} /></button></div></div> : null}
       </section>
-      <div className="detail-region" ref={detailRegion}>
+      : <div className="detail-region" ref={detailRegion}>
         <button className="text-button detail-back" disabled={busy} onClick={backToDirectory}>
-          <span className="rotate-icon"><Icon name="chevron" size={16} /></span>返回课程目录
+          <span className="rotate-icon"><Icon name="chevron" size={16} /></span>返回
         </button>
         {editing ? <CourseEditor key={editing === 'new' ? 'new' : selected!.id} course={editing === 'new' ? null : selected}
           busy={busy} onSave={data => void save(data)} onCancel={cancelEditor} onDirty={() => setDirty(true)} /> :
@@ -254,7 +243,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
                 <button className="button" disabled={busy} onClick={() => setDeleteTarget(null)}>取消</button></div>
             </div> : null}
           </section> : null}
-      </div>
-    </div>
+      </div>}
   </div>;
 }
