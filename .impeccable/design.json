@@ -79,11 +79,16 @@
       "ground": "#181818",
       "surface": "#222222",
       "accent": "#8dbbff",
-      "toastBackground": "#d6eca5",
-      "toastInk": "#2c3e18",
+      "toastBackground": "#425b25",
+      "toastInk": "#ffffff",
       "rail": "#191c1e",
       "line": "#454545",
-      "control": "#363636"
+      "control": "#363636",
+      "ink": "#ffffff",
+      "muted": "#ffffff",
+      "placeholder": "#ffffff",
+      "primaryBackground": "#2869b0",
+      "dangerBackground": "#a03831"
     }
   },
   "components": [

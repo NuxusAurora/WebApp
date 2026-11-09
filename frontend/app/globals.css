@@ -624,18 +624,26 @@ html, body { height: 100%; overflow: hidden; }
   .profile-actions > .button { width: 100%; }
 }
 @media (prefers-color-scheme: dark) {
-  :root { --ink: #e0e9f2; --ink-strong: #f3f7fc; --muted: #a5b7ca; --surface: #222222; --ground: #181818;
+  :root { --ink: #ffffff; --ink-strong: #ffffff; --muted: #ffffff; --surface: #222222; --ground: #181818;
     --line: #454545; --line-soft: #363636; --accent: #8dbbff; --accent-strong: #b3d2ff; --accent-soft: #263342;
-    --rail: #191c1e; --rail-current: #2b2d2f; --rail-muted: #b3c5d9; --success: #add6b6; --success-bg: #233c31;
-    --danger: #ffaaa3; --danger-bg: #42282b; --toast-bg: #d6eca5; --toast-ink: #2c3e18; }
+    --rail: #191c1e; --rail-current: #2b2d2f; --rail-muted: #ffffff; --success: #ffffff; --success-bg: #233c31;
+    --danger: #ffffff; --danger-bg: #42282b; --toast-bg: #425b25; --toast-ink: #ffffff; }
   html { scrollbar-color: #858585 transparent; }
-  ::selection { background: #33577e; color: #f3f7fc; }
+  ::selection { background: #33577e; color: #ffffff; }
+  a, a:hover, .quiet-link:hover, .text-button, .text-button:hover:enabled, .text-button:disabled,
+  .account-links .text-button:hover, .icon-button:hover:enabled, .icon-button:disabled,
+  .app-sidebar > .wordmark, .app-sidebar .brand-symbol, .account-shortcut, .avatar,
+  .nav-item:hover, .course-symbol, .profile-avatar, .status-message, .status-heading button:disabled,
+  .detail-tabs button:hover, .detail-tabs button[aria-selected="true"] { color: #ffffff; }
+  .skip-link { color: #ffffff; background: #333333; }
   .entry-shell { background: var(--ground); }
   .entry-main, .course-row, .settings-section, .status-heading button { background: var(--surface); }
   .button, .status-heading button { border-color: #858585; color: var(--ink); }
   .button:hover:enabled, .button:active:enabled { background: #303030; border-color: #999999; color: var(--ink-strong); }
-  .button.primary, .button.primary:hover:enabled, .button.primary:active:enabled { color: #10233d; background: var(--accent); border-color: var(--accent); }
-  .button.danger, .button.danger:hover:enabled { color: #351b1a; background: var(--danger); border-color: var(--danger); }
+  .button.primary, .button.primary:hover:enabled, .button.primary:active:enabled { color: #ffffff; background: #2869b0; border-color: #2869b0; }
+  .button.primary:hover:enabled, .button.primary:active:enabled { background: #1e5592; border-color: #1e5592; }
+  .button.danger, .button.danger:hover:enabled { color: #ffffff; background: #a03831; border-color: #a03831; }
+  .button.danger:hover:enabled { background: #832a25; border-color: #832a25; }
   .button:disabled { background: #2a2a2a; border-color: var(--line); color: var(--muted); }
   .nav-item:hover, .account-shortcut:hover, .logout-button:hover:enabled { background: #2b2d2f; }
   .sidebar-account { border-color: var(--line); }
@@ -644,22 +652,23 @@ html, body { height: 100%; overflow: hidden; }
   .form-stack input, .form-stack textarea, .form-stack select, .search-field { background: #363636; border-color: #858585; }
   .form-stack input:hover, .form-stack textarea:hover, .form-stack select:hover { border-color: #999999; }
   .form-stack input:focus-visible, .form-stack textarea:focus-visible, .form-stack select:focus-visible { border-color: var(--accent); }
-  input::placeholder, textarea::placeholder { color: #91a6bd; }
+  input::placeholder, textarea::placeholder { color: #ffffff; opacity: 1; }
   .segmented-control, .skeleton, .placeholder-book, .course-symbol { background: #2a2a2a; }
   .segmented-control button { color: var(--muted); }
   .segmented-control button:hover:enabled { background: #383838; color: var(--ink); }
-  .segmented-control button[aria-pressed="true"] { color: var(--accent); }
+  .segmented-control button[aria-pressed="true"] { color: #ffffff; }
+  .segmented-control button:disabled { opacity: 1; }
   .course-row:hover:enabled { background: #2b2b2b; }
   .course-row.is-selected, .course-row.is-selected:hover:enabled { background: var(--accent-soft); }
   .course-row.is-selected .course-symbol { background: #2c4c70; }
   .status-tag.neutral { color: var(--muted); background: #303030; }
   .index-empty h3, .detail-placeholder h2 { color: var(--ink); }
   .detail-placeholder { color: var(--muted); border-color: #858585; }
-  .file-symbol, .files-empty, .index-empty { color: #9ab7d5; }
+  .file-symbol, .files-empty, .index-empty { color: #ffffff; }
   .notice.success { border-color: #476b55; }
   .notice.error, .delete-confirmation { border-color: #744449; background: var(--danger-bg); }
   .delete-confirmation p { color: var(--danger); }
-  .notice.info { color: var(--accent); background: var(--accent-soft); border-color: #416183; }
+  .notice.info { color: #ffffff; background: var(--accent-soft); border-color: #416183; }
   .upload-form input[type="file"] { background: #363636; }
   input[type="file"]::file-selector-button { color: var(--ink); background: #444444; }
   .profile-dialog::backdrop { background: #00000088; }
