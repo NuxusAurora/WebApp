@@ -260,7 +260,7 @@ describe('account and shell states', () => {
     render(<Workspace systemView />);
     expect(await screen.findByRole('heading', { name: '连接状态' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '连接状态' })).toHaveAttribute('aria-current', 'page');
-    await screen.findByText('登录工作台');
+    await screen.findByRole('link', { name: '登录工作台' });
     expect(screen.queryByLabelText('密码')).not.toBeInTheDocument();
   });
   it('shows deployment account availability after resolving a signed-out session', async () => {

@@ -133,7 +133,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
               <button type="button" role="menuitem" disabled={busy} onClick={() => void logout()}><Icon name="logout" size={18} />{busy ? '正在退出…' : '退出登录'}</button>
               {mobile && error ? <p className="sidebar-menu-error" role="alert">{error}</p> : null}
             </div> : null}
-          </> : <a className="sidebar-item" href="/" onClick={event => follow(event, 'courses')}><Icon name="user" size={18} /><span className="sidebar-label">{loading ? '读取账户…' : '登录工作台'}</span></a>}
+          </> : <a className="sidebar-item" href="/" aria-label={loading ? '读取账户…' : '登录工作台'} onClick={event => follow(event, 'courses')}><Icon name="user" size={18} /><span className="sidebar-label">{loading ? '读取账户…' : '登录工作台'}</span><span className="sidebar-tooltip" role="tooltip">{loading ? '读取账户…' : '登录工作台'}</span></a>}
         </div>
       </div>
     </dialog>

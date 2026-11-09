@@ -11,6 +11,13 @@ beforeEach(() => { history.replaceState({}, '', '/'); localStorage.clear(); side
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('shared sidebar', () => {
+  it('keeps the signed-out entry named and supplies its compact-rail tooltip', () => {
+    localStorage.setItem('learning-workspace.sidebar-collapsed', 'true');
+    render(<AppSidebar user={null} view="system" busy={false} navigate={() => true} logout={vi.fn()} />);
+    const login = screen.getByRole('link', { name: '登录工作台' });
+    expect(login).toHaveAttribute('aria-label', '登录工作台');
+    expect(login.querySelector('[role="tooltip"]')).toHaveTextContent('登录工作台');
+  });
   it('restores a collapsed preference, keeps real links and delegates logout through the account menu', () => {
     localStorage.setItem('learning-workspace.sidebar-collapsed', 'true');
     const navigate = vi.fn(() => true); const logout = vi.fn(async () => {});
