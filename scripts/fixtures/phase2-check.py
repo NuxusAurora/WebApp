@@ -14,6 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.ai.models  # register AI metadata
+import app.curriculum.models  # register curriculum metadata
 from app.config import Settings
 from app.models import Base
 

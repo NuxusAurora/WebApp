@@ -65,8 +65,19 @@ class ObjectStore:
                 if creation.response["Error"]["Code"] != "BucketAlreadyOwnedByYou":
                     raise
         self.client.put_object(
-            Bucket=self.bucket, Key=key, Body=content, ContentType="text/plain; charset=utf-8"
+            Bucket=self.bucket,
+            Key=key,
+            Body=content,
+            ContentType="image/png" if key.endswith(".png") else "text/plain; charset=utf-8",
         )
+
+    def read(self, key, limit):
+        response = self.client.get_object(Bucket=self.bucket, Key=key)
+        with response["Body"] as body:
+            content = body.read(limit + 1)
+        if len(content) > limit:
+            raise AppError("FILE_SIZE", "图片大小超过限制", 413)
+        return content
 
     def delete(self, key):
         self.client.delete_object(Bucket=self.bucket, Key=key)
@@ -77,8 +88,14 @@ class ObjectStore:
             Params={
                 "Bucket": self.bucket,
                 "Key": key,
-                "ResponseContentType": "text/plain; charset=utf-8",
-                "ResponseContentDisposition": 'attachment; filename="learning-material.txt"',
+                "ResponseContentType": "image/png"
+                if key.endswith(".png")
+                else "text/plain; charset=utf-8",
+                "ResponseContentDisposition": (
+                    'attachment; filename="curriculum.png"'
+                    if key.endswith(".png")
+                    else 'attachment; filename="learning-material.txt"'
+                ),
             },
             ExpiresIn=60,
         )

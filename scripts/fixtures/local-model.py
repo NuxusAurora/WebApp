@@ -24,6 +24,10 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"error":{"message":"private-provider-error"}}')
             return
         text = '{"ok":true}' if body.get("response_format") else "local protocol fixture OK"
+        if body["model"] == "curriculum-fixture":
+            text = json.dumps({"chapters": [{"id": "tmp-c1", "title": "第一章 函数与极限", "page_start": 1, "page_end": None,
+                "sections": [{"id": "tmp-s1", "title": "1.1 映射与函数", "page_start": 1, "page_end": None},
+                             {"id": "tmp-s2", "title": "1.2 数列的极限", "page_start": 12, "page_end": None}]}], "uncertain_items": []})
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream" if body.get("stream") else "application/json")
         self.end_headers()

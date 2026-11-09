@@ -17,6 +17,8 @@ from app.ai.routes import router as ai_router
 from app.auth import router as auth_router
 from app.config import Settings
 from app.courses import router as course_router
+from app.curriculum.ocr import LocalOCR
+from app.curriculum.routes import router as curriculum_router
 from app.database import Resources
 from app.errors import AppError
 from app.mail import Mailer
@@ -56,6 +58,7 @@ def create_app(
                 )
             )
             app.state.ai_gateway = Gateway({"openai": OpenAIProvider(app.state.ai_client)})
+            app.state.curriculum_ocr = LocalOCR()
             yield
         finally:
             try:
@@ -72,6 +75,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(course_router)
     app.include_router(ai_router)
+    app.include_router(curriculum_router)
 
     @app.exception_handler(AppError)
     async def application_error(request, error):
@@ -127,7 +131,16 @@ def create_app(
             else:
                 oversized = False
                 if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-                    limit = 1024 * 1024 if request.url.path.endswith("/uploads") else 32768
+                    path = request.url.path
+                    limit = (
+                        5 * 1024 * 1024
+                        if path.endswith("/curriculum/images")
+                        else 512 * 1024
+                        if "/curriculum" in path
+                        else 1024 * 1024
+                        if path.endswith("/uploads")
+                        else 32768
+                    )
                     data = bytearray()
                     async for chunk in request.stream():
                         data.extend(chunk)

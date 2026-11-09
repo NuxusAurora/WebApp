@@ -55,3 +55,5 @@ class Upload(Record, Base):
     filename: Mapped[str] = mapped_column(String(200))
     object_key: Mapped[str] = mapped_column(Text, unique=True)
     size: Mapped[int]
+    media_type: Mapped[str] = mapped_column(String(80), default="text/plain")
+    purpose: Mapped[str] = mapped_column(String(30), default="material")

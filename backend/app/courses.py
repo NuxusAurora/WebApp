@@ -46,8 +46,12 @@ def course_data(course):
 
 
 async def owned(db, course_id, user):
+    return await owned_by_id(db, course_id, user.id)
+
+
+async def owned_by_id(db, course_id, user_id):
     course = await db.scalar(
-        select(Course).where(Course.id == course_id, Course.user_id == user.id).with_for_update()
+        select(Course).where(Course.id == course_id, Course.user_id == user_id).with_for_update()
     )
     if not course:
         raise AppError("NOT_FOUND", "课程不存在", 404)
@@ -123,7 +127,7 @@ async def uploads(course_id: UUID, db: DB, user: Actor):
     rows = (
         await db.scalars(
             select(Upload)
-            .where(Upload.course_id == course_id)
+            .where(Upload.course_id == course_id, Upload.purpose == "material")
             .order_by(Upload.created_at.desc())
             .limit(100)
         )

@@ -38,6 +38,26 @@ async function ready() {
 }
 
 describe('desktop course workspace', () => {
+  it('keeps curriculum edits protected when the current tab is clicked again', async () => {
+    vi.mocked(api).mockImplementation(async path => {
+      if (path.startsWith('courses?')) return courses;
+      if (path.endsWith('/curriculum')) return { confirmed_revision: 0, curriculum: { chapters: [] }, versions: [] };
+      if (path.endsWith('/uploads') || path.endsWith('/images') || path === 'ai/providers') return [];
+      throw new Error('Unexpected request');
+    });
+    const dirty = vi.fn();
+    render(<CourseSpace onDirtyChange={dirty} />);
+    await screen.findByRole('heading', { name: '高等数学' });
+    fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
+    fireEvent.click(await screen.findByRole('button', { name: '手动编辑目录' }));
+    fireEvent.change(screen.getByLabelText('第 1 章标题'), { target: { value: '未保存的目录' } });
+    fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(dirty).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole('tab', { name: /学习资料/ }));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByLabelText('第 1 章标题')).toHaveValue('未保存的目录');
+  });
   it('filters the current page by status and by course, subject or textbook', async () => {
     await ready();
     fireEvent.click(screen.getByRole('button', { name: /^已归档/ }));

@@ -176,6 +176,22 @@ node scripts/phase0.mjs down
 
 当前配置用于本地开发；生产 TLS、最小权限存储身份、备份恢复、部署和回滚属于 Phase 9，尚未验收。Ruff/pytest/Vitest/生产构建、真实依赖与浏览器验收分别记录，不能相互替代。
 
+## Phase 3 教材目录
+
+入口：课程详情 → 教材目录。上传 PNG/JPEG，每张 1 字节至 5 MiB、最多 1600 万像素；图片经解码、纠正 EXIF 方向和重新编码为 PNG 后进入私有存储。每批按勾选顺序识别最多 5 张图片；单张 OCR 35 秒、整批 120 秒上限。Tesseract chi_sim+eng 随后端 Docker 镜像安装，通过管道处理，无本地临时图片。原有学习资料 .txt 的 1 MiB 限制不变。
+
+先核对 OCR 文字（也可直接粘贴），选择已启用模型生成草稿。图片不发送供应商；文字、课程/教材名称经现有 Gateway 发送所选模型。也可直接手动编辑。章节/小节支持标题、排序和起止页码，未知页码留空；页码为 1–100000，结束页不早于起始页。模型不确定项须逐项核对、保存，再确认。保存草稿不会改变正式目录。确认应用时核对新增/修改/归档项；有归档必须显式勾选确认。再次编辑正式目录会建立新草稿，使用现有 UUID 保留节点；重新识别使用临时 ID，不按相同标题自动匹配。
+
+API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirmed_revision 与最近 100 份版本；GET/POST images 为独立目录图片；POST ocr 接收 image_ids；POST parse 接收 ocr_text、image_ids、provider_id、model_id；POST drafts 接收 payload 与 base_course_revision；PATCH 接收 version_id、revision、base_course_revision、payload；POST confirm 接收前三个版本字段与 accept_archives。图片下载/删除复用所有者校验的 uploads/{id} 入口；学习资料列表不混入图片。
+
+迁移 `0004_curriculum` 接在 `0003_ai_gateway` 后，建立 chapters、sections、structure_versions、workflow_runs、structure_events，并扩展 uploads。版本和正式修订分别校验，课程行锁串行化确认；重复确认返回首次结果。旧确认版本转 SUPERSEDED，旧草稿保留；移除节点归档。来源、原始输出、模型/Prompt、校验与工作流失败状态留在私有数据库，不写应用日志；用户修改不覆盖原始来源。当前只有 CURRICULUM 类型，Phase 4 再扩展知识结构与其归档协调。
+
+源码：`backend/app/curriculum/`、`backend/prompts/curriculum/parse-v1.md`、`frontend/components/curriculum.tsx`、`frontend/lib/curriculum.ts`。OCR 从 app.state.curriculum_ocr 注入；Gateway 和存储由组合根复用，不反向依赖目录领域。
+
+验证：`uv run --directory backend pytest -q`、对应 Ruff 检查；在 frontend 运行 npm run check / npm test / npm run build；`node --test scripts/infra.test.mjs scripts/production.test.mjs`。`node scripts/phase0.mjs verify` 自动运行 Phase 3 的真实 PostgreSQL 迁移往返/元数据、私有 S3 图片、中文 OCR、协议 fixture、草稿修订冲突、并发确认、隔离和重启持久化验证。fixture `scripts/fixtures/calculus-toc.png` 是合成高数目录，生成源码 render-curriculum.py（参数为 CJK 字体路径与输出路径）；不是教材实拍。协议 fixture 不代表真实模型质量，实际效果与视觉限制见 HANDOFF。
+
+生产 Nginx 模板已支持 5m 请求和 185 秒代理超时；本轮未修改云端正在运行的配置。部署需单独执行项目部署流程。
+
 ## Phase 2 本地 OpenAI 兼容模型
 
 入口：登录后“模型设置”，依次填写“连接与密钥 → 模型与测试”。密钥可留空；已有密钥在编辑时留空保留，可单独删除。更换地址必须重新输入或先删除密钥，防止把旧密钥发送给新地址。密钥以 Fernet 认证加密保存，读取只返回 has_api_key。保留现有 ENCRYPTION_KEY；轮换应用加密主密钥需要独立重新加密迁移，本阶段不提供自动迁移。

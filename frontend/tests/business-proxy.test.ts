@@ -4,6 +4,17 @@ import { proxyBusiness } from '../lib/business-proxy.server';
 
 const environment = { BACKEND_INTERNAL_URL: 'http://backend:8000' };
 describe('authenticated same-origin proxy', () => {
+  it('proxies bounded curriculum images and rejects unrelated course routes', async () => {
+    const prefix = 'courses/11111111-1111-1111-1111-111111111111/curriculum';
+    const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: {} }));
+    const request = (body: Uint8Array) => new Request('http://localhost/api/v1/' + prefix + '/images', {
+      method: 'POST', headers: { 'X-Requested-With': 'structured-learning', 'Content-Type': 'image/png' }, body: body as BodyInit,
+    });
+    expect((await proxyBusiness(request(new Uint8Array(2 * 1024 * 1024)), (prefix + '/images').split('/'), upstream, environment)).status).toBe(200);
+    expect((await proxyBusiness(request(new Uint8Array(5 * 1024 * 1024 + 1)), (prefix + '/images').split('/'), upstream, environment)).status).toBe(413);
+    expect(upstream).toHaveBeenCalledTimes(1);
+    expect((await proxyBusiness(new Request('http://localhost'), (prefix + '/internal').split('/'), upstream, environment)).status).toBe(404);
+  });
   it('passes local model streams through without buffering and forwards log pagination', async () => {
     const upstream = vi.fn().mockResolvedValue(new Response('data: {"done":true}\n\n', {
       headers: { 'Content-Type': 'text/event-stream', 'Authorization': 'private' },

@@ -7,6 +7,7 @@ import { courseDate } from '../lib/course-types';
 import { learningGoalDescription } from '../lib/learning-goals';
 import { CourseEditor } from './course-editor';
 import { CourseFiles } from './course-files';
+import { CurriculumEditor } from './curriculum';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 
@@ -32,7 +33,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   const [reload, setReload] = useState(0);
   const [filesReload, setFilesReload] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
-  const [detailTab, setDetailTab] = useState<'overview' | 'materials'>('overview');
+  const [detailTab, setDetailTab] = useState<'overview' | 'materials' | 'curriculum'>('overview');
   const [mobileDetail, setMobileDetail] = useState(false);
   const newButton = useRef<HTMLButtonElement>(null);
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -92,10 +93,14 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
   function tabKey(event: KeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === 'Home' ? 'overview' : event.key === 'End' ? 'materials' :
-      detailTab === 'overview' ? 'materials' : 'overview';
+    const tabs = ['overview', 'materials', 'curriculum'] as const;
+    const index = tabs.indexOf(detailTab);
+    const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[2] :
+      tabs[(index + (event.key === 'ArrowRight' ? 1 : 2)) % 3];
+    if (next === detailTab || !leaveEditor()) return;
+    setDirty(false);
     setDetailTab(next);
-    document.getElementById(next === 'overview' ? 'overview-tab' : 'materials-tab')?.focus();
+    document.getElementById(next + '-tab')?.focus();
   }
 
   function leaveEditor() {
@@ -268,25 +273,29 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
           selected ? <section className="detail-panel" aria-labelledby="course-detail-title">
             <div className="detail-heading"><span className={'status-tag' + (selected.status === 'archived' ? ' neutral' : '')}>
               {selected.status === 'active' ? '学习中' : '已归档'}</span>
-              <button className="button button-small" disabled={busy} onClick={() => { setEditing('edit'); setDeleteTarget(null); }}>
+              <button className="button button-small" disabled={busy} onClick={() => { if (!leaveEditor()) return; setDirty(false); setEditing('edit'); setDeleteTarget(null); }}>
                 <Icon name="edit" size={16} />编辑课程</button></div>
             <h2 className="course-detail-title" id="course-detail-title" tabIndex={-1} title={selected.title}>{selected.title}</h2>
             {courseDate(selected.updated_at) ? <p className="last-edited">更新于 {courseDate(selected.updated_at)}</p> : null}
             <div className="detail-tabs" role="tablist" aria-label="课程详情">
               <button role="tab" id="overview-tab" aria-selected={detailTab === 'overview'} aria-controls="course-tab-panel"
                 tabIndex={detailTab === 'overview' ? 0 : -1} onKeyDown={tabKey}
-                onClick={() => setDetailTab('overview')}>课程概览</button>
+                onClick={() => { if (detailTab !== 'overview' && leaveEditor()) { setDirty(false); setDetailTab('overview'); } }}>课程概览</button>
               <button role="tab" id="materials-tab" aria-selected={detailTab === 'materials'} aria-controls="course-tab-panel"
                 tabIndex={detailTab === 'materials' ? 0 : -1} onKeyDown={tabKey}
-                onClick={() => setDetailTab('materials')}>学习资料{!filesLoading && !filesError ? <span>{files.length}</span> : null}</button>
+                onClick={() => { if (detailTab !== 'materials' && leaveEditor()) { setDirty(false); setDetailTab('materials'); } }}>学习资料{!filesLoading && !filesError ? <span>{files.length}</span> : null}</button>
+              <button role="tab" id="curriculum-tab" aria-selected={detailTab === 'curriculum'} aria-controls="course-tab-panel"
+                tabIndex={detailTab === 'curriculum' ? 0 : -1} onKeyDown={tabKey}
+                onClick={() => { if (detailTab !== 'curriculum' && leaveEditor()) { setDirty(false); setDetailTab('curriculum'); } }}>教材目录</button>
             </div>
-            <div id="course-tab-panel" role="tabpanel" aria-labelledby={detailTab === 'overview' ? 'overview-tab' : 'materials-tab'}>
+            <div id="course-tab-panel" role="tabpanel" aria-labelledby={detailTab + '-tab'}>
               {detailTab === 'overview' ? <dl className="course-metadata">
                 <dt>学科</dt><dd>{selected.subject || <span className="muted">未设置</span>}</dd>
                 <dt>教材</dt><dd>{selected.textbook || <span className="muted">未设置</span>}</dd>
                 <dt>学习目标</dt><dd className="learning-goal">{selected.learning_goal || <span className="muted">还没有选择学习目标。</span>}
                   {learningGoalDescription(selected.learning_goal) ? <small className="goal-description">{learningGoalDescription(selected.learning_goal)}</small> : null}</dd>
-              </dl> :
+              </dl> : detailTab === 'curriculum' ?
+              <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} /> :
               <CourseFiles key={selected.id} files={files} busy={busy} loading={filesLoading} error={filesError}
                 onUpload={upload} onDownload={file => void download(file)} onDelete={file => void removeFile(file)}
                 onRetry={() => setFilesReload(value => value + 1)} />}
@@ -294,7 +303,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired }: {
             <div className="detail-bottom"><button className="text-button danger-quiet" disabled={busy}
               onClick={() => setDeleteTarget(selected)}><Icon name="trash" size={16} />删除课程</button></div>
             {deleteTarget ? <div className="delete-confirmation" role="alert" aria-labelledby="delete-course-title">
-              <h3 id="delete-course-title">删除这门课程？</h3><p>“{deleteTarget.title}”及其文件将被永久删除，此操作无法撤销。</p>
+              <h3 id="delete-course-title">删除这门课程？</h3><p>“{deleteTarget.title}”及其目录、文件将被永久删除，此操作无法撤销。</p>
               <div className="button-row"><button ref={confirmButton} className="button danger" disabled={busy}
                 onClick={() => void removeCourse()}>{busy ? '删除中…' : '确认删除'}</button>
                 <button className="button" disabled={busy} onClick={() => setDeleteTarget(null)}>取消</button></div>
