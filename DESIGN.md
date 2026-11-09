@@ -23,18 +23,18 @@ colors:
 typography:
   title:
     fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "25px"
+    fontSize: "22.5px"
     fontWeight: 650
     lineHeight: 1.35
     letterSpacing: "-0.02em"
   body:
     fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "14px"
+    fontSize: "12.6px"
     fontWeight: 400
     lineHeight: 1.6
   metadata:
     fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif'
-    fontSize: "12px"
+    fontSize: "10.8px"
     fontWeight: 400
     lineHeight: 1.6
 rounded:
@@ -102,7 +102,7 @@ components:
 
 ## Typography
 
-使用系统中文无衬线，避免额外字体加载。标准工作区主标题 25/650，课程详情标题 22/650，面板标题 20/650，正文 14，操作 13，元信息 11–12。2400px 以上主标题 34、课程标题 28、输入正文 16。标题字距不小于 -0.02em；数量使用等宽数字。目录名称允许折行，详情标题最多两行并提供完整 title，编辑框保留完整名称。
+使用系统中文无衬线，避免额外字体加载。按用户要求，全界面字号统一缩小约 10%，由共享 --type-scale: .9 控制，计算 max(10px, 原字号 × 比例)，元信息保留 10px 下限。标准工作区主标题 22.5/650，课程详情标题 19.8/650，面板标题 18/650，正文 12.6，操作 11.7，元信息 10–10.8；2400px 以上主标题 30.6、课程标题 25.2、输入正文 14.4。各断点只应用一次比例，保持原字阶与字重；只缩字号，不使用页面 zoom/transform，控件最小高度、图标和布局间距保留。标题字距不小于 -0.02em；数量使用等宽数字。目录名称允许折行，详情标题最多两行并提供完整 title，编辑框保留完整名称。
 
 ## Layout
 
