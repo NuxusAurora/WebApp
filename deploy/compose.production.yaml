@@ -15,7 +15,8 @@ services:
     ports: !reset []
     environment:
       COOKIE_SECURE: 'true'
-      TEST_LOGIN_ENABLED: 'false'
+      TEST_LOGIN_ENABLED: ${TEST_LOGIN_ENABLED:-false}
+      TEST_LOGIN_PUBLIC_ORIGIN: ${TEST_LOGIN_PUBLIC_ORIGIN:-}
       PUBLIC_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN}
       STORAGE_PUBLIC_ENDPOINT: https://${STORAGE_DOMAIN:?Set STORAGE_DOMAIN}
     logging: *bounded-log
@@ -26,7 +27,8 @@ services:
       start_period: 30s
     environment:
       COOKIE_SECURE: 'true'
-      TEST_LOGIN_ENABLED: 'false'
+      TEST_LOGIN_ENABLED: ${TEST_LOGIN_ENABLED:-false}
+      TEST_LOGIN_PUBLIC_ORIGIN: ${TEST_LOGIN_PUBLIC_ORIGIN:-}
       PUBLIC_ORIGIN: https://${APP_DOMAIN:?Set APP_DOMAIN}
       STORAGE_PUBLIC_ENDPOINT: https://${STORAGE_DOMAIN:?Set STORAGE_DOMAIN}
     logging: *bounded-log
@@ -34,7 +36,7 @@ services:
     ports: !reset []
     build:
       args:
-        NEXT_PUBLIC_TEST_LOGIN_ENABLED: 'false'
+        NEXT_PUBLIC_TEST_LOGIN_ENABLED: ${TEST_LOGIN_ENABLED:-false}
     environment:
       ACCOUNT_NOTICE: ${ACCOUNT_NOTICE:-}
     logging: *bounded-log

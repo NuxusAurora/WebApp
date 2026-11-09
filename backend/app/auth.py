@@ -232,11 +232,20 @@ async def session_response(request, response, db, user):
 @router.post("/auth/test-login")
 async def test_login(request: Request, response: Response, db: DB):
     settings = request.app.state.settings
-    if not settings.test_login_enabled or urlsplit(settings.public_origin).hostname not in {
-        "localhost",
-        "127.0.0.1",
-        "::1",
-    }:
+    origin = urlsplit(settings.public_origin)
+    local = origin.hostname in {"localhost", "127.0.0.1", "::1"}
+    public = (
+        settings.test_login_public_origin == settings.public_origin
+        and origin.scheme == "https"
+        and bool(origin.hostname)
+        and not origin.username
+        and not origin.password
+        and origin.path in {"", "/"}
+        and not origin.query
+        and not origin.fragment
+        and settings.cookie_secure
+    )
+    if not settings.test_login_enabled or not (local or public):
         raise AppError("NOT_FOUND", "页面不存在", 404)
     await limit(request, "test-login", request.client.host)
     user = await db.get(User, TEST_USER_ID, with_for_update=True)

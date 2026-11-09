@@ -24,6 +24,43 @@ def test_test_login_requires_explicit_local_configuration(account_app):
     assert client.post("/api/v1/auth/test-login").status_code == 404
 
 
+@pytest.mark.parametrize(
+    "enabled,origin,allowed,secure",
+    [
+        (True, "https://learning.example.com", "", True),
+        (True, "https://learning.example.com", "https://other.example.com", True),
+        (True, "https://learning.example.com", "https://learning.example.com", False),
+        (True, "http://learning.example.com", "http://learning.example.com", True),
+        (False, "https://learning.example.com", "https://learning.example.com", True),
+    ],
+)
+def test_public_test_login_requires_all_explicit_gates(
+    account_app, enabled, origin, allowed, secure
+):
+    app, client = account_app
+    app.state.settings.test_login_enabled = enabled
+    app.state.settings.public_origin = origin
+    app.state.settings.test_login_public_origin = allowed
+    app.state.settings.cookie_secure = secure
+    assert client.post("/api/v1/auth/test-login").status_code == 404
+
+
+def test_public_test_login_keeps_the_reusable_normal_account_and_secure_session(account_app):
+    app, client = account_app
+    app.state.settings.test_login_enabled = True
+    app.state.settings.public_origin = "https://learning.example.com"
+    app.state.settings.test_login_public_origin = "https://learning.example.com"
+    app.state.settings.cookie_secure = True
+    first = client.post("/api/v1/auth/test-login", json={"role": "admin"})
+    assert first.status_code == 200
+    actor = first.json()["data"]
+    assert actor["role"] == "user" and actor["email_verified"]
+    assert "Secure" in first.headers["set-cookie"]
+    assert "HttpOnly" in first.headers["set-cookie"]
+    assert "SameSite=strict" in first.headers["set-cookie"]
+    assert client.post("/api/v1/auth/test-login").json()["data"]["id"] == actor["id"]
+
+
 def test_test_login_uses_an_isolated_reusable_normal_session(account_app):
     app, client = account_app
     authenticate(client, app)

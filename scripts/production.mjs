@@ -32,11 +32,13 @@ export function productionContext(envFile,{ingress='caddy'}={}) {
   return {compose,config:()=>JSON.parse(compose('--profile','app','config','--format','json'))};
 }
 
-export function validateProduction(config,{requireMail=true,ingress='caddy'}={}) {
+export function validateProduction(config,{requireMail=true,ingress='caddy',allowPublicTestLogin=false}={}) {
   const services=config.services;
   for(const name of ['postgres','redis','storage','backend','worker','frontend'])assert.ok(services[name],'Missing '+name);
   const app=domain(new URL(services.backend.environment.PUBLIC_ORIGIN).hostname);
   const storage=domain(new URL(services.backend.environment.STORAGE_PUBLIC_ENDPOINT).hostname);
+  const testLogin=services.backend.environment.TEST_LOGIN_ENABLED==='true';
+  assert.ok(!testLogin||allowPublicTestLogin,'Public test login needs explicit operator authorization');
   if(ingress==='nginx')assert.equal(app,storage,'Host Nginx downloads must use the same origin bucket route');
   else assert.notEqual(app,storage);
   for(const [name,service] of Object.entries(services)) {
@@ -58,19 +60,20 @@ export function validateProduction(config,{requireMail=true,ingress='caddy'}={})
   }
   for(const name of ['backend','worker']) {
     const env=services[name].environment;
-    assert.equal(env.COOKIE_SECURE,'true');assert.equal(env.TEST_LOGIN_ENABLED,'false');
+    assert.equal(env.COOKIE_SECURE,'true');assert.equal(env.TEST_LOGIN_ENABLED,String(testLogin));
+    if(testLogin)assert.equal(env.TEST_LOGIN_PUBLIC_ORIGIN,'https://'+app,'Test login must target the exact public origin');
     assert.equal(env.PUBLIC_ORIGIN,'https://'+app);assert.equal(env.STORAGE_PUBLIC_ENDPOINT,'https://'+storage);
     assert.equal(env.STORAGE_ENDPOINT,'http://storage:9000');
     if(requireMail){assert.ok(env.SMTP_HOST,'Configure SMTP_HOST before public registration');assert.ok(env.MAIL_FROM && !env.MAIL_FROM.endsWith('@localhost'),'Configure MAIL_FROM');}
   }
-  assert.equal(services.frontend.build.args.NEXT_PUBLIC_TEST_LOGIN_ENABLED,'false');
-  return {app,storage};
+  assert.equal(services.frontend.build.args.NEXT_PUBLIC_TEST_LOGIN_ENABLED,String(testLogin));
+  return {app,storage,testLogin};
 }
 
 async function main() {
   const [command,...flags]=process.argv.slice(2);const values={};
   for(let i=0;i<flags.length;i+=2){assert.ok(flags[i].startsWith('--')&&flags[i+1],'Flags need values');assert.ok(!Object.hasOwn(values,flags[i]),'Duplicate flag');values[flags[i]]=flags[i+1];}
-  const allowed=command==='init'?['--env-file','--domain','--storage-domain','--email']:['--env-file','--ingress','--allow-missing-mail','--no-build'];
+  const allowed=command==='init'?['--env-file','--domain','--storage-domain','--email']:['--env-file','--ingress','--allow-missing-mail','--allow-public-test-login','--no-build'];
   assert.ok(Object.keys(values).every(k=>allowed.includes(k)),'Unsupported flag');
   const envFile=resolve(values['--env-file']??resolve(root,'.env.production'));
   if(command==='init') {
@@ -82,8 +85,8 @@ async function main() {
   const ingress=values['--ingress']??'caddy';
   const ctx=productionContext(envFile,{ingress});const config=ctx.config();
   const requireMail=command!=='status'&&values['--allow-missing-mail']!=='true';
-  const {app,storage}=validateProduction(config,{ingress,requireMail});
-  if(command==='check'){console.log('PASS isolated production ports, TLS origins, secure cookies and disabled test login; '+(requireMail?'SMTP settings present':'email configuration deferred'));return;}
+  const {app,storage,testLogin}=validateProduction(config,{ingress,requireMail,allowPublicTestLogin:values['--allow-public-test-login']==='true'});
+  if(command==='check'){console.log('PASS isolated production ports, TLS origins, secure cookies; '+(testLogin?'explicit public test login enabled; ':'test login disabled; ')+(requireMail?'SMTP settings present':'email configuration deferred'));return;}
   if(command==='status'){console.log(ctx.compose('--profile','app','ps'));return;}
   if(values['--no-build']!=='true')ctx.compose('--profile','app','build','backend','frontend');
   ctx.compose('up','-d','--wait','--wait-timeout','180','postgres','redis','storage');

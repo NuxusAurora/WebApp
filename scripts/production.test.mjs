@@ -57,3 +57,22 @@ test('existing Nginx mode exposes only loopback app and storage ports and omits 
   validateProduction(sameOrigin,{ingress:'nginx'});
   assert.equal(sameOrigin.services.backend.environment.STORAGE_PUBLIC_ENDPOINT,'https://learn.example.com');
 }));
+
+test('public test login requires explicit authorization and matching secure frontend/backend gates',()=>withEnvironment(file=>{
+  const config=productionContext(file).config();
+  for(const name of ['backend','worker']) {
+    config.services[name].environment.TEST_LOGIN_ENABLED='true';
+    config.services[name].environment.TEST_LOGIN_PUBLIC_ORIGIN='https://learn.example.com';
+  }
+  config.services.frontend.build.args.NEXT_PUBLIC_TEST_LOGIN_ENABLED='true';
+  assert.throws(()=>validateProduction(config));
+  assert.equal(validateProduction(config,{allowPublicTestLogin:true}).testLogin,true);
+  for(const name of ['backend','worker']) {
+    const wrong=structuredClone(config);wrong.services[name].environment.TEST_LOGIN_PUBLIC_ORIGIN='https://other.example.com';
+    assert.throws(()=>validateProduction(wrong,{allowPublicTestLogin:true}));
+    const insecure=structuredClone(config);insecure.services[name].environment.COOKIE_SECURE='false';
+    assert.throws(()=>validateProduction(insecure,{allowPublicTestLogin:true}));
+  }
+  const hidden=structuredClone(config);hidden.services.frontend.build.args.NEXT_PUBLIC_TEST_LOGIN_ENABLED='false';
+  assert.throws(()=>validateProduction(hidden,{allowPublicTestLogin:true}));
+}));
