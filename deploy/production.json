@@ -1,11 +1,11 @@
 {
-  "revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
-  "image_source_revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
-  "configuration_source_revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
+  "revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
+  "image_source_revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
+  "configuration_source_revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:3d924db",
-      "id": "sha256:3c8d2174eb4e54bc3c84a083020c0fd1af6ffe68d03c577514ef930140f48dee"
+      "source": "webapp-release-backend:f514e1c",
+      "id": "sha256:9a29cab6f7270ab449e9aa3fba3a645789000f978d143cf87d90e1e17d605af2"
     },
     "frontend": {
       "source": "webapp-release-frontend:3d924db",
@@ -14,8 +14,8 @@
   },
   "runtime_images": {
     "frontend": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
-    "backend": "sha256:3c8d2174eb4e54bc3c84a083020c0fd1af6ffe68d03c577514ef930140f48dee",
-    "worker": "sha256:3c8d2174eb4e54bc3c84a083020c0fd1af6ffe68d03c577514ef930140f48dee",
+    "backend": "sha256:9a29cab6f7270ab449e9aa3fba3a645789000f978d143cf87d90e1e17d605af2",
+    "worker": "sha256:9a29cab6f7270ab449e9aa3fba3a645789000f978d143cf87d90e1e17d605af2",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -34,7 +34,7 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": true,
-  "data_preservation": "all business table counts and sorted row hashes unchanged across stop/backup/cutover; no migrations",
+  "data_preservation": "all original business table counts and row hashes unchanged through cutover and QA cleanup",
   "business_counts": {
     "users": 1,
     "courses": 2,
@@ -49,20 +49,17 @@
     "ai_call_logs": 2,
     "knowledge_points": 0
   },
-  "backup_before_upgrade": "database/storage/environment backed up after app writers stopped; all business hashes preserved; backup removed after acceptance",
-  "released_at_utc": "2026-11-10T14:35:30.521869+00:00",
+  "backup_before_upgrade": "database/storage/environment backup after writer stop; no migration; removed after acceptance",
+  "released_at_utc": "2026-11-10T14:52:14.490946+00:00",
   "validation": {
-    "backend_focused_tests": 38,
-    "frontend_focused_tests": 23,
-    "type_format_build": "passed for source revision; runtime production build passed",
-    "runtime_image_formats": "PNG/JPG/WebP/BMP/GIF/TIFF/AVIF normalized successfully",
-    "nginx_template_matches_runtime": true,
-    "business_hashes_preserved": true,
-    "visual": "no new browser visual acceptance; no layout changes",
+    "backend_tests": 142,
+    "ruff_format_runtime_build": "passed",
     "https_health_ready": "200",
-    "served_frontend_formats": "public JS includes JPG/JPEG and PNG/WebP/BMP/GIF/TIFF/AVIF accept list",
-    "http_upload": "JPG and AVIF via public HTTPS frontend returned 201; private RGB PNG bytes/dimensions verified",
-    "qa_data": "temporary QA course/images deleted; session logged out; no model call; original business row hashes unchanged"
+    "qa_data": "synthetic JPEG 201 and truncated JPEG 400; temporary course/session cleaned; no model calls",
+    "diagnostic_log_verified": "truncated_image/decode/OSError and matching request_id/status400; valid upload normalized event",
+    "business_hashes_preserved": true,
+    "nginx_template_matches_runtime": true,
+    "frontend": "unchanged 3d924db; no new visual acceptance"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -71,12 +68,12 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 478002347,
+  "cleanup_logical_bytes": 313980142,
   "obsolete_image_tags_removed": [
-    "webapp-release-backend:8e8b56b",
-    "webapp-release-frontend:d4b46a5"
+    "webapp-release-backend:3d924db",
+    "webapp-upload-diagnostics-backend:latest"
   ],
-  "cleanup": "task transfer packages, image archives, rollback backup and scripts removed after acceptance; source snapshot/running dependencies/user data retained",
+  "cleanup": "temporary image/source archives, staging scripts and database/storage/environment backup removed after acceptance; current source/running image/data retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
   "nginx_template_render_matches_runtime": true,
   "nginx_upload_limit": "50 MiB",
@@ -108,8 +105,8 @@
   "frontend_source_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
   "service_source_revisions": {
     "frontend": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
-    "backend": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
-    "worker": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4"
+    "backend": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
+    "worker": "f514e1cc5ae926ea7f70eaff030269f3de27b755"
   },
   "latest_release_scope": "frontend breadcrumb personal-space prefix removed; saved default Aurora-Zyron context corrected to 500000",
   "course_detail_labels": [
@@ -117,14 +114,14 @@
     "上传教材目录图片",
     "目录与小节"
   ],
-  "image_source_revision_scope": "frontend/backend/worker all built from identical verified revision",
+  "image_source_revision_scope": "backend/worker; frontend remains verified 3d924db",
   "course_list": {
     "delete_entry": "trash icon only at row right; 44x44px; accessible name and confirmation retained",
     "subject_font_px": 18,
     "course_font_px": 13,
     "subject_highlight": "single current subject via aria-current; persistent across focus changes and independent of disclosure"
   },
-  "source_snapshot_revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
+  "source_snapshot_revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
   "knowledge_style": {
     "shared_course_detail_shell": true,
     "theme": "shared tokens; no tab-level palette override",
@@ -153,5 +150,11 @@
     "GIF (single frame)",
     "TIFF (single page)",
     "AVIF (static)"
-  ]
+  ],
+  "upload_diagnostics": {
+    "event": "curriculum_image_validation",
+    "fields": "request_id, allowlisted extension/MIME, input bytes/SHA256, detected format/mode/dimensions/frames, stage/reason/exception type/error code/output bytes",
+    "privacy": "no raw image, original filename, arbitrary exception text, headers or credentials",
+    "prior_failure": "3eedc496-878e-4a39-a1cf-7a3a7f309ae5: only400/39.57ms; original decoder reason cannot be recovered"
+  }
 }

@@ -2,7 +2,15 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
-## 2026-11-10 当前：扩展图片格式
+## 2026-11-10 当前：上传诊断日志
+
+后端/Worker发布f514e1cc5ae926ea7f70eaff030269f3de27b755，current为releases/f514e1c；前端镜像保持3d924db，本地同步更新后端/Worker。新增curriculum_image_validation日志，将安全图片元数据、SHA256、解码阶段/原因分类/异常类型关联到请求编号；不记录图片内容、原文件名、异常原文或凭据。字段和查询命令见RUNBOOK对应节。
+
+142项后端全量、Ruff/格式及运行镜像构建通过。正式HTTPS及本地分别验证正常JPEG上传201、截断JPEG400，日志精确包含decode/truncated_image/OSError，且能关联同编号400请求；QA课程/图片/会话清理，未调用模型，原业务行数量/排序摘要保持。六服务健康、health/ready200，前端/数据服务镜像不变；无迁移，停写后做数据库/对象/环境一致备份，Nginx模板匹配。
+
+旧用户失败3eedc496仅有400/39.57ms，无法回填当时解码细节。当前日志便于下一次实际失败定位，不宣称合成样例证明用户图片截断。云端临时包/归档/备份/脚本313980142逻辑字节及旧backend标签已清理，保留当前源快照/运行依赖/数据/密钥。本地任务包/旧及任务镜像/普通worktree收尾清理，GitHub和Sites未更新；精确来源/运行摘要见production.json。
+
+## 2026-11-10 扩展图片格式（历史）
 
 已将3d924dbf42722064b79ab2392dbf82b3d6aed2b4的前端、后端和Worker同步到本地localhost:3000及正式站，current为releases/3d924db。目录上传支持JPG/JPEG、PNG、WebP、BMP、单帧GIF、单页TIFF和静态AVIF，保持50MiB且不限制像素；统一转为纠正方向/白底的RGB PNG进入私有存储，HEIC/HEIF和SVG未接入。
 

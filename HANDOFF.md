@@ -1,5 +1,13 @@
 # 项目交接
 
+## 2026-11-10 图片上传诊断日志
+
+服务器历史失败请求3eedc496-878e-4a39-a1cf-7a3a7f309ae5仅记录上传400/39.57ms，不能恢复当时解码原因。用户所附JPEG原文件（114422字节、1378×1280）在前一诊断中通过本地/正式上传201；此轮不宣称已找到该次失败根因，也不改变图片接受规则。
+
+f514e1c新增curriculum_image_validation安全JSON日志，记录request_id、允许列表的扩展名/MIME、字节数/SHA256、识别格式/尺寸/模式/帧数、阶段、原因分类和底层异常类型，不保存图片/原文件名/异常原文/凭据。142项后端全量、Ruff/格式及运行镜像构建通过；本地与正式站backend/worker已更新，前端仍为3d924db，六服务健康，health/ready200。在线合成JPEG201、截断JPEG400验证了decode/truncated_image/OSError及同request_id请求状态关联；临时QA课程/图片/会话清理，未调用模型，原业务表排序行摘要保持。
+
+主代理解耦复查通过：middleware独占请求编号，路由独占单次诊断字典和日志，normalizer只填充可选字典，无日志/业务反向依赖；原返回值、错误及存储补偿/取消生命周期保持。服务器停写后备份并切换，无迁移；Nginx模板匹配，源快照/运行依赖/用户数据保留。云端临时归档/备份/脚本及旧backend镜像已清理（313980142逻辑字节），本地任务缓存/旧与任务镜像/普通worktree收尾回收。发布来源/摘要集中见deploy/README及production.json，不推送GitHub或更新Sites。下一步由用户重试实际失败文件，再按最新日志的reason/stage/SHA256确定原因；不能用合成截断样例替代用户原始失败根因。
+
 ## 2026-11-10 目录图片扩展格式
 
 目录上传支持JPG/JPEG、PNG、WebP、BMP、单帧GIF、单页TIFF及静态AVIF；文件选择器同步扩展名/MIME（含JFIF/TIF），无MIME时使用application/octet-stream。JPG及大写.JPG均覆盖上传回归。后端按真实格式解码，纠正EXIF方向、透明区域铺白底，统一输出原有RGB PNG。50MiB、无像素限制、私有存储、模型能力要求与显式确认保持；动图/多页文件提示导出单张，HEIC/HEIF和SVG未接入，无新增依赖。
