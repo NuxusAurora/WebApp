@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { api, ApiError } from '../lib/api';
 import type { Course } from '../lib/course-types';
 import { courseDate } from '../lib/course-types';
@@ -28,6 +28,8 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   const { notification, notify: setMessage, dismiss } = useToast();
   const [offset, setOffset] = useState(0);
   const [query, setQuery] = useState('');
+  const [expandedSubjects, setExpandedSubjects] = useState(() => new Map<string, boolean>());
+  const subjectListId = useId();
   const [reload, setReload] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'curriculum' | 'knowledge'>('overview');
@@ -152,6 +154,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
       setSelected(course.status === 'active' ? course : null); setEditing(null); setDirty(false);
       setCourses(previous => isNew ? [course, ...previous].slice(0, 100) :
         previous.map(row => row.id === course.id ? course : row));
+      if (course.status === 'active') setExpandedSubjects(previous => new Map(previous).set(course.subject.trim() || '未设置学科', true));
       if (isNew && offset !== 0) setOffset(0);
       setQuery(''); setDetailTab('overview'); setMessage(course.status === 'archived' ? '课程已归档，可在账户设置中恢复学习' : '课程已保存');
       requestAnimationFrame(() => (document.getElementById('course-detail-title') ?? newButton.current)?.focus({ preventScroll: true }));
@@ -173,6 +176,12 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     if (!leaveEditor()) return;
     setEditing(null); setDirty(false); setDeleteTarget(null);
     setSelected(null); setQuery(''); setOffset(next);
+    setExpandedSubjects(new Map());
+  }
+
+  function searchCourses(value: string) {
+    setQuery(value);
+    setExpandedSubjects(new Map());
   }
 
   const needle = query.trim().toLocaleLowerCase();
@@ -180,6 +189,13 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     course.status === 'active' &&
     (!needle || [course.title, course.subject, course.textbook].some(value => value.toLocaleLowerCase().includes(needle))));
   const hasFilters = Boolean(needle);
+  const subjects = new Map<string, Course[]>();
+  for (const course of visible) {
+    const subject = course.subject.trim() || '未设置学科';
+    const group = subjects.get(subject);
+    if (group) group.push(course);
+    else subjects.set(subject, [course]);
+  }
   const showingDetail = Boolean(editing || selected);
 
   return <div className={'course-space course-library' + (showingDetail ? ' showing-detail' : '')}>
@@ -190,9 +206,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     <div className="library-toolbar">
       <div className="search-field"><Icon name="search" size={18} />
         <label className="visually-hidden" htmlFor="course-search">搜索当前页课程</label>
-        <input id="course-search" type="search" value={query} onChange={event => setQuery(event.target.value)}
+        <input id="course-search" type="search" value={query} onChange={event => searchCourses(event.target.value)}
           placeholder="搜索课程、学科或教材" autoComplete="off" />
-        {query ? <button className="icon-button" aria-label="清空课程搜索" onClick={() => setQuery('')}><Icon name="close" size={16} /></button> : null}
+        {query ? <button className="icon-button" aria-label="清空课程搜索" onClick={() => searchCourses('')}><Icon name="close" size={16} /></button> : null}
       </div>
       <button ref={newButton} className="button primary" disabled={busy} onClick={newCourse}>
         <Icon name="plus" size={18} />新建课程</button>
@@ -205,16 +221,28 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
           !visible.length && hasFilters ? <div className="index-empty"><Icon name="search" size={34} />
             <h3>没有找到匹配的课程</h3>
             <p>换个关键词，或清除搜索查看当前页课程。</p>
-            <button className="text-button" onClick={() => setQuery('')}>清除搜索</button></div> :
-            <ul className="course-list">{visible.map(course => <li key={course.id}>
+            <button className="text-button" onClick={() => searchCourses('')}>清除搜索</button></div> :
+            <ul className="course-list subject-list">{Array.from(subjects, ([subject, group], index) => {
+              const expanded = expandedSubjects.get(subject) ?? hasFilters;
+              const groupId = subjectListId + '-subject-' + index;
+              return <li key={subject} className="subject-group">
+                <button type="button" className="subject-toggle" aria-label={subject + ' ' + group.length + ' 门'} aria-expanded={expanded} aria-controls={groupId}
+                  onClick={() => setExpandedSubjects(previous => new Map(previous).set(subject, !expanded))}>
+                  <Icon name="folder" size={20} /><span className="subject-name">{subject}</span>
+                  <span className="subject-count">{group.length} 门</span><Icon name="chevron" size={16} />
+                </button>
+                <ul id={groupId} className="subject-courses" aria-label={subject + '课程'} hidden={!expanded}>
+                {group.map(course => <li key={course.id}>
               <div className="course-row">
                 <span className="course-symbol"><Icon name="book" size={22} /></span>
                 <span className="course-description"><strong>{course.title}</strong>
-                  <span>{course.subject || '未设置学科'}{course.textbook ? ' · ' + course.textbook : ''}</span></span>
+                  {course.textbook ? <span>{course.textbook}</span> : null}</span>
                 <button id={'enter-' + course.id} className="button course-enter" disabled={busy}
                   aria-label={'进入' + course.title} onClick={() => openCourse(course)}>进入<Icon name="arrow" size={16} /></button>
               </div>
-            </li>)}</ul>}
+                </li>)}</ul>
+              </li>;
+            })}</ul>}
         {!loading && !loadError ? <div className="index-footer">
           <span>当前第 {Math.floor(offset / 100) + 1} 页{hasFilters ? ' · 筛选仅作用于本页' : ''}</span>
           <div className="pagination"><button className="icon-button" aria-label="上一页课程" disabled={busy || offset === 0}

@@ -38,9 +38,70 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function ready() {
   render(<Workspace />);
+  await expandSubject();
   fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
   await screen.findByRole('heading', { name: '高等数学' });
 }
+
+async function expandSubject(name = '数学') {
+  const toggle = await screen.findByRole('button', { name: new RegExp('^' + name + ' \\d+ 门$') });
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+}
+
+describe('subject course groups', () => {
+  const grouped: Course[] = [courses[0],
+    { ...courses[0], id: 'math-2', title: '线性代数', subject: ' 数学 ' },
+    { ...courses[1], status: 'active' },
+    { ...courses[0], id: 'other', title: '阅读课程', subject: '  ' },
+  ];
+
+  beforeEach(() => { vi.mocked(api).mockResolvedValue(grouped); });
+
+  it('starts collapsed, groups by trimmed subject, and toggles groups independently without requests', async () => {
+    render(<CourseSpace />);
+    const math = await screen.findByRole('button', { name: '数学 2 门' });
+    const physics = screen.getByRole('button', { name: '物理 1 门' });
+    expect(math).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: '进入高等数学' })).not.toBeInTheDocument();
+    const calls = vi.mocked(api).mock.calls.length;
+    fireEvent.click(math);
+    expect(document.getElementById(math.getAttribute('aria-controls')!)).toBeVisible();
+    expect(screen.getByRole('button', { name: '进入线性代数' })).toBeVisible();
+    fireEvent.click(physics);
+    expect(screen.getByRole('button', { name: '进入大学物理' })).toBeVisible();
+    fireEvent.click(math);
+    expect(screen.queryByRole('button', { name: '进入线性代数' })).not.toBeInTheDocument();
+    expect(physics).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '未设置学科 1 门' }));
+    expect(screen.getByRole('button', { name: '进入阅读课程' })).toBeVisible();
+    expect(api).toHaveBeenCalledTimes(calls);
+  });
+
+  it('reveals search matches, allows collapsing results, and resets disclosure when clearing search', async () => {
+    render(<CourseSpace />);
+    await screen.findByRole('button', { name: '数学 2 门' });
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '线性' } });
+    const math = screen.getByRole('button', { name: '数学 1 门' });
+    expect(math).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: '进入线性代数' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: '物理 1 门' })).not.toBeInTheDocument();
+    fireEvent.click(math);
+    expect(math).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByRole('button', { name: '清空课程搜索' }));
+    expect(screen.getByRole('button', { name: '数学 2 门' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('preserves the expanded group and restores the course entry focus on return', async () => {
+    const breadcrumbs = vi.fn();
+    render(<CourseSpace onBreadcrumbChange={breadcrumbs} />);
+    await expandSubject();
+    fireEvent.click(screen.getByRole('button', { name: '进入线性代数' }));
+    const items = breadcrumbs.mock.lastCall![0];
+    act(() => items[0].onSelect());
+    expect(screen.getByRole('button', { name: '数学 2 门' })).toHaveAttribute('aria-expanded', 'true');
+    await waitFor(() => expect(screen.getByRole('button', { name: '进入线性代数' })).toHaveFocus());
+  });
+});
 
 describe('desktop course workspace', () => {
   it('protects model subpage edits and preserves the selected connection across navigation', async () => {
@@ -144,6 +205,7 @@ describe('desktop course workspace', () => {
     });
     const dirty = vi.fn();
     render(<CourseSpace onDirtyChange={dirty} />);
+    await expandSubject();
     fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
     await screen.findByRole('heading', { name: '高等数学' });
     fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
@@ -160,6 +222,7 @@ describe('desktop course workspace', () => {
   });
   it('shows only active courses in one container and opens detail explicitly', async () => {
     render(<Workspace />);
+    await expandSubject();
     const enter = await screen.findByRole('button', { name: '进入高等数学' });
     expect(screen.queryByRole('heading', { name: '高等数学' })).not.toBeInTheDocument();
     expect(screen.queryByText('大学物理')).not.toBeInTheDocument();
@@ -210,6 +273,7 @@ describe('desktop course workspace', () => {
     await screen.findByText('课程服务暂时不可用');
     expect(screen.queryByRole('heading', { name: '还没有课程' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '重新加载课程' }));
+    await expandSubject();
     await screen.findByRole('button', { name: '进入高等数学' });
   });
 
@@ -317,6 +381,7 @@ describe('archived courses in settings', () => {
       return [];
     });
     render(<Workspace />);
+    await expandSubject();
     await screen.findByRole('button', { name: '进入高等数学' });
     expect(screen.queryByText('大学物理')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('link', { name: '账户设置' }));
@@ -324,6 +389,7 @@ describe('archived courses in settings', () => {
     fireEvent.click(await screen.findByRole('button', { name: '恢复学习：大学物理' }));
     await screen.findByText('已恢复学习');
     fireEvent.click(screen.getByRole('link', { name: '我的课程' }));
+    await expandSubject('物理');
     await screen.findByRole('button', { name: '进入大学物理' });
   });
 });
@@ -408,6 +474,7 @@ describe('account and shell states', () => {
       path.startsWith('courses?') ? courses : []);
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<Workspace />);
+    await expandSubject();
     fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
     await screen.findByRole('heading', { name: '高等数学' });
     fireEvent.click(screen.getByRole('button', { name: '编辑课程' }));
