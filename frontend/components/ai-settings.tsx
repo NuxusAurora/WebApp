@@ -259,7 +259,6 @@ function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessi
     setDirty(true); onDirty(true);
   }}>
     <div className="ai-fields form-stack">
-      <div><h2>模型与能力</h2><p className="muted">{requiredModel ? `默认连接仅支持 ${requiredModel}。` : '仅保存一个模型，可从服务列表选择替换。'}</p></div>
       <label>选择模型<select aria-label="选择模型" value={requiredModel ?? draft.model_name} required disabled={Boolean(requiredModel) || busy || catalogLoading || Boolean(catalogError) || !modelNames.length}
         onChange={event => applyDiscovered(event.target.value)}>
         {requiredModel ? <option value={requiredModel}>{requiredModel}</option> : <><option value="" disabled>{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>
