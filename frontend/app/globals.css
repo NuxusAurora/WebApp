@@ -363,7 +363,9 @@ html, body { height: 100%; overflow: hidden; }
 .settings-tabs button { min-width: 120px; }
 .settings-section { margin: 0; padding: 22px; gap: 24px; min-height: 0; overflow: auto; }
 .settings-section .form-stack { gap: 14px; }
-.status-page { min-height: 0; overflow: auto; }
+.workspace-main.workspace-main-status { max-width: none; margin: 0; padding: 0; background: var(--surface); }
+.status-page { flex: 1; display: flex; flex-direction: column; max-width: none; min-height: 0; overflow: auto; }
+.status-page > .status-panel { flex: 1; border: 0; border-radius: 0; }
 .entry-shell { height: 100dvh; min-height: 0; display: grid; grid-template-rows: 64px minmax(0, 1fr); padding: 0 24px 16px; overflow: hidden; }
 .entry-header { min-height: 0; height: 64px; width: 100%; max-width: 1180px; }
 .entry-main { width: min(440px, 100%); max-height: 100%; min-height: 0; margin: 0 auto; align-self: center; display: block; overflow: auto; overscroll-behavior: contain; }
