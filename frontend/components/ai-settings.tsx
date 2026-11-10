@@ -7,7 +7,7 @@ import { Toast, useToast } from './toast';
 type Capabilities = { vision: boolean; streaming: boolean; structured_output: boolean; tool_calling: boolean; max_context_tokens: number };
 type Model = { id: string; provider_id: string; model_name: string; enabled: boolean; capabilities: Capabilities;
   capability_source: string; tested_capabilities: Record<string, boolean> };
-type Provider = { id: string; provider_name: string; base_url: string; has_api_key: boolean; enabled: boolean; models: Model[] };
+type Provider = { id: string; provider_name: string; base_url: string; has_api_key: boolean; enabled: boolean; models: Model[]; required_model_name?: string | null };
 type DiscoveredModel = { model_name: string; capabilities: Partial<Capabilities> };
 type CallLog = { id: string; model_id: string; model_name: string; provider_name: string; task_type: string; status: string; duration_ms: number;
   attempts: number; input_tokens: number | null; output_tokens: number | null; error_code: string | null; created_at: string };
@@ -159,11 +159,13 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
   const expired = useRef(onSessionExpired);
   expired.current = onSessionExpired;
   const model = provider.models[0];
+  const requiredModel = provider.required_model_name;
   useEffect(() => {
     if (catalogSelection) return;
-    setDraft({ model_name: model?.model_name ?? '', capabilities: { ...defaults, ...model?.capabilities } });
-  }, [model, catalogSelection]);
+    setDraft({ model_name: requiredModel ?? model?.model_name ?? '', capabilities: { ...defaults, ...model?.capabilities } });
+  }, [model, catalogSelection, requiredModel]);
   useEffect(() => {
+    if (requiredModel) { setCatalogLoading(false); setCatalogError(''); return; }
     if (!provider.enabled) { setCatalogLoading(false); setCatalogError('请先启用连接'); return; }
     const abort = new AbortController();
     let current = true;
@@ -177,8 +179,9 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
       })
       .finally(() => { if (current) setCatalogLoading(false); });
     return () => { current = false; abort.abort(); };
-  }, [provider.id, provider.enabled, catalogRevision]);
+  }, [provider.id, provider.enabled, catalogRevision, requiredModel]);
   function applyDiscovered(name: string) {
+    if (requiredModel) return;
     const item = catalog.find(item => item.model_name === name);
     if (!item || dirty && !window.confirm('替换当前模型填写内容？未保存的修改将被覆盖。')) return;
     const existing = model?.model_name === name ? model : undefined;
@@ -200,19 +203,19 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
     setDirty(true); onDirty(true);
   }}>
     <div className="ai-fields form-stack">
-      <div><h2>模型与能力</h2><p className="muted">仅保存一个模型，可从服务列表选择替换。</p></div>
-      <label>服务模型<select aria-label="服务模型" value={catalogSelection} disabled={busy || catalogLoading || Boolean(catalogError) || !catalog.length}
+      <div><h2>模型与能力</h2><p className="muted">{requiredModel ? `默认连接仅支持 ${requiredModel}。` : '仅保存一个模型，可从服务列表选择替换。'}</p></div>
+      <label>服务模型<select aria-label="服务模型" value={requiredModel ?? catalogSelection} disabled={Boolean(requiredModel) || busy || catalogLoading || Boolean(catalogError) || !catalog.length}
         onChange={event => applyDiscovered(event.target.value)}>
-        <option value="">{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>
-        {catalog.map(item => <option key={item.model_name} value={item.model_name}>{item.model_name}</option>)}
+        {requiredModel ? <option value={requiredModel}>{requiredModel}</option> : <><option value="">{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>
+          {catalog.map(item => <option key={item.model_name} value={item.model_name}>{item.model_name}</option>)}</>}
       </select></label>
-      <div className="ai-secondary-actions"><button className="button" type="button" disabled={busy || catalogLoading || !provider.enabled}
+      {!requiredModel ? <div className="ai-secondary-actions"><button className="button" type="button" disabled={busy || catalogLoading || !provider.enabled}
         onClick={() => setCatalogRevision(value => value + 1)}>刷新模型列表</button>
-        {catalogLoading ? <span className="field-hint" role="status">正在读取模型列表…</span> : null}</div>
-      {catalogError ? <p className="notice error" role="alert">{catalogError}，可手动填写。</p> :
-        !catalogLoading && !catalog.length ? <p className="field-hint" role="status">服务暂无可用模型，可手动填写。</p> : null}
+        {catalogLoading ? <span className="field-hint" role="status">正在读取模型列表…</span> : null}</div> : null}
+      {!requiredModel && (catalogError ? <p className="notice error" role="alert">{catalogError}，可手动填写。</p> :
+        !catalogLoading && !catalog.length ? <p className="field-hint" role="status">服务暂无可用模型，可手动填写。</p> : null)}
       <label>模型名称<input name="model_name" value={draft.model_name} onChange={event => setDraft(value => ({ ...value, model_name: event.target.value }))} maxLength={160} required
-        pattern="[a-zA-Z0-9][a-zA-Z0-9._:/\-]*" placeholder="本地服务返回的模型 ID" disabled={busy} /></label>
+        pattern="[a-zA-Z0-9][a-zA-Z0-9._:/\-]*" placeholder="本地服务返回的模型 ID" readOnly={Boolean(requiredModel)} disabled={busy} /></label>
       <label>上下文长度（Token）<input name="context" type="number" min={256} max={2000000} value={Number.isFinite(draft.capabilities.max_context_tokens) ? draft.capabilities.max_context_tokens : ''}
         onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, max_context_tokens: event.target.valueAsNumber } }))} required disabled={busy} /></label>
       <p className="field-hint">服务未返回的字段可手动填写；上下文默认 4096，能力可在保存后测试确认。</p>

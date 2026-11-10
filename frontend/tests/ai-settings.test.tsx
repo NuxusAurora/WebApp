@@ -243,6 +243,24 @@ describe('provider model discovery', () => {
     expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
 
+  it('locks the default service to Aurora-Zyron and preserves its 500000-token context', async () => {
+    const model = { id: 'saved-model', provider_id: provider.id, model_name: 'Aurora-Zyron', enabled: true, capabilities: { ...caps, max_context_tokens: 500000 }, tested_capabilities: {} };
+    const fixed = { ...provider, base_url: 'https://api.nuxusaurora.com/v1', required_model_name: 'Aurora-Zyron', models: [model] };
+    const fetcher = vi.fn((url: string, init?: RequestInit) => init?.method === 'PUT' ? success(model) : success([fixed]));
+    await openModels(fetcher);
+    expect(screen.getByLabelText('服务模型')).toHaveValue('Aurora-Zyron');
+    expect(screen.getByLabelText('服务模型')).toBeDisabled();
+    expect(Array.from((screen.getByLabelText('服务模型') as HTMLSelectElement).options).map(item => item.value)).toEqual(['Aurora-Zyron']);
+    expect(screen.getByLabelText('模型名称')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(500000);
+    expect(screen.queryByRole('button', { name: '刷新模型列表' })).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/discovery'))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
+    const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
+    expect(JSON.parse(String(mutation[1]?.body))).toMatchObject({ model_name: 'Aurora-Zyron', capabilities: { max_context_tokens: 500000 } });
+  });
+
 });
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';

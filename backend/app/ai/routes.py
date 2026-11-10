@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from app.ai.contracts import AIError, Call, Capabilities, Message, RetryPolicy
 from app.ai.credentials import KeyVault, validate_endpoint
 from app.ai.models import AICallLog, AIModel, AIProvider
+from app.ai.policy import validate_model_name
 from app.ai.prompts import prompt
 from app.ai.service import (
     discover_models,
@@ -152,6 +153,9 @@ async def edit_provider(
             and "api_key" not in values
         ):
             raise AppError("AI_KEY_REENTRY_REQUIRED", "更换地址时请重新输入密钥，或先删除已存密钥")
+        model = await db.scalar(select(AIModel).where(AIModel.provider_id == provider.id))
+        if model:
+            validate_model_name(values["base_url"], model.model_name)
     if "api_key" in values:
         key = values.pop("api_key")
         values["encrypted_api_key"] = (
@@ -186,7 +190,8 @@ async def remove_provider(provider_id: UUID, db: DB, actor: Actor):
 
 @router.post("/providers/{provider_id}/models", status_code=201)
 async def add_model(provider_id: UUID, body: ModelInput, db: DB, actor: Actor):
-    await owned_provider(db, actor.id, provider_id, lock=True)
+    provider = await owned_provider(db, actor.id, provider_id, lock=True)
+    validate_model_name(provider.base_url, body.model_name)
     if await db.scalar(select(AIModel.id).where(AIModel.provider_id == provider_id)):
         raise AppError("AI_MODEL_EXISTS", "只能保存一个模型，请修改现有模型", 409)
     if not body.capabilities_confirmed and body.capabilities != Capabilities():
@@ -227,7 +232,8 @@ async def discover(provider_id: UUID, request: Request, db: DB, actor: Actor):
 @router.put("/models/{model_id}")
 async def edit_model(model_id: UUID, body: ModelInput, db: DB, actor: Actor):
     model = await owned_model(db, actor.id, model_id)
-    await owned_provider(db, actor.id, model.provider_id, lock=True)
+    provider = await owned_provider(db, actor.id, model.provider_id, lock=True)
+    validate_model_name(provider.base_url, body.model_name)
     if not body.capabilities_confirmed and body.capabilities != Capabilities():
         raise AppError("AI_CONFIRM_CAPABILITIES", "请确认模型能力")
     model.model_name = body.model_name

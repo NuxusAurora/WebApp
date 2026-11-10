@@ -7,6 +7,7 @@ from app.ai.adapters import OpenAIProvider
 from app.ai.contracts import Call, Capabilities, Target
 from app.ai.credentials import KeyVault, validate_endpoint
 from app.ai.models import AICallLog, AIModel, AIProvider
+from app.ai.policy import required_model_name, validate_model_name
 from app.errors import AppError
 
 
@@ -49,6 +50,7 @@ def public_provider(provider, models=()):
         "base_url": provider.base_url,
         "has_api_key": bool(provider.encrypted_api_key),
         "enabled": provider.enabled,
+        "required_model_name": required_model_name(provider.base_url),
         "models": [public_model(model) for model in models],
     }
 
@@ -66,6 +68,7 @@ async def discover_models(request, db, actor_id, provider_id):
     if not provider.enabled:
         raise AppError("AI_CONFIG_DISABLED", "请先启用连接")
     endpoint = validate_endpoint(provider.base_url, request.app.state.settings.ai_allowed_origins)
+    required = required_model_name(endpoint)
     key = (
         KeyVault(request.app.state.settings.encryption_key).decrypt(provider.encrypted_api_key)
         if provider.encrypted_api_key
@@ -73,7 +76,8 @@ async def discover_models(request, db, actor_id, provider_id):
     )
     # Discovery is read-only; release the database connection before network I/O.
     await db.rollback()
-    return await OpenAIProvider(request.app.state.ai_client).discover_models(endpoint, key)
+    models = await OpenAIProvider(request.app.state.ai_client).discover_models(endpoint, key)
+    return [model for model in models if not required or model["model_name"] == required]
 
 
 async def prepare(request, db, actor_id: UUID, provider_id: UUID, model_id: UUID, call: Call):
@@ -84,6 +88,7 @@ async def prepare(request, db, actor_id: UUID, provider_id: UUID, model_id: UUID
     if not provider.enabled or not model.enabled:
         raise AppError("AI_CONFIG_DISABLED", "请先启用供应商和模型")
     endpoint = validate_endpoint(provider.base_url, request.app.state.settings.ai_allowed_origins)
+    validate_model_name(endpoint, model.model_name)
     key = (
         KeyVault(request.app.state.settings.encryption_key).decrypt(provider.encrypted_api_key)
         if provider.encrypted_api_key
