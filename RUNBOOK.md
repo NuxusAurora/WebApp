@@ -266,3 +266,5 @@ API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_re
 ## 模型设置二级导航（2026-11-09）
 
 左侧模型设置 → 连接与密钥 / 模型与测试 / 调用记录。入口分别为 `/?view=ai`、`/?view=ai&tab=models`、`/?view=ai&tab=logs`，旧模型设置链接仍打开连接页。导航类型/URL在 `frontend/lib/workspace-navigation.ts`，层级在 `frontend/components/app-sidebar.tsx` 及 `sidebar.css`；`Workspace` 连接受控分类和未保存/忙状态保护，`AISettings` 管理表单和请求。前端 `npm run check`、`npm test`、`npm run build`；实际界面验收与限制见HANDOFF最新节。
+
+模型设置父项整行（文字/箭头/留白）用于展开或收起二级菜单，支持Enter/Space；它不切换页面。点击三个子项才导航，未保存保护继续生效。

@@ -18,17 +18,20 @@ describe('shared sidebar', () => {
     expect(screen.getByRole('link', { name: '模型与测试' })).toHaveAttribute('href', '/?view=ai&tab=models');
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(navigate).toHaveBeenCalledWith('ai-models');
-    fireEvent.click(screen.getByRole('button', { name: '收起模型设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
     expect(screen.queryByRole('link', { name: '连接与密钥' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '展开模型设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
     expect(screen.getByRole('link', { name: '连接与密钥' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '模型设置' })).toHaveAttribute('aria-expanded', 'true');
+    expect(navigate).toHaveBeenCalledTimes(1);
   });
-  it('expands the compact rail when entering model settings', () => {
+  it('expands the compact rail without changing the current page', () => {
     localStorage.setItem('learning-workspace.sidebar-collapsed', 'true');
     render(<AppSidebar user={user} view="courses" busy={false} navigate={() => true} logout={vi.fn()} />);
-    fireEvent.click(screen.getByRole('link', { name: '模型设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
     expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'false');
     expect(screen.getByRole('link', { name: '调用记录' })).toBeVisible();
+    expect(location.search).toBe('');
   });
   it('keeps the signed-out entry named and supplies its compact-rail tooltip', () => {
     localStorage.setItem('learning-workspace.sidebar-collapsed', 'true');
@@ -64,8 +67,11 @@ describe('shared sidebar', () => {
     const opener = screen.getByRole('button', { name: '打开导航' });
     fireEvent.click(opener); const drawer = screen.getByRole('dialog', { name: '导航菜单' });
     expect(drawer).toHaveAttribute('aria-modal', 'true');
-    fireEvent.click(screen.getByRole('link', { name: '模型设置' })); expect(drawer).toHaveAttribute('open');
-    navigate.mockReturnValue(true); fireEvent.click(screen.getByRole('link', { name: '模型设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(drawer).toHaveAttribute('open');
+    fireEvent.click(screen.getByRole('link', { name: '连接与密钥' })); expect(drawer).toHaveAttribute('open');
+    navigate.mockReturnValue(true); fireEvent.click(screen.getByRole('link', { name: '连接与密钥' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); expect(opener).toHaveFocus();
     fireEvent.click(opener); fireEvent(drawer, new Event('cancel', { cancelable: true }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); expect(opener).toHaveFocus();

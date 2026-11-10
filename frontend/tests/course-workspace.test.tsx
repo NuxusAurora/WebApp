@@ -56,6 +56,12 @@ describe('desktop course workspace', () => {
     await screen.findByLabelText('连接名称');
     expect(screen.queryByRole('group', { name: '模型设置分类' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('连接名称'), { target: { value: '保留输入' } });
+    fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
+    expect(screen.getByRole('button', { name: '模型设置' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('link', { name: '模型与测试' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('连接名称')).toHaveValue('保留输入');
+    expect(window.confirm).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(window.confirm).toHaveBeenCalledOnce();
     expect(location.search).toBe('?view=ai');
