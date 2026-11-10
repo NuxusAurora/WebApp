@@ -214,12 +214,12 @@ describe('desktop course workspace', () => {
     await expandSubject();
     fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
     await screen.findByRole('heading', { name: '高等数学' });
-    fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
+    fireEvent.click(screen.getByRole('tab', { name: '上传教材目录图片' }));
     await screen.findByRole('button', { name: '章节 1 函数与极限' });
     fireEvent.contextMenu(screen.getByRole('button', { name: /^章节 1 / }));
     fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }));
     fireEvent.change(screen.getByLabelText('章节 1标题'), { target: { value: '未保存的目录' } });
-    fireEvent.click(screen.getByRole('tab', { name: '教材目录' }));
+    fireEvent.click(screen.getByRole('tab', { name: '上传教材目录图片' }));
     expect(window.confirm).not.toHaveBeenCalled();
     expect(dirty).toHaveBeenLastCalledWith(true);
     fireEvent.click(screen.getByRole('tab', { name: /课程概览/ }));
@@ -307,7 +307,7 @@ describe('desktop course workspace', () => {
     await ready();
     const first = screen.getByRole('tab', { name: '课程概览' });
     fireEvent.keyDown(first, { key: 'ArrowRight' });
-    const files = screen.getByRole('tab', { name: /教材目录/ });
+    const files = screen.getByRole('tab', { name: /上传教材目录图片/ });
     expect(files).toHaveAttribute('aria-selected', 'true');
     expect(files).toHaveFocus();
     expect(first).toHaveAttribute('tabindex', '-1');

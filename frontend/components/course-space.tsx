@@ -256,7 +256,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
           busy={busy} onSave={data => void save(data)} onCancel={cancelEditor} onDirty={() => setDirty(true)} /> :
           selected ? <section className="detail-panel" aria-labelledby="course-detail-title">
             <div className="detail-heading"><span className={'status-tag' + (selected.status === 'archived' ? ' neutral' : '')}>
-              {selected.status === 'active' ? '学习中' : '已归档'}</span>
+              {selected.status === 'active' ? '创建课程中' : '已归档'}</span>
               <button className="button button-small" disabled={busy} onClick={() => { if (!leaveEditor()) return; setDirty(false); setEditing('edit'); setDeleteTarget(null); }}>
                 <Icon name="edit" size={16} />编辑课程</button></div>
             <h2 className="course-detail-title" id="course-detail-title" tabIndex={-1} title={selected.title}>{selected.title}</h2>
@@ -267,10 +267,10 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                 onClick={() => { if (detailTab !== 'overview' && leaveEditor()) { setDirty(false); setDetailTab('overview'); } }}>课程概览</button>
               <button role="tab" id="curriculum-tab" aria-selected={detailTab === 'curriculum'} aria-controls="course-tab-panel"
                 tabIndex={detailTab === 'curriculum' ? 0 : -1} onKeyDown={tabKey}
-                onClick={() => { if (detailTab !== 'curriculum' && leaveEditor()) { setDirty(false); setDetailTab('curriculum'); } }}>教材目录</button>
+                onClick={() => { if (detailTab !== 'curriculum' && leaveEditor()) { setDirty(false); setDetailTab('curriculum'); } }}>上传教材目录图片</button>
               <button role="tab" id="knowledge-tab" aria-selected={detailTab === 'knowledge'} aria-controls="course-tab-panel"
                 tabIndex={detailTab === 'knowledge' ? 0 : -1} onKeyDown={tabKey}
-                onClick={() => { if (detailTab !== 'knowledge' && leaveEditor()) { setDirty(false); setDetailTab('knowledge'); } }}>知识点</button>
+                onClick={() => { if (detailTab !== 'knowledge' && leaveEditor()) { setDirty(false); setDetailTab('knowledge'); } }}>目录与小节</button>
             </div>
             <div key={detailTab} id="course-tab-panel" className="motion-tab-panel" role="tabpanel" aria-labelledby={detailTab + '-tab'}>
               {detailTab === 'overview' ? <dl className="course-metadata">
