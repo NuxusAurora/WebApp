@@ -14,8 +14,8 @@ import { isModelSettings, modelSettingsItems, useWorkspaceNavigation, workspaceL
 import { api, ApiError } from '../lib/api';
 import { usePageMotion } from '../lib/page-motion';
 
-export function Workspace({ testLoginEnabled = false, accountNotice = '', systemView = false }: {
-  testLoginEnabled?: boolean; accountNotice?: string; systemView?: boolean;
+export function Workspace({ accountNotice = '', systemView = false }: {
+  accountNotice?: string; systemView?: boolean;
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +85,7 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
         </div> : loadError ? <section className="account-panel">
           <h1>暂时无法连接</h1><p className="muted" role="alert">{loadError}</p>
           <button className="button primary" onClick={() => setRetry(value => value + 1)}>重新连接</button>
-        </section> : <Account notice={notice || accountNotice} testLoginEnabled={testLoginEnabled} onLogin={value => { setUser(value); setNotice(''); }} />}
+        </section> : <Account notice={notice || accountNotice} onLogin={value => { setUser(value); setNotice(''); }} />}
       </div>
     </main>
   </div>;

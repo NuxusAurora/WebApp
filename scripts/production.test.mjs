@@ -25,14 +25,14 @@ test('production initialization generates independent secrets and refuses overwr
   try {
     const first=spawnSync(process.execPath,args,{encoding:'utf8',windowsHide:true});assert.equal(first.status,0,first.stderr);
     const before=readFileSync(file,'utf8');assert.ok(!before.includes('__POSTGRES_PASSWORD__'));
-    assert.notEqual(before,environment());assert.match(before,/^TEST_LOGIN_ENABLED=false$/m);assert.match(before,/^COOKIE_SECURE=true$/m);
+    assert.notEqual(before,environment());assert.doesNotMatch(before,/^TEST_LOGIN_/m);assert.match(before,/^COOKIE_SECURE=true$/m);
     const second=spawnSync(process.execPath,args,{encoding:'utf8',windowsHide:true});assert.notEqual(second.status,0);assert.equal(readFileSync(file,'utf8'),before);
     for(const key of ['POSTGRES_PASSWORD','SECRET_KEY','ENCRYPTION_KEY','STORAGE_SECRET_KEY']) {
       const secret=before.match(new RegExp('^'+key+'=(.+)$','m'))[1];assert.ok(!(first.stdout+first.stderr+second.stdout+second.stderr).includes(secret));
     }
   }finally{if(existsSync(file))unlinkSync(file);}
 });
-test('production merge removes service ports, preserves internal boundaries and disables test login',()=>withEnvironment(file=>{
+test('production merge removes service ports and preserves internal boundaries',()=>withEnvironment(file=>{
   const base=context(file).config();checkConfig(base);
   const config=productionContext(file).config();validateProduction(config);
   for(const name of ['postgres','redis','storage','backend','worker','frontend'])assert.equal(config.services[name].image,base.services[name].image);
@@ -40,7 +40,6 @@ test('production merge removes service ports, preserves internal boundaries and 
   assert.equal(config.services.frontend.environment.BACKEND_INTERNAL_URL,'http://backend:8000');
   assert.ok(Object.hasOwn(config.volumes,'caddy-data'));assert.ok(!Object.hasOwn(base.services,'proxy'));
   const publicBackend=structuredClone(config);publicBackend.services.backend.ports=[{published:'8000',target:8000}];assert.throws(()=>validateProduction(publicBackend));
-  const shortcut=structuredClone(config);shortcut.services.frontend.build.args.NEXT_PUBLIC_TEST_LOGIN_ENABLED='true';assert.throws(()=>validateProduction(shortcut));
   const mail=structuredClone(config);mail.services.backend.environment.SMTP_HOST='';assert.throws(()=>validateProduction(mail));
 }));
 test('existing Nginx mode exposes only loopback app and storage ports and omits Caddy',()=>withEnvironment(file=>{
@@ -58,21 +57,15 @@ test('existing Nginx mode exposes only loopback app and storage ports and omits 
   assert.equal(sameOrigin.services.backend.environment.STORAGE_PUBLIC_ENDPOINT,'https://learn.example.com');
 }));
 
-test('public test login requires explicit authorization and matching secure frontend/backend gates',()=>withEnvironment(file=>{
+test('test login needs no environment switches while secure cookies remain required',()=>withEnvironment(file=>{
+  writeFileSync(file,readFileSync(file,'utf8')+'\nTEST_LOGIN_ENABLED=false\nTEST_LOGIN_PUBLIC_ORIGIN=https://other.example.com\n');
   const config=productionContext(file).config();
+  validateProduction(config);
   for(const name of ['backend','worker']) {
-    config.services[name].environment.TEST_LOGIN_ENABLED='true';
-    config.services[name].environment.TEST_LOGIN_PUBLIC_ORIGIN='https://learn.example.com';
-  }
-  config.services.frontend.build.args.NEXT_PUBLIC_TEST_LOGIN_ENABLED='true';
-  assert.throws(()=>validateProduction(config));
-  assert.equal(validateProduction(config,{allowPublicTestLogin:true}).testLogin,true);
-  for(const name of ['backend','worker']) {
-    const wrong=structuredClone(config);wrong.services[name].environment.TEST_LOGIN_PUBLIC_ORIGIN='https://other.example.com';
-    assert.throws(()=>validateProduction(wrong,{allowPublicTestLogin:true}));
+    assert.ok(!Object.hasOwn(config.services[name].environment,'TEST_LOGIN_ENABLED'));
+    assert.ok(!Object.hasOwn(config.services[name].environment,'TEST_LOGIN_PUBLIC_ORIGIN'));
     const insecure=structuredClone(config);insecure.services[name].environment.COOKIE_SECURE='false';
-    assert.throws(()=>validateProduction(insecure,{allowPublicTestLogin:true}));
+    assert.throws(()=>validateProduction(insecure));
   }
-  const hidden=structuredClone(config);hidden.services.frontend.build.args.NEXT_PUBLIC_TEST_LOGIN_ENABLED='false';
-  assert.throws(()=>validateProduction(hidden,{allowPublicTestLogin:true}));
+  assert.ok(!Object.hasOwn(config.services.frontend.build.args??{},'NEXT_PUBLIC_TEST_LOGIN_ENABLED'));
 }));

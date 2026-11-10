@@ -636,11 +636,9 @@ describe('personal account overview', () => {
     expect(screen.getByRole('button', { name: '修改密码并退出' })).toBeEnabled();
   });
 
-  it('logs into the dedicated test account only when the shortcut is enabled', async () => {
+  it('logs into the dedicated test account by default without credentials', async () => {
     const login = vi.fn();
-    const view = render(<Account onLogin={login} />);
-    expect(screen.queryByRole('button', { name: '测试登录' })).not.toBeInTheDocument();
-    view.rerender(<Account onLogin={login} testLoginEnabled />);
+    render(<Account onLogin={login} />);
     vi.mocked(api).mockResolvedValue(user);
     fireEvent.click(screen.getByRole('button', { name: '测试登录' }));
     await waitFor(() => expect(login).toHaveBeenCalledWith(user));

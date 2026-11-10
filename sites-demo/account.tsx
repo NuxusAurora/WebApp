@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api } from './product/lib/api';
 export type User = { id: string; display_name: string; email: string };
 
-export function Account({onLogin, notice = ''}: {onLogin: (user: User) => void; notice?: string; testLoginEnabled?: boolean}) {
+export function Account({onLogin, notice = ''}: {onLogin: (user: User) => void; notice?: string}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function enter() {

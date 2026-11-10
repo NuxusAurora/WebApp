@@ -11,8 +11,8 @@ const titles: Record<Mode, string> = {
   'forgot-password': '找回密码', 'reset-password': '重置密码', 'resend-verification': '重发验证邮件',
 };
 
-export function Account({ onLogin, notice = '', testLoginEnabled = false }: {
-  onLogin: (user: User) => void; notice?: string; testLoginEnabled?: boolean;
+export function Account({ onLogin, notice = '' }: {
+  onLogin: (user: User) => void; notice?: string;
 }) {
   const [mode, setMode] = useState<Mode>('login');
   const [busy, setBusy] = useState(false);
@@ -97,7 +97,7 @@ export function Account({ onLogin, notice = '', testLoginEnabled = false }: {
       {mode === 'verify-email' ? <button type="button" className="text-button" disabled={busy}
         onClick={() => changeMode('resend-verification')}>重新发送验证码</button> : null}
     </form>
-    {testLoginEnabled && mode === 'login' ? <button className="button test-login" type="button" disabled={busy}
+    {mode === 'login' ? <button className="button test-login" type="button" disabled={busy}
       onClick={() => void testLogin()}>测试登录</button> : null}
   </section>;
 }

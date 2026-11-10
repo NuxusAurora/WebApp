@@ -61,11 +61,9 @@ Workspace 与 /system 共用 frontend/components/app-sidebar.tsx；样式在 com
 
 账户页入口仍为工作台“账户设置”：五项统计暂未接入，修改邮箱按用户确认禁用；昵称和密码通过短表单及原有 API 修改。主题通过 prefers-color-scheme 自动跟随系统；成功提示为黄绿色淡入淡出气泡，减少动态下保留提示时间。
 
-测试登录默认关闭。在仅供本地开发的 .env 中设置 `TEST_LOGIN_ENABLED=true`，重新构建前端并更新 backend/frontend 后，登录页显示“测试登录”，点击进入固定普通测试账户。后端还要求 PUBLIC_ORIGIN 的主机为 localhost/127.0.0.1/::1；关闭或非本地配置返回 404。入口不包含密码，复用正常 12 小时会话和隔离规则，不覆盖同名邮箱。此账户和其学习内容保留供用户开发测试；无需读取验证码。关闭开关后同样重建前端以隐藏入口。单独运行前端时还需构建变量 `NEXT_PUBLIC_TEST_LOGIN_ENABLED=true`。
+测试登录默认可用，登录页点击“测试登录”进入专用普通测试账户；本地和线上使用同一代码逻辑，无需环境开关、前端构建参数或额外部署授权参数。旧 `TEST_LOGIN_ENABLED`、`TEST_LOGIN_PUBLIC_ORIGIN` 和 `NEXT_PUBLIC_TEST_LOGIN_ENABLED` 不再生效，可从部署环境移除。实际运行版本及验收边界见 HANDOFF 最新节；源码修改不会自动发布云端。
 
-本机 localhost:3000 已启用 TEST_LOGIN_ENABLED=true；登录页点击“测试登录”直接进入独立测试账户。普通环境仍默认关闭。
-
-账户页回归覆盖默认关闭、非本地拒绝、邮箱冲突、限流和测试账户隔离。当前测试总数及视觉验收范围见 HANDOFF.md 的最新阶段。
+入口不包含密码，复用正常 12 小时会话、CSRF、限流和账户隔离规则，不覆盖同名邮箱。访客共用专用测试账户及其内容，其他正常账户仍独立。实现位于 backend/app/auth.py 与 frontend/components/account.tsx；回归覆盖默认可用、旧环境开关无效、HTTPS安全Cookie、邮箱冲突、限流、重复登录及退出。验证命令沿用前后端检查及 `node --test scripts/production.test.mjs scripts/infra.test.mjs`。
 
 ## 前端工作台与学习目标
 

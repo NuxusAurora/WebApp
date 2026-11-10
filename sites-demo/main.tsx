@@ -29,7 +29,7 @@ function App() {
         <p className="muted">课程、昵称和文本资料只保存在当前浏览器。更换设备不会同步。</p>
         <a className="button primary" href="/#">返回工作台</a>
       </section></main>
-    </div> : <Workspace testLoginEnabled />}</div>
+    </div> : <Workspace />}</div>
   </>;
 }
 createRoot(document.getElementById('root')!).render(<App />);

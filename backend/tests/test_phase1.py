@@ -16,40 +16,31 @@ HEADERS = {"X-Requested-With": "structured-learning"}
 PASSWORD = "example-password-123"
 
 
-def test_test_login_requires_explicit_local_configuration(account_app):
+def test_test_login_is_available_by_default(account_app):
     app, client = account_app
-    assert client.post("/api/v1/auth/test-login").status_code == 404
-    app.state.settings.test_login_enabled = True
-    app.state.settings.public_origin = "https://learning.example.com"
-    assert client.post("/api/v1/auth/test-login").status_code == 404
+    assert client.post("/api/v1/auth/test-login").status_code == 200
 
 
 @pytest.mark.parametrize(
-    "enabled,origin,allowed,secure",
+    "origin,secure",
     [
-        (True, "https://learning.example.com", "", True),
-        (True, "https://learning.example.com", "https://other.example.com", True),
-        (True, "https://learning.example.com", "https://learning.example.com", False),
-        (True, "http://learning.example.com", "http://learning.example.com", True),
-        (False, "https://learning.example.com", "https://learning.example.com", True),
+        ("http://localhost:3000", False),
+        ("https://learning.example.com", True),
     ],
 )
-def test_public_test_login_requires_all_explicit_gates(
-    account_app, enabled, origin, allowed, secure
-):
+def test_test_login_ignores_legacy_environment_switches(account_app, monkeypatch, origin, secure):
+    from app.config import Settings
+
     app, client = account_app
-    app.state.settings.test_login_enabled = enabled
-    app.state.settings.public_origin = origin
-    app.state.settings.test_login_public_origin = allowed
-    app.state.settings.cookie_secure = secure
-    assert client.post("/api/v1/auth/test-login").status_code == 404
+    monkeypatch.setenv("TEST_LOGIN_ENABLED", "false")
+    monkeypatch.setenv("TEST_LOGIN_PUBLIC_ORIGIN", "https://other.example.com")
+    app.state.settings = Settings(public_origin=origin, cookie_secure=secure)
+    assert client.post("/api/v1/auth/test-login").status_code == 200
 
 
 def test_public_test_login_keeps_the_reusable_normal_account_and_secure_session(account_app):
     app, client = account_app
-    app.state.settings.test_login_enabled = True
     app.state.settings.public_origin = "https://learning.example.com"
-    app.state.settings.test_login_public_origin = "https://learning.example.com"
     app.state.settings.cookie_secure = True
     first = client.post("/api/v1/auth/test-login", json={"role": "admin"})
     assert first.status_code == 200
@@ -67,7 +58,6 @@ def test_test_login_uses_an_isolated_reusable_normal_session(account_app):
     original_id = client.get("/api/v1/users/me").json()["data"]["id"]
     client.post("/api/v1/courses", json={"title": "原账户课程"})
     client.post("/api/v1/auth/logout")
-    app.state.settings.test_login_enabled = True
     response = client.post(
         "/api/v1/auth/test-login", json={"email": "one@example.com", "role": "admin"}
     )
@@ -90,7 +80,6 @@ def test_test_login_uses_an_isolated_reusable_normal_session(account_app):
 def test_test_login_does_not_take_over_an_existing_email(account_app):
     app, client = account_app
     register(client, app, "local-test@example.com")
-    app.state.settings.test_login_enabled = True
     response = client.post("/api/v1/auth/test-login")
     assert response.status_code == 409
     assert "set-cookie" not in response.headers
@@ -99,7 +88,6 @@ def test_test_login_does_not_take_over_an_existing_email(account_app):
 
 def test_test_login_uses_the_rate_limiter(account_app):
     app, client = account_app
-    app.state.settings.test_login_enabled = True
 
     class Blocked:
         async def eval(self, *args):
