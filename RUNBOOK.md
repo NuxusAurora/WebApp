@@ -2,7 +2,7 @@
 
 ## 课程学科菜单 · 2026-11-10
 
-入口 `/` → 我的课程：一级为学科（默认收起），点击整行展开二级课程；支持多个学科同时展开及键盘Enter/Space。搜索自动展开匹配组，清空恢复收起；空学科归入“未设置学科”。分组/数量/搜索沿用当前100条分页，翻页重置折叠。实现位于frontend/components/course-space.tsx及frontend/app/globals.css，相关回归为frontend/tests/course-workspace.test.tsx；检查继续用npm run check、npm test、npm run build，实际结果与限制见HANDOFF最新节。
+入口 `/` → 我的课程：一级为学科（默认收起），点击整行展开二级课程；支持多个学科同时展开及键盘Enter/Space。二级直接点击课程名称进入，名称可键盘操作；无独立进入按钮和学科/课程装饰图标，保留展开箭头。搜索自动展开匹配组，清空恢复收起；空学科归入“未设置学科”。分组/数量/搜索沿用当前100条分页，翻页重置折叠。实现位于frontend/components/course-space.tsx及frontend/app/globals.css，相关回归为frontend/tests/course-workspace.test.tsx；检查继续用npm run check、npm test、npm run build，实际结果与限制见HANDOFF最新节。
 
 ## 默认与自定义连接 · 2026-11-10
 
