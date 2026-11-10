@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
 import { Icon } from './icon';
+import { Toast, useToast } from './toast';
 import { api, ApiError } from '../lib/api';
 import type { Curriculum, Provider } from '../lib/curriculum';
 import { pointPayload, validKnowledge, type KnowledgeData, type KnowledgePayload, type KnowledgeVersion, type PointInput } from '../lib/knowledge';
@@ -36,6 +37,18 @@ function ExpandingTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 }
 
 type Props = { onDirtyChange: (dirty: boolean) => void; onSessionExpired?: () => void };
+
+function ReviewItem({ text, index, onApprove }: { text: string; index: number; onApprove: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const textId = useId();
+  return <article className={'knowledge-review-item' + (expanded ? ' is-expanded' : '')}>
+    <div className="knowledge-review-title"><strong>核对项 {index + 1}</strong><span className="knowledge-review-status">待核对</span>
+      <button type="button" className="icon-button knowledge-review-toggle" aria-label={(expanded ? '收起' : '展开') + '核对项 ' + (index + 1) + '完整意见'} aria-expanded={expanded} aria-controls={textId} onClick={() => setExpanded(value => !value)}><Icon name="chevron" size={16} /></button></div>
+    <p id={textId} className="knowledge-review-text">{text}</p>
+    {expanded ? <div className="knowledge-review-action"><button type="button" className="button knowledge-approve" onClick={onApprove}>批准</button></div> : null}
+  </article>;
+}
+
 type SectionChoice = { id: string; title: string; chapter: string };
 const importance = { HIGH: '重点', MEDIUM: '常规', LOW: '拓展' };
 const statuses = { NOT_STARTED: '尚未学习', LEARNING: '正在学习', PRACTICING: '正在练习', NEEDS_REVIEW: '需要复习', MASTERED: '已掌握' };
@@ -86,6 +99,7 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const { notification, notify, dismiss } = useToast();
   const [confirming, setConfirming] = useState(false);
   const [acceptArchives, setAcceptArchives] = useState(false);
   const controller = useRef<AbortController | null>(null);
@@ -142,6 +156,7 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
     });
   }
   return <div className="knowledge-content" aria-busy={Boolean(busy)}>
+    <Toast notification={notification} onDismiss={dismiss} tone="warning" />
     {error ? <p ref={errorRef} tabIndex={-1} className="notice error" role="alert">{error}</p> : null}
     {notice ? <p role="status">{notice}</p> : null}
     {loading ? <p role="status">正在加载知识点…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载知识点</button> : <>
@@ -154,7 +169,6 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
           if (data.draft) adopt(data.draft);
           else { setVersion(null); setPayload(pointPayload(data.knowledge_points)); setDirty(true); }
         }}>{data.draft ? '继续编辑知识草稿' : '编辑知识点'}</button> : null}
-        <button className="text-button" disabled={Boolean(busy)} onClick={() => { if (!dirty || window.confirm('放弃未保存的知识点修改并重新加载？')) void refresh(); }}>重新加载</button>
       </div></div>
       {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => <li key={point.id}>
         <div className="knowledge-point-heading"><h3>{point.title}</h3><span className="knowledge-state">{importance[point.importance]} · {statuses[point.status]}</span></div>
@@ -169,12 +183,8 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
           <section className="knowledge-review" aria-label="AI 审核与核对">
             <div className="knowledge-review-heading"><div><h3>AI 审核与核对</h3><p className="muted">基于模型自身知识生成，请核对教材特有内容。</p></div>
               <span className={'knowledge-state ' + (payload.uncertain_items.length ? 'is-pending' : 'is-clear')}><Icon name={payload.uncertain_items.length ? 'alert' : 'check'} size={15} />{payload.uncertain_items.length ? payload.uncertain_items.length + ' 项待核对' : '无待核对项'}</span></div>
-            {payload.uncertain_items.length ? <ol className="knowledge-review-list">{payload.uncertain_items.map((item, index) => <li key={index}>
-              <details className="knowledge-review-item"><summary>
-                <span className="knowledge-review-title"><strong>核对项 {index + 1}</strong><span className="knowledge-review-status">待核对</span><Icon name="chevron" size={16} /></span>
-                <span className="knowledge-review-text">{item}</span>
-                <span className="knowledge-disclosure"><span className="when-closed">展开完整意见</span><span className="when-open">收起完整意见</span></span>
-              </summary><div className="knowledge-review-action"><button className="button" onClick={() => change({ ...payload, uncertain_items: payload.uncertain_items.filter((_, i) => i !== index) })}><Icon name="check" size={15} />已核对第 {index + 1} 项</button></div></details>
+            {payload.uncertain_items.length ? <ol className="knowledge-review-list">{payload.uncertain_items.map((item, index) => <li key={item + index}>
+              <ReviewItem text={item} index={index} onApprove={() => change({ ...payload, uncertain_items: payload.uncertain_items.filter((_, i) => i !== index) })} />
             </li>)}</ol> : null}
           </section>
           <div className="knowledge-list-heading"><h3>知识点内容</h3><span className="muted">{payload.knowledge_points.length} 个知识点 · 点击标题展开编辑</span></div>
@@ -202,32 +212,27 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
         </fieldset>
         {!validKnowledge(payload) ? <small role="status">名称、定义、学习目标和掌握标准必填；目标及标准各限 20 项，每项 500 字。</small> : null}
         <div className="knowledge-actions">
-          <span className="knowledge-save-status">{dirty ? '有未保存的修改' : '草稿已保存'}</span>
           <button className={'button' + (dirty ? ' primary' : '')} disabled={disabled || !dirty || !validKnowledge(payload)} onClick={() => void run('正在保存草稿…', async signal => {
             const replacement = !version && data.draft ? { replace_version_id: data.draft.id, replace_revision: data.draft.revision } : {};
             const next = await api<KnowledgeVersion>(version ? path : path + '/drafts', { method: version ? 'PATCH' : 'POST', signal,
               body: JSON.stringify({ payload, base_course_revision: version?.base_course_revision ?? data.confirmed_revision, ...replacement,
                 ...(version ? { version_id: version.id, expected_revision: version.revision } : {}) }) });
             if (signal.aborted) return;
-            adopt(next); await load(signal); if (!signal.aborted) setNotice('知识草稿已保存');
-          })}>保存知识草稿</button>
-          {version ? <button className={'button' + (!dirty ? ' primary' : '')} disabled={disabled || dirty || Boolean(payload.uncertain_items.length) || confirming} onClick={() => { setConfirming(true); setAcceptArchives(false); }}>核对并确认知识点</button> : null}
-          <button className="text-button" disabled={Boolean(busy)} onClick={() => {
-            if (dirty && !window.confirm('放弃未保存的知识点修改？')) return;
-            setPayload(null); setDirty(false); setConfirming(false);
-          }}>关闭编辑</button>
+            adopt(next); await load(signal);
+          })}>{!dirty && version ? '草稿已保存' : '保存草稿'}</button>
+          {version ? <button className={'button knowledge-confirm-action ' + (payload.uncertain_items.length ? 'is-pending' : 'is-clear')} disabled={disabled || confirming} onClick={() => {
+            if (payload.uncertain_items.length) { notify('请回到开始处，还有未核对的事项'); return; }
+            if (dirty) { notify('请先保存草稿'); return; }
+            setConfirming(true); setAcceptArchives(false);
+          }}>确认无误</button> : null}
           {stale ? <button className="button" disabled={Boolean(busy)} onClick={() => {
             if (!window.confirm('用正式知识点重新编辑，保存后替换过期草稿？')) return;
             setPayload(pointPayload(data.knowledge_points)); setVersion(null); setDirty(true); setConfirming(false);
           }}>从正式知识点重新编辑</button> : null}
         </div>
-        {version && !dirty ? <div className="knowledge-diff"><p>新增 {version.change_summary.added.length} · 修改 {version.change_summary.modified.length} · 归档 {version.change_summary.archived.length}</p>
-          {(['added', 'modified', 'archived'] as const).map(kind => version.change_summary[kind].length ? <details key={kind} open={kind === 'archived'}>
-            <summary>{kind === 'added' ? '新增项' : kind === 'modified' ? '修改项' : '归档项'}</summary><ul>{version.change_summary[kind].map(item => <li key={item.id}>{item.title}{item.review_mastery ? ' · 内容已变化，请复核原掌握状态' : ''}</li>)}</ul>
-          </details> : null)}
-          {version.source.model_name ? <small>{version.source.knowledge_basis === 'model_knowledge' ? '生成依据：模型自身知识 · ' : '生成模型：'}{version.source.model_name}</small> : null}
-        </div> : null}
         {confirming && version ? <div className="knowledge-confirm" role="region" aria-label="确认知识点"><h3>应用这份知识草稿？</h3><p>确认内容不会改变已有学习状态，移除的知识点将归档。</p>
+          {version.change_summary.archived.length ? <ul>{version.change_summary.archived.map(item => <li key={item.id}>{item.title}</li>)}</ul> : null}
+          {version.change_summary.modified.some(item => item.review_mastery) ? <ul>{version.change_summary.modified.filter(item => item.review_mastery).map(item => <li key={item.id}>{item.title} · 内容已变化，请复核原掌握状态</li>)}</ul> : null}
           {version.change_summary.archived.length ? <label className="knowledge-archive"><input type="checkbox" checked={acceptArchives} onChange={e => setAcceptArchives(e.target.checked)} />我已核对全部归档知识点</label> : null}
           <div className="button-row"><button className="button primary" disabled={Boolean(busy) || Boolean(version.change_summary.archived.length && !acceptArchives)} onClick={() => void run('正在确认知识点…', async signal => {
             await api(path + '/confirm', { method: 'POST', signal, body: JSON.stringify({ version_id: version.id, expected_revision: version.revision, base_course_revision: version.base_course_revision, accept_archives: acceptArchives }) });

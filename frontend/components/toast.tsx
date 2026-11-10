@@ -15,9 +15,10 @@ export function useToast() {
   return { notification, notify, dismiss };
 }
 
-export function Toast({ notification, onDismiss }: {
+export function Toast({ notification, onDismiss, tone = 'success' }: {
   notification: Notification | null;
   onDismiss: () => void;
+  tone?: 'success' | 'warning';
 }) {
   const [closingId, setClosingId] = useState<number | null>(null);
   const closing = Boolean(notification && closingId === notification.id);
@@ -28,8 +29,8 @@ export function Toast({ notification, onDismiss }: {
   }, [notification, onDismiss, closing]);
 
   if (!notification) return null;
-  return <div key={notification.id} className={'success-toast' + (closing ? ' is-dismissing' : '')} role="status" aria-live="polite" aria-atomic="true">
-    <Icon name="check" size={20} />
+  return <div key={notification.id} className={'success-toast' + (tone === 'warning' ? ' warning-toast' : '') + (closing ? ' is-dismissing' : '')} role="status" aria-live="polite" aria-atomic="true">
+    <Icon name={tone === 'warning' ? 'alert' : 'check'} size={20} />
     <span>{notification.message}</span>
     <button className="icon-button" type="button" aria-label="关闭提示" onClick={() => setClosingId(notification.id)}>
       <Icon name="close" size={16} />
