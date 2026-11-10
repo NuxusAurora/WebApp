@@ -1,5 +1,9 @@
 # 运行手册
 
+## 手机MPO/JPG主照片 · 2026-11-10
+
+部分.jpg包含MPO/MPF多图结构。app/curriculum/ocr.py按实际格式识别MPO，选取第0帧主照片、完整解码、纠正EXIF方向后重新编码普通RGB JPEG，去除MPF索引及其他帧，不缩放；其他格式按上传限制节处理，普通JPEG保留压缩字节。GIF动画/多页TIFF等仍拒绝多帧。路由、存储及模型沿用现有JPEG契约，无迁移或前端变更。日志detected_format=MPO、frames和selected_frame=0，输出output_format=JPEG，可按request_id查明是主照片解码或编码失败。回归覆盖MPO伪装.jpg的上传、主帧/旋转/辅助帧剥离及模型实际JPEG载荷；运行验收见HANDOFF最新节。
+
 ## 模型调用分阶段诊断 · 2026-11-10
 
 非流式Gateway.execute输出`ai_call_diagnostics`最终日志；失败尝试另有`ai_call_attempt`，包含trace_id、task_type、attempt、outcome/error_code和阶段。目录解析还关联原HTTP request_id及ai_call_id，可与ai_call_logs对应。仅诊断元数据进入日志，不存模型正文、提示词、图片、URL、头、密钥或异常原文；不变更90秒总限、重试、API返回或数据库结构。流式调用和模型发现不在本轮阶段诊断范围。

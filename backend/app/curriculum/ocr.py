@@ -25,11 +25,17 @@ def normalize_image(content: bytes, *, diagnostics: dict | None = None):
                 dimensions=list(original.size),
                 mode=original.mode,
             )
-            if original.format not in {"PNG", "JPEG", "WEBP", "BMP", "GIF", "TIFF", "AVIF"}:
+            source_format = original.format
+            if source_format not in {"PNG", "JPEG", "MPO", "WEBP", "BMP", "GIF", "TIFF", "AVIF"}:
                 details["reason"] = "unsupported_format"
                 raise ValueError()
             details["frames"] = getattr(original, "n_frames", 1)
-            if details["frames"] != 1:
+            if source_format == "MPO":
+                # A .jpg may contain an MPF index with auxiliary/stereo JPEGs.
+                # Use its primary photo and encode a plain JPEG without the MPF container.
+                details.update(stage="select_primary", selected_frame=0)
+                original.seek(0)
+            elif details["frames"] != 1:
                 details["reason"] = "multiple_frames"
                 raise AppError("FILE_TYPE", "请将动图或多页图片导出为单张图片后上传")
             details["stage"] = "decode"
@@ -37,8 +43,12 @@ def normalize_image(content: bytes, *, diagnostics: dict | None = None):
             details["stage"] = "transform"
             # Keep a validated, correctly oriented JPEG in its original compressed form.
             # Re-encoding a photograph as lossless PNG can multiply the request size.
-            jpeg = original.format == "JPEG"
-            if jpeg and original.mode in {"RGB", "L"} and original.getexif().get(274, 1) == 1:
+            jpeg = source_format in {"JPEG", "MPO"}
+            if (
+                source_format == "JPEG"
+                and original.mode in {"RGB", "L"}
+                and original.getexif().get(274, 1) == 1
+            ):
                 details.update(stage="complete", output_bytes=len(content), output_format="JPEG")
                 return content
             oriented = ImageOps.exif_transpose(original)

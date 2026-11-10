@@ -306,6 +306,7 @@ def test_image_upload_failure_logs_reason_without_content(
         ("JPEG", "jpeg"),
         ("JPEG", "jpg"),
         ("JPEG", "JPG"),
+        ("MPO", "jpg"),
         ("WEBP", "webp"),
         ("BMP", "bmp"),
         ("GIF", "gif"),
@@ -318,7 +319,12 @@ def test_upload_supported_formats_preserves_jpeg_and_normalizes_others(
 ):
     app, client, path, _ = setup(account_app)
     output = io.BytesIO()
-    Image.new("RGB", (40, 20), "white").save(output, format=format)
+    options = (
+        {"save_all": True, "append_images": [Image.new("RGB", (8, 8), "black")]}
+        if format == "MPO"
+        else {}
+    )
+    Image.new("RGB", (40, 20), "white").save(output, format=format, **options)
     result = client.post(
         path + "/images",
         content=output.getvalue(),
@@ -330,9 +336,9 @@ def test_upload_supported_formats_preserves_jpeg_and_normalizes_others(
     assert result.status_code == 201, result.text
     assert len(app.state.store.objects) == 1
     key, value = next(iter(app.state.store.objects.items()))
-    jpeg = format == "JPEG"
+    jpeg = format in {"JPEG", "MPO"}
     assert key.endswith(".jpg" if jpeg else ".png")
-    if jpeg:
+    if format == "JPEG":
         assert value == output.getvalue()
     with Image.open(io.BytesIO(value)) as image:
         assert image.format == ("JPEG" if jpeg else "PNG")
@@ -390,6 +396,35 @@ def test_jpeg_orientation_and_color_conversion_remain_jpeg(mode, orientation):
             assert image.getexif().get(274, 1) == 1
     if mode == "L":
         assert normalized == output.getvalue()
+
+
+@pytest.mark.parametrize("orientation, frame_count", [(1, 2), (6, 3)])
+def test_mpo_jpg_extracts_oriented_primary_without_auxiliary_images(orientation, frame_count):
+    output = io.BytesIO()
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new("RGB", (40, 20), "red").save(
+        output,
+        format="MPO",
+        save_all=True,
+        append_images=[Image.new("RGB", (8, 8), "blue") for _ in range(frame_count - 1)],
+        exif=exif,
+    )
+    content = output.getvalue()
+    with Image.open(io.BytesIO(content)) as original:
+        assert original.format == "MPO" and original.n_frames == frame_count
+    details = {}
+    normalized = normalize_image(content, diagnostics=details)
+    with Image.open(io.BytesIO(normalized)) as image:
+        image.load()
+        assert image.format == "JPEG" and getattr(image, "n_frames", 1) == 1
+        assert image.size == ((20, 40) if orientation == 6 else (40, 20))
+        red, green, blue = image.getpixel((0, 0))
+        assert red > 240 and green < 10 and blue < 10
+        assert image.getexif().get(274, 1) == 1
+    assert b"MPF\x00" not in normalized
+    assert details["detected_format"] == "MPO" and details["frames"] == frame_count
+    assert details["selected_frame"] == 0 and details["output_format"] == "JPEG"
 
 
 def test_image_normalization_does_not_limit_dimensions_or_pixel_count():
@@ -521,7 +556,7 @@ def test_parse_uses_gateway_with_private_provenance_and_schema_failures(account_
     client.portal.call(transport_client.aclose)
 
 
-@pytest.mark.parametrize("image_format", ["PNG", "JPEG"])
+@pytest.mark.parametrize("image_format", ["PNG", "JPEG", "MPO"])
 def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
     account_app, monkeypatch, caplog, image_format
 ):
@@ -542,7 +577,12 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
         },
     ).json()["data"]
     output = io.BytesIO()
-    Image.new("RGB", (40, 20), "white").save(output, format=image_format)
+    options = (
+        {"save_all": True, "append_images": [Image.new("RGB", (8, 8), "black")]}
+        if image_format == "MPO"
+        else {}
+    )
+    Image.new("RGB", (40, 20), "white").save(output, format=image_format, **options)
     image = client.post(
         path + "/images", content=output.getvalue(), headers={"X-Filename": "photo.png"}
     ).json()["data"]
@@ -597,10 +637,14 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
         for message in requests[0]["messages"]
         if isinstance(message["content"], list)
     )
-    media_type = "image/jpeg" if image_format == "JPEG" else "image/png"
+    media_type = "image/png" if image_format == "PNG" else "image/jpeg"
     assert parts[1]["image_url"]["url"].startswith(f"data:{media_type};base64,")
     if image_format == "JPEG":
         assert base64.b64decode(parts[1]["image_url"]["url"].split(",", 1)[1]) == output.getvalue()
+    if image_format == "MPO":
+        sent = base64.b64decode(parts[1]["image_url"]["url"].split(",", 1)[1])
+        with Image.open(io.BytesIO(sent)) as decoded:
+            assert decoded.format == "JPEG" and getattr(decoded, "n_frames", 1) == 1
     assert parts[1]["image_url"]["detail"] == "high"
     assert requests[0]["response_format"]["json_schema"]["strict"] is True
     assert "uncertain_items" in requests[0]["response_format"]["json_schema"]["schema"]["required"]
