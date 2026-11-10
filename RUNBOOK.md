@@ -12,7 +12,7 @@
 
 ## 目录图片诊断日志 · 2026-11-10
 
-后端上传校验额外输出JSON事件`curriculum_image_validation`，`request_id`与普通请求日志一致。记录允许列表内的扩展名/MIME、实际字节数、SHA-256、解码器识别的格式/模式/尺寸/帧数及规范化大小；不记录原文件名、图片内容、异常原文、请求头/凭据。`outcome=normalized`表示通过图片规范化，最终上传状态仍看同request_id的请求日志。
+后端上传校验额外输出JSON事件`curriculum_image_validation`，`request_id`与普通请求日志一致。记录允许列表内的扩展名/MIME、实际字节数、SHA-256、解码器识别的格式/模式/尺寸/帧数、规范化大小及output_format（JPEG/PNG）；不记录原文件名、图片内容、异常原文、请求头/凭据。`outcome=normalized`表示通过图片规范化，最终上传状态仍看同request_id的请求日志。
 
 失败按`stage`定位filename/read/input/open/inspect/decode/transform/encode；`reason`区分invalid_filename、input_size、unrecognized_image、unsupported_format、multiple_frames、truncated_image、corrupt_stream、decoder_rejected、output_size，并保留底层异常类型和业务错误码。服务器使用`sudo docker logs --since 15m --timestamps learning-cloud-backend-1 2>&1 | grep curriculum_image_validation`筛选，再用request_id关联普通请求。旧版本仅含400/耗时的历史失败无法补回解码细节。
 

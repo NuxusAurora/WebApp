@@ -1,11 +1,11 @@
 {
-  "revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
-  "image_source_revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
-  "configuration_source_revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
+  "revision": "bcb38c93f3db030d6edadd5ea274931983b3ca7f",
+  "image_source_revision": "bcb38c93f3db030d6edadd5ea274931983b3ca7f",
+  "configuration_source_revision": "bcb38c93f3db030d6edadd5ea274931983b3ca7f",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:a994598",
-      "id": "sha256:5b0d9fc0b5354704a81e3fcd362d6b2ea9ee319ddbab29927181f1ac8726c576"
+      "source": "webapp-release-backend:bcb38c9",
+      "id": "sha256:14b5e2c7ba1342dc175236bc4f908b48070fc687bbf06985ceaa2a257e447927"
     },
     "frontend": {
       "source": "webapp-release-frontend:3d924db",
@@ -13,9 +13,9 @@
     }
   },
   "runtime_images": {
+    "backend": "sha256:14b5e2c7ba1342dc175236bc4f908b48070fc687bbf06985ceaa2a257e447927",
+    "worker": "sha256:14b5e2c7ba1342dc175236bc4f908b48070fc687bbf06985ceaa2a257e447927",
     "frontend": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
-    "backend": "sha256:5b0d9fc0b5354704a81e3fcd362d6b2ea9ee319ddbab29927181f1ac8726c576",
-    "worker": "sha256:5b0d9fc0b5354704a81e3fcd362d6b2ea9ee319ddbab29927181f1ac8726c576",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -24,9 +24,9 @@
   "schema_revision": "0007_connection_slots",
   "test_login": "always available; no environment gates",
   "service_health": {
-    "learning-cloud-frontend-1": "healthy",
     "learning-cloud-backend-1": "healthy",
     "learning-cloud-worker-1": "healthy",
+    "learning-cloud-frontend-1": "healthy",
     "learning-cloud-postgres-1": "healthy",
     "learning-cloud-redis-1": "healthy",
     "learning-cloud-storage-1": "healthy"
@@ -34,32 +34,32 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": true,
-  "data_preservation": "business table counts/sorted row hashes unchanged through cutover and synthetic loopback stage probe",
+  "data_preservation": "business counts and sorted row hashes equal through stopped-writer backup/cutover; diagnostic QA objects removed after testing; new normal call audit retained",
   "business_counts": {
     "users": 1,
     "courses": 2,
-    "uploads": 1,
+    "uploads": 2,
     "chapters": 0,
     "sections": 0,
-    "workflow_runs": 1,
+    "workflow_runs": 2,
     "structure_versions": 0,
     "structure_events": 0,
     "ai_providers": 2,
     "ai_models": 1,
-    "ai_call_logs": 3,
+    "ai_call_logs": 6,
     "knowledge_points": 0
   },
   "backup_before_upgrade": "database/storage/environment backed up after writer stop; no migration; removed after acceptance",
-  "released_at_utc": "2026-11-10T15:09:50.959099+00:00",
+  "released_at_utc": "2026-11-10T15:49:41.642195+00:00",
   "validation": {
-    "backend_tests": 156,
+    "backend_tests": 163,
     "ruff_format_runtime_build": "passed",
-    "runtime_stage_probe": "real loopback HTTP in running backend: waiting headers and partial200 body timeout distinguished; wire bytes0/11",
-    "business_hashes_preserved": true,
-    "nginx_template_matches_runtime": true,
-    "real_provider_retry": "not performed; no user images/prompt sent to provider",
+    "jpeg_private_storage_and_download": "both local/public: exact 114422 original bytes; image/jpeg and curriculum.jpg; truncated JPEG400",
+    "real_provider_retry": "user original: local201/25335ms, public201/22128ms, both 3 chapters and19 children; QA course/images/drafts/session deleted; normal audit retained",
     "frontend": "unchanged 3d924db; no new visual acceptance",
-    "https_health_ready": "200"
+    "https_health_ready": "200",
+    "business_hashes_preserved_across_cutover": true,
+    "nginx_template_and_runtime": "unchanged verified configuration hash"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -68,12 +68,12 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 314790925,
+  "cleanup_logical_bytes": 158962184,
   "obsolete_image_tags_removed": [
-    "webapp-release-backend:f514e1c",
-    "webapp-ai-stage-backend:latest"
+    "webapp-release-backend:a994598",
+    "webapp-jpeg-backend:latest"
   ],
-  "cleanup": "temporary stage packages/image archives/rollback backup/scripts removed; current source, verified runtime, user data and credentials retained",
+  "cleanup": "temporary image/source archives, consistent database/storage/environment rollback copies, original-image test copy and sender TCP samples removed; current source/runtime/user data/credentials retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
   "nginx_template_render_matches_runtime": true,
   "nginx_upload_limit": "50 MiB",
@@ -166,5 +166,20 @@
     "fields": "stage, milestones, attempt, http_status, header/first-body timings, wire/decoded byte counts, timeout_source, exception type/error code",
     "privacy": "no raw model content/images/prompts/URLs/headers/credentials/exception text",
     "timeout_and_retry": "unchanged; curriculum90s, original retry policy"
+  },
+  "jpeg_direct": {
+    "input_and_stored_bytes": 114422,
+    "sha256": "68d2f013fdb7618336b99bd1005d3dd423e837da4506c1f72bc77b7fa399ff24",
+    "request_body_before": 1038534,
+    "request_body_after": 157697,
+    "resize": false,
+    "legacy_png_compatible": true
+  },
+  "ingress_diagnosis": {
+    "old_format_reproduction": "1.04MB body trickled into relay over78.021s; relay200 total94.326s/model~16.3s after caller90s deadline",
+    "jpeg_reproduction": "Caddy-to-Nginx7.636s; Nginx-to-relay7.636s, no queue buildup; relay total18.785s/model~11.1s; app22.128s",
+    "body_only_probe": "1.033MB blank-model request returned400 without generation; cloudflared-to-Caddy59.101s; Caddy-to-Nginx59.100s; Nginx-to-relay59.099s; each500ms sampled queue0; see HANDOFF for sender TCP findings",
+    "relay_services": "no relay source/config/service/network changes; temporary time/length/queue observation only",
+    "sender_tcp_probe": "second1.033MB validation-only probe took76.059s; Cloudflare TCP endpoint104.21.88.115 ACKed full TLS upload within8s of sampling start; send queue0 thereafter while response awaited; local retransmission293735bytes affected early upload but does not explain remaining~70s; slow delivery located after Cloudflare TCP ingress and before cloudflared origin dispatch, internal edge/Tunnel/network mechanism not resolved"
   }
 }

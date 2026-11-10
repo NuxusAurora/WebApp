@@ -2,7 +2,17 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
-## 2026-11-10 当前：模型调用分阶段诊断
+## 2026-11-10 当前：JPEG直接发送与超时定位
+
+后端/Worker发布bcb38c93f3db030d6edadd5ea274931983b3ca7f，current为releases/bcb38c9；本地同步，同一已验收镜像14b5e2c7ba13，前端仍3d924db。JPEG在完整解码校验后保留原始压缩字节，需要EXIF/CMYK处理时仍编码JPEG；其他格式和历史PNG兼容。存储及签名下载MIME与模型data URL一致，90秒预算不变，无数据库迁移。
+
+163项后端全量、Ruff/格式、运行镜像构建通过。用户原图在两端均保持114422字节JPEG，私有下载逐字节相等且image/jpeg，截断文件400；真实解析本地25.335秒/正式22.128秒均201，正确提取3章19子项。QA课程/图片/草稿/工作流和会话清理，正常调用审计保留；两端六服务健康，health/ready200。停写一致备份/切换前后业务表数量和排序行摘要相同，正式原课程/图片/工作流保持，Nginx配置摘要未变。
+
+旧版同图请求正文约1.04MB，本次对照78秒才到齐；JPEG约158KB，接收7.636秒。无模型调用的空model诊断进一步确认59秒发生在cloudflared交付正文，Caddy/Nginx/后端同步转发无积压；发送端TCP完整确认早于剩余约70秒等待。定位为Cloudflare TCP入口之后至Tunnel向本机交付前的链路，内部具体机制尚未确认。分段数据、请求编号及边界集中见HANDOFF对应节；未改共享中转、Tunnel或网络配置。
+
+云端临时包/数据库和对象存储一致备份/环境回退副本/原图测试副本与TCP样本158962184逻辑字节、jackysvr1观测缓存1877602逻辑字节均已删除，原始证据不留存；旧和任务镜像标签清理，保留当前源快照/运行依赖/用户数据和密钥。确切来源、摘要及回执见production.json，GitHub/Sites未更新。
+
+## 2026-11-10 模型调用分阶段诊断（历史）
 
 后端/Worker发布a9945983d582c7be7fca743efa498b1107ac64dd，current为releases/a994598；本地同步，前端镜像保持3d924db。非流式Gateway.execute新增ai_call_diagnostics与失败尝试ai_call_attempt，目录请求关联request_id/ai_call_id；区分连接/TLS/发送、响应头/正文等待、响应JSON、目录JSON、Schema、重试退避及审计。字段、脱敏边界和查询命令见RUNBOOK对应节。原90秒上限/重试/API契约保持，未新增依赖或迁移。
 
