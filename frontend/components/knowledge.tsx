@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 import { api, ApiError } from '../lib/api';
@@ -39,13 +39,10 @@ function ExpandingTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 type Props = { onDirtyChange: (dirty: boolean) => void; onSessionExpired?: () => void };
 
 function ReviewItem({ text, index, onApprove }: { text: string; index: number; onApprove: () => void }) {
-  const [expanded, setExpanded] = useState(false);
-  const textId = useId();
-  return <article className={'knowledge-review-item' + (expanded ? ' is-expanded' : '')}>
-    <div className="knowledge-review-title"><strong>核对项 {index + 1}</strong><span className="knowledge-review-status">待核对</span>
-      <button type="button" className="icon-button knowledge-review-toggle" aria-label={(expanded ? '收起' : '展开') + '核对项 ' + (index + 1) + '完整意见'} aria-expanded={expanded} aria-controls={textId} onClick={() => setExpanded(value => !value)}><Icon name="chevron" size={16} /></button></div>
-    <p id={textId} className="knowledge-review-text">{text}</p>
-    {expanded ? <div className="knowledge-review-action"><button type="button" className="button knowledge-approve" onClick={onApprove}>批准</button></div> : null}
+  return <article className="knowledge-review-item">
+    <div className="knowledge-review-title"><strong>核对项 {index + 1}</strong><span className="knowledge-review-status">待核对</span></div>
+    <p className="knowledge-review-text">{text}</p>
+    <div className="knowledge-review-action"><button type="button" className="button knowledge-approve" onClick={onApprove}>批准</button></div>
   </article>;
 }
 
@@ -189,7 +186,7 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
           </section>
           <div className="knowledge-list-heading"><h3>知识点内容</h3><span className="muted">{payload.knowledge_points.length} 个知识点 · 点击标题展开编辑</span></div>
           <ol className="knowledge-list">{payload.knowledge_points.map((point, index) => <li key={point.temp_id}>
-            <details className="knowledge-point-editor" open={index === 0 || !point.title}>
+            <details className="knowledge-point-editor">
               <summary className="knowledge-point-summary"><span className="knowledge-point-number">{String(index + 1).padStart(2, '0')}</span><h4>{point.title || '未命名知识点'}</h4><span className="knowledge-state">{importance[point.importance]}</span><Icon name="chevron" size={18} /></summary>
             <div className="knowledge-point-body">
             <div className="knowledge-group-heading"><h4>基本定义</h4><span className="muted">知识点 {index + 1}</span></div>

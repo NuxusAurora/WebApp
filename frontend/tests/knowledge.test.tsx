@@ -33,25 +33,21 @@ describe('section knowledge draft workflow', () => {
     expect(await screen.findByText('请回到开始处，还有未核对的事项')).toBeVisible();
     expect(fetcher.mock.calls.some(([url, init]) => url.endsWith('/confirm') || init?.method === 'PATCH')).toBe(false);
   });
-  it('keeps full review opinions through disclosure and saves only the explicitly reviewed item as resolved', async () => {
+  it('always shows full review opinions and approval without any collapse controls', async () => {
     const opinions = ['请逐字核对教材符号。\n' + '保留完整的模型审核原文及说明。'.repeat(40), '第二项独立意见，不应被一并核对。'];
     const fetcher = mock({ ...initial, draft: { ...version, payload: { ...payload, uncertain_items: opinions } } });
     renderEditor();
     const review = await screen.findByRole('region', { name: 'AI 审核与核对' });
     expect(within(review).getByText('2 项待核对')).toBeInTheDocument();
     const text = review.querySelector('.knowledge-review-text')!;
-    const disclosure = within(review).getByRole('button', { name: '展开核对项 1完整意见' });
     expect(text.textContent).toBe(opinions[0]);
-    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(text);
-    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-    expect(within(review).queryByRole('button', { name: '批准' })).not.toBeInTheDocument();
-    fireEvent.click(disclosure);
-    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    expect(review.querySelector('details, [aria-expanded]')).toBeNull();
+    expect(within(review).getAllByRole('button', { name: '批准' })).toHaveLength(2);
     expect(text.textContent).toBe(opinions[0]);
     expect(fetcher.mock.calls.some(([, init]) => init?.method)).toBe(false);
     expect(within(review).queryByText('收起完整意见')).not.toBeInTheDocument();
-    fireEvent.click(within(review).getByRole('button', { name: '批准' }));
+    fireEvent.click(within(review).getAllByRole('button', { name: '批准' })[0]);
     expect(within(review).getByText('1 项待核对')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
     await screen.findByText('草稿已保存');
@@ -64,7 +60,7 @@ describe('section knowledge draft workflow', () => {
     const { container } = renderEditor();
     await screen.findByDisplayValue('第二个知识点');
     const cards = container.querySelectorAll('.knowledge-point-editor');
-    expect(cards[0]).toHaveAttribute('open');
+    expect(cards[0]).not.toHaveAttribute('open');
     expect(cards[1]).not.toHaveAttribute('open');
     fireEvent.click(cards[1].querySelector('summary')!);
     expect(screen.getByLabelText('知识点 2名称')).toBeVisible();
