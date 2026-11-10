@@ -2,7 +2,15 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
-## 2026-11-10 当前：上传诊断日志
+## 2026-11-10 当前：模型调用分阶段诊断
+
+后端/Worker发布a9945983d582c7be7fca743efa498b1107ac64dd，current为releases/a994598；本地同步，前端镜像保持3d924db。非流式Gateway.execute新增ai_call_diagnostics与失败尝试ai_call_attempt，目录请求关联request_id/ai_call_id；区分连接/TLS/发送、响应头/正文等待、响应JSON、目录JSON、Schema、重试退避及审计。字段、脱敏边界和查询命令见RUNBOOK对应节。原90秒上限/重试/API契约保持，未新增依赖或迁移。
+
+156项后端全量、Ruff/格式及运行镜像构建通过。两端运行后端中以独立合成loopback HTTP验证等待响应头（http_status null、0字节）和部分200正文（11字节）超时，确认阶段/网络trace事件/总限来源正确；没有真实供应商重试或用户图片外发。六服务健康、health/ready200，前端/数据服务镜像保持，停写备份/切换/验证后业务表数量和排序行摘要相同，Nginx模板匹配。
+
+云端临时归档/备份/脚本314790925逻辑字节和旧backend标签已清理，保留当前源快照/运行依赖/数据/密钥。本地任务包/旧和任务镜像/普通worktree收尾清理。精确来源/运行摘要见production.json，GitHub/Sites未更新。历史失败没有上游阶段数据；需要下一次实际调用的日志进一步定位，不能把合成验证当作用户原始问题已修复。
+
+## 2026-11-10 上传诊断日志（历史）
 
 后端/Worker发布f514e1cc5ae926ea7f70eaff030269f3de27b755，current为releases/f514e1c；前端镜像保持3d924db，本地同步更新后端/Worker。新增curriculum_image_validation日志，将安全图片元数据、SHA256、解码阶段/原因分类/异常类型关联到请求编号；不记录图片内容、原文件名、异常原文或凭据。字段和查询命令见RUNBOOK对应节。
 

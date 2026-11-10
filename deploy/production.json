@@ -1,11 +1,11 @@
 {
-  "revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
-  "image_source_revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
-  "configuration_source_revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
+  "revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
+  "image_source_revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
+  "configuration_source_revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:f514e1c",
-      "id": "sha256:9a29cab6f7270ab449e9aa3fba3a645789000f978d143cf87d90e1e17d605af2"
+      "source": "webapp-release-backend:a994598",
+      "id": "sha256:5b0d9fc0b5354704a81e3fcd362d6b2ea9ee319ddbab29927181f1ac8726c576"
     },
     "frontend": {
       "source": "webapp-release-frontend:3d924db",
@@ -14,8 +14,8 @@
   },
   "runtime_images": {
     "frontend": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
-    "backend": "sha256:9a29cab6f7270ab449e9aa3fba3a645789000f978d143cf87d90e1e17d605af2",
-    "worker": "sha256:9a29cab6f7270ab449e9aa3fba3a645789000f978d143cf87d90e1e17d605af2",
+    "backend": "sha256:5b0d9fc0b5354704a81e3fcd362d6b2ea9ee319ddbab29927181f1ac8726c576",
+    "worker": "sha256:5b0d9fc0b5354704a81e3fcd362d6b2ea9ee319ddbab29927181f1ac8726c576",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -34,32 +34,32 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": true,
-  "data_preservation": "all original business table counts and row hashes unchanged through cutover and QA cleanup",
+  "data_preservation": "business table counts/sorted row hashes unchanged through cutover and synthetic loopback stage probe",
   "business_counts": {
     "users": 1,
     "courses": 2,
-    "uploads": 0,
+    "uploads": 1,
     "chapters": 0,
     "sections": 0,
-    "workflow_runs": 0,
+    "workflow_runs": 1,
     "structure_versions": 0,
     "structure_events": 0,
     "ai_providers": 2,
     "ai_models": 1,
-    "ai_call_logs": 2,
+    "ai_call_logs": 3,
     "knowledge_points": 0
   },
-  "backup_before_upgrade": "database/storage/environment backup after writer stop; no migration; removed after acceptance",
-  "released_at_utc": "2026-11-10T14:52:14.490946+00:00",
+  "backup_before_upgrade": "database/storage/environment backed up after writer stop; no migration; removed after acceptance",
+  "released_at_utc": "2026-11-10T15:09:50.959099+00:00",
   "validation": {
-    "backend_tests": 142,
+    "backend_tests": 156,
     "ruff_format_runtime_build": "passed",
-    "https_health_ready": "200",
-    "qa_data": "synthetic JPEG 201 and truncated JPEG 400; temporary course/session cleaned; no model calls",
-    "diagnostic_log_verified": "truncated_image/decode/OSError and matching request_id/status400; valid upload normalized event",
+    "runtime_stage_probe": "real loopback HTTP in running backend: waiting headers and partial200 body timeout distinguished; wire bytes0/11",
     "business_hashes_preserved": true,
     "nginx_template_matches_runtime": true,
-    "frontend": "unchanged 3d924db; no new visual acceptance"
+    "real_provider_retry": "not performed; no user images/prompt sent to provider",
+    "frontend": "unchanged 3d924db; no new visual acceptance",
+    "https_health_ready": "200"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -68,12 +68,12 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 313980142,
+  "cleanup_logical_bytes": 314790925,
   "obsolete_image_tags_removed": [
-    "webapp-release-backend:3d924db",
-    "webapp-upload-diagnostics-backend:latest"
+    "webapp-release-backend:f514e1c",
+    "webapp-ai-stage-backend:latest"
   ],
-  "cleanup": "temporary image/source archives, staging scripts and database/storage/environment backup removed after acceptance; current source/running image/data retained",
+  "cleanup": "temporary stage packages/image archives/rollback backup/scripts removed; current source, verified runtime, user data and credentials retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
   "nginx_template_render_matches_runtime": true,
   "nginx_upload_limit": "50 MiB",
@@ -105,8 +105,8 @@
   "frontend_source_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
   "service_source_revisions": {
     "frontend": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
-    "backend": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
-    "worker": "f514e1cc5ae926ea7f70eaff030269f3de27b755"
+    "backend": "a9945983d582c7be7fca743efa498b1107ac64dd",
+    "worker": "a9945983d582c7be7fca743efa498b1107ac64dd"
   },
   "latest_release_scope": "frontend breadcrumb personal-space prefix removed; saved default Aurora-Zyron context corrected to 500000",
   "course_detail_labels": [
@@ -121,7 +121,7 @@
     "course_font_px": 13,
     "subject_highlight": "single current subject via aria-current; persistent across focus changes and independent of disclosure"
   },
-  "source_snapshot_revision": "f514e1cc5ae926ea7f70eaff030269f3de27b755",
+  "source_snapshot_revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
   "knowledge_style": {
     "shared_course_detail_shell": true,
     "theme": "shared tokens; no tab-level palette override",
@@ -156,5 +156,15 @@
     "fields": "request_id, allowlisted extension/MIME, input bytes/SHA256, detected format/mode/dimensions/frames, stage/reason/exception type/error code/output bytes",
     "privacy": "no raw image, original filename, arbitrary exception text, headers or credentials",
     "prior_failure": "3eedc496-878e-4a39-a1cf-7a3a7f309ae5: only400/39.57ms; original decoder reason cannot be recovered"
+  },
+  "ai_stage_diagnostics": {
+    "events": [
+      "ai_call_diagnostics",
+      "ai_call_attempt"
+    ],
+    "scope": "non-streaming Gateway.execute; curriculum correlates request_id and ai_call_id",
+    "fields": "stage, milestones, attempt, http_status, header/first-body timings, wire/decoded byte counts, timeout_source, exception type/error code",
+    "privacy": "no raw model content/images/prompts/URLs/headers/credentials/exception text",
+    "timeout_and_retry": "unchanged; curriculum90s, original retry policy"
   }
 }
