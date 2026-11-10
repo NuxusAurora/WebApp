@@ -95,7 +95,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
     <AppSidebar user={user} loading={loading} view={view} busy={busy} error={notice} navigate={navigate} logout={logout} />
     <div className="app-body">
       <header className="workspace-topbar">
-        <Breadcrumb><span>个人空间</span><Icon name="chevron" size={14} />
+        <Breadcrumb>
           {view === 'courses' && courseCrumbs.length ? courseCrumbs.map((item, index) => <Fragment key={index}>
             {index ? <Icon name="chevron" size={14} /> : null}
             {item.onSelect ? <button type="button" disabled={item.disabled} onClick={item.onSelect} title={item.label}>{item.label}</button> :
