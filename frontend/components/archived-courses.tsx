@@ -72,7 +72,7 @@ export function ArchivedCourses({ onSessionExpired }: { onSessionExpired?: () =>
       <span>归档资料</span><Icon name="chevron" size={18} />
     </button>
     <Toast notification={notification} onDismiss={dismiss} />
-    {open ? <div id="archived-course-list" className="archive-content" aria-busy={loading}>
+    <div id="archived-course-list" className="archive-content motion-disclosure" aria-busy={loading} hidden={!open} inert={!open} aria-hidden={!open}>
       {loading ? <p role="status">正在读取归档资料…</p> : null}
       {error ? <div className="notice error" role="alert"><p>{error}</p>
         <button className="text-button" disabled={Boolean(pending)} onClick={() => setReload(value => value + 1)}>重新加载</button></div> : null}
@@ -88,6 +88,6 @@ export function ArchivedCourses({ onSessionExpired }: { onSessionExpired?: () =>
           onClick={() => setOffset(value => value - 100)}>上一页</button>
           <button className="button" disabled={Boolean(pending) || !hasNext} onClick={() => setOffset(value => value + 100)}>下一页</button></div>
       </div> : null}
-    </div> : null}
+    </div>
   </section>;
 }

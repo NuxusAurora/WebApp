@@ -1,0 +1,98 @@
+/* One motion language for the existing workspace; no business timing changes. */
+:root {
+  --motion-fast: 150ms;
+  --motion-panel: 220ms;
+  --motion-exit: 160ms;
+  --motion-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+.application-shell.workspace-shell {
+  transition: grid-template-columns var(--motion-panel) var(--motion-ease);
+}
+.sidebar-submenu-chevron > svg, .subject-toggle > svg:last-child,
+.archive-toggle > svg {
+  transition: transform var(--motion-panel) var(--motion-ease);
+}
+.motion-tab-panel { animation: workspace-tab-in 180ms var(--motion-ease); }
+@keyframes workspace-tab-in {
+  from { opacity: .55; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Keep the native hidden/inert contract. Unsupported browsers switch instantly. */
+@supports (interpolate-size: allow-keywords) and (transition-behavior: allow-discrete) {
+  .motion-disclosure {
+    interpolate-size: allow-keywords;
+    height: auto;
+    opacity: 1;
+    overflow: clip;
+    transition: height var(--motion-panel) var(--motion-ease),
+      opacity var(--motion-fast) ease-out,
+      margin-block var(--motion-panel) var(--motion-ease),
+      display var(--motion-panel) allow-discrete;
+  }
+  .motion-disclosure[hidden] {
+    display: none;
+    height: 0;
+    opacity: 0;
+    margin-block: 0;
+    transition-duration: var(--motion-exit);
+  }
+  @starting-style {
+    .motion-disclosure:not([hidden]) { height: 0; opacity: 0; margin-block: 0; }
+  }
+}
+
+/* Native details retain keyboard behavior and mounted form drafts. */
+@supports selector(details::details-content) {
+  .workspace-main details { interpolate-size: allow-keywords; }
+  .workspace-main details::details-content {
+    height: 0; opacity: 0; overflow: clip;
+    transition: height var(--motion-panel) var(--motion-ease),
+      opacity var(--motion-fast) ease-out,
+      content-visibility var(--motion-panel) allow-discrete;
+  }
+  .workspace-main details[open]::details-content { height: auto; opacity: 1; }
+}
+
+.sidebar-user-menu {
+  opacity: 0; transform: translateY(6px); visibility: hidden; pointer-events: none;
+  transition: opacity var(--motion-exit) ease-out, transform var(--motion-exit) var(--motion-ease),
+    visibility 0s var(--motion-exit);
+}
+.sidebar-user-menu[data-open="true"] {
+  opacity: 1; transform: translateY(0); visibility: visible; pointer-events: auto;
+  transition-duration: var(--motion-panel), var(--motion-panel), 0s;
+  transition-delay: 0s;
+}
+
+@media (max-width: 740px) {
+  /* Display/overlay transitions keep the closed drawer in the top layer for exit. */
+  .workspace-sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--motion-exit) var(--motion-ease),
+      display var(--motion-exit) allow-discrete, overlay var(--motion-exit) allow-discrete;
+  }
+  .workspace-sidebar[open] {
+    transform: translateX(0); animation: none;
+    transition-duration: var(--motion-panel);
+  }
+  .workspace-sidebar::backdrop {
+    background: rgb(0 0 0 / 0);
+    transition: background-color var(--motion-exit) ease-out,
+      display var(--motion-exit) allow-discrete, overlay var(--motion-exit) allow-discrete;
+  }
+  .workspace-sidebar[open]::backdrop { background: rgb(0 0 0 / .5); }
+  @starting-style {
+    .workspace-sidebar[open] { transform: translateX(-100%); }
+    .workspace-sidebar[open]::backdrop { background: rgb(0 0 0 / 0); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-tab-panel { animation: none; }
+  .motion-disclosure, .workspace-main details::details-content,
+  .sidebar-user-menu, .workspace-sidebar, .workspace-sidebar::backdrop,
+  .sidebar-submenu-chevron > svg, .subject-toggle > svg:last-child,
+  .archive-toggle > svg { transition: none; }
+}

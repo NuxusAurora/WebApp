@@ -11,6 +11,7 @@ import { KnowledgeEditor } from './knowledge';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 import { PageContainer, type BreadcrumbItem } from './ui';
+import { usePageMotion } from '../lib/page-motion';
 
 export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange }: {
   onDirtyChange?: (dirty: boolean) => void;
@@ -197,8 +198,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     else subjects.set(subject, [course]);
   }
   const showingDetail = Boolean(editing || selected);
+  const pageSurface = usePageMotion<HTMLDivElement>(editing ?? selected?.id ?? 'directory', showingDetail ? 1 : -1);
 
-  return <div className={'course-space course-library' + (showingDetail ? ' showing-detail' : '')}>
+  return <div ref={pageSurface} className={'course-space course-library' + (showingDetail ? ' showing-detail' : '')}>
     {error ? <p ref={errorElement} tabIndex={-1} className="notice error" role="alert">
       <Icon name="alert" size={18} />{error}</p> : null}
     <Toast notification={notification} onDismiss={dismiss} />
@@ -231,7 +233,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                   <span className="subject-name">{subject}</span>
                   <span className="subject-count">{group.length} 门</span><Icon name="chevron" size={16} />
                 </button>
-                <ul id={groupId} className="subject-courses" aria-label={subject + '课程'} hidden={!expanded}>
+                <ul id={groupId} className="subject-courses motion-disclosure" aria-label={subject + '课程'} hidden={!expanded} inert={!expanded} aria-hidden={!expanded}>
                 {group.map(course => <li key={course.id}>
               <div className="course-row">
                 <span className="course-description"><strong>
@@ -270,7 +272,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                 tabIndex={detailTab === 'knowledge' ? 0 : -1} onKeyDown={tabKey}
                 onClick={() => { if (detailTab !== 'knowledge' && leaveEditor()) { setDirty(false); setDetailTab('knowledge'); } }}>知识点</button>
             </div>
-            <div id="course-tab-panel" role="tabpanel" aria-labelledby={detailTab + '-tab'}>
+            <div key={detailTab} id="course-tab-panel" className="motion-tab-panel" role="tabpanel" aria-labelledby={detailTab + '-tab'}>
               {detailTab === 'overview' ? <dl className="course-metadata">
                 <dt>学科</dt><dd>{selected.subject || <span className="muted">未设置</span>}</dd>
                 <dt>教材</dt><dd>{selected.textbook || <span className="muted">未设置</span>}</dd>

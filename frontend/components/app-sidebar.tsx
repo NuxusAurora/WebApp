@@ -116,7 +116,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
               <span className="sidebar-submenu-chevron"><Icon name="chevron" size={14} /></span>
               <span className="sidebar-tooltip" role="tooltip">模型设置</span>
             </button>
-            <ul id="model-settings-navigation" className="sidebar-submenu" aria-label="模型设置" hidden={!modelsOpen}>
+            <ul id="model-settings-navigation" className="sidebar-submenu motion-disclosure" aria-label="模型设置" hidden={!modelsOpen} inert={!modelsOpen} aria-hidden={!modelsOpen}>
               {modelSettingsItems.map(child => <li key={child.view}><a href={workspaceHref(child.view)} className={'sidebar-item' + (view === child.view ? ' is-current' : '')}
                 aria-current={view === child.view ? 'page' : undefined} onClick={event => follow(event, child.view)}>{child.label}</a></li>)}
             </ul>
@@ -134,7 +134,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
               <span className="sidebar-user-copy"><strong>{user.display_name}</strong><small>个人学习空间</small></span>
               <Icon name="more" size={18} /><span className="sidebar-tooltip" role="tooltip">{user.display_name} · 账户菜单</span>
             </button>
-            {menu ? <div ref={accountMenu} className="sidebar-user-menu" role="menu" id="sidebar-user-menu" aria-label="账户操作"
+            <div ref={accountMenu} className="sidebar-user-menu" role="menu" id="sidebar-user-menu" aria-label="账户操作" data-open={menu} inert={!menu} aria-hidden={!menu}
               onKeyDown={event => {
                 if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setMenu(false); accountButton.current?.focus(); }
                 if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
@@ -146,7 +146,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
               <button type="button" role="menuitem" onClick={() => { if (navigate('profile')) { setMenu(false); setDrawer(false); } }}><Icon name="user" size={18} />账户设置</button>
               <button type="button" role="menuitem" disabled={busy} onClick={() => void logout()}><Icon name="logout" size={18} />{busy ? '正在退出…' : '退出登录'}</button>
               {mobile && error ? <p className="sidebar-menu-error" role="alert">{error}</p> : null}
-            </div> : null}
+            </div>
           </> : <a className="sidebar-item" href="/" aria-label={loading ? '读取账户…' : '登录工作台'} onClick={event => follow(event, 'courses')}><Icon name="user" size={18} /><span className="sidebar-label">{loading ? '读取账户…' : '登录工作台'}</span><span className="sidebar-tooltip" role="tooltip">{loading ? '读取账户…' : '登录工作台'}</span></a>}
         </div>
       </div>

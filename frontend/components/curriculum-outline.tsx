@@ -174,8 +174,8 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
   const menuItem = menu && (menu.node.kind === 'chapter' ? menuChapter : menuChapter?.sections.find(section => section.id === menu.node.id));
   return <><ol ref={rootRef} className="curriculum-outline" aria-label="目录标题">{payload.chapters.map((chapter, ci) =>
     <li key={chapter.id}>{row({ kind: 'chapter', id: chapter.id }, String(ci + 1), chapter.title, chapter.sections.length > 0)}
-      {expanded.has(chapter.id) ? <ol>{chapter.sections.map((section, si) =>
-        <li key={section.id}>{row({ kind: 'section', id: section.id }, `${ci + 1}.${si + 1}`, section.title)}</li>)}</ol> : null}
+      <ol className="motion-disclosure" hidden={!expanded.has(chapter.id)} inert={!expanded.has(chapter.id)} aria-hidden={!expanded.has(chapter.id)}>{chapter.sections.map((section, si) =>
+        <li key={section.id}>{row({ kind: 'section', id: section.id }, `${ci + 1}.${si + 1}`, section.title)}</li>)}</ol>
     </li>)}</ol>{menu && writable && menuItem && menuChapter ? createPortal(<div ref={menuRef} role="menu" aria-label="标题操作" className="outline-context-menu"
       style={{ left: menu.x, top: menu.y }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); closeMenu(true); }

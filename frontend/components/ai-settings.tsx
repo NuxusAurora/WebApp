@@ -178,7 +178,7 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onSelect }: {
   }
   return <form className="ai-connection-form form-stack" aria-label="自定义连接" onSubmit={submit} onChange={() => onDirty(true)}>
     <div className="ai-connection-heading"><h3>自定义连接</h3><button className="button ai-connection-choice" type="button" aria-label={provider?.enabled ? '自定义连接已启用' : '选择自定义连接'} aria-expanded={showFields} aria-controls={fieldsId} disabled={busy || provider?.enabled} onClick={() => onSelect('custom', provider)}>{provider?.enabled ? '已启用' : '选择'}</button></div>
-    <div className="ai-custom-fields" id={fieldsId} hidden={!showFields}>
+    <div className="ai-custom-fields motion-disclosure" id={fieldsId} hidden={!showFields} inert={!showFields} aria-hidden={!showFields}>
     <label>接口地址<input name="base_url" type="url" defaultValue={provider?.base_url ?? ''} maxLength={500} required
       placeholder="https://example.com/v1" disabled={busy} /></label>
     <label>API Key（可选）<input name="api_key" type="password" maxLength={4096} autoComplete="new-password" disabled={busy}

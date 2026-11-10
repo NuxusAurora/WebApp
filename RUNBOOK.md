@@ -1,5 +1,11 @@
 # 运行手册
 
+## 界面动效 · 2026-11-10
+
+共享样式位于frontend/styles/motion.css，在layout.tsx末尾导入；motion-disclosure复用原hidden/inert，支持原生尺寸与display离散过渡时平滑展开收起，否则即时切换。details、菜单和手机原生dialog沿用各自生命周期；系统减少动态时关闭位移/折叠动画。frontend/lib/page-motion.ts观察页面key，调用方保有导航、表单与焦点，不要为重播动画给整个业务页增加React key。课程详情页签仅原有条件内容切换时淡入。
+
+验证仍用frontend的npm run check、npm test、npm run build；生命周期回归为tests/page-motion.test.tsx，覆盖草稿/焦点保持、普通更新不重播、快速导航取消、卸载清理及减少动态。视觉验收和兼容限制见HANDOFF对应节。
+
 ## 课程学科菜单 · 2026-11-10
 
 入口 `/` → 我的课程：一级为学科（默认收起），点击整行展开二级课程；支持多个学科同时展开及键盘Enter/Space。二级直接点击课程名称进入，名称可键盘操作；无独立进入按钮和学科/课程装饰图标，保留展开箭头。搜索自动展开匹配组，清空恢复收起；空学科归入“未设置学科”。分组/数量/搜索沿用当前100条分页，翻页重置折叠。实现位于frontend/components/course-space.tsx及frontend/app/globals.css，相关回归为frontend/tests/course-workspace.test.tsx；检查继续用npm run check、npm test、npm run build，实际结果与限制见HANDOFF最新节。
