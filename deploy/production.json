@@ -120,5 +120,18 @@
     "shared_course_detail_shell": true,
     "theme": "shared tokens; no tab-level palette override",
     "workflow": "unchanged"
+  },
+  "url": "https://learn.nuxusaurora.cn",
+  "server": {
+    "host": "111.229.103.70",
+    "user": "ubuntu",
+    "root": "/opt/learning-workbench",
+    "project": "learning-cloud"
+  },
+  "certificate": {
+    "name": "learning-workbench-cn",
+    "renewal": "webroot with targeted nginx deploy hook",
+    "renewal_dry_run": "passed",
+    "not_after_utc": "2027-02-07T03:49:49Z"
   }
 }
