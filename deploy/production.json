@@ -41,7 +41,7 @@
   },
   "smtp_configured": false,
   "local_data_migrated": false,
-  "real_provider_call_verified": false,
+  "real_provider_call_verified": true,
   "data_preservation": "business row counts and digests unchanged; no migration",
   "business_counts": {
     "users": 1,
@@ -91,5 +91,21 @@
     "renewal": "webroot with targeted nginx deploy hook",
     "renewal_dry_run": "passed",
     "not_after_utc": "2027-02-07T03:49:49Z"
-  }
+  },
+  "operational_repairs": [
+    {
+      "date": "2026-11-10",
+      "kind": "legacy default model configuration",
+      "model_before": "gpt-6.1-sol",
+      "model_after": "Aurora-Zyron",
+      "catalog": "Authenticated provider catalog contains Aurora-Zyron",
+      "vision": "passed with built-in probe image",
+      "provider_and_model_ids": "unchanged",
+      "credentials": "retained; not read or rewritten",
+      "context_tokens": 4096,
+      "user_course_images": "not read, modified or sent to provider",
+      "model_generation": "one fixed built-in vision probe; normal audit record retained"
+    }
+  ],
+  "real_provider_vision_probe_verified": true
 }
