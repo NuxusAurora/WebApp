@@ -237,7 +237,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                 <span className="course-description"><strong>
                   <button id={'enter-' + course.id} type="button" className="course-title-button" disabled={busy}
                     aria-label={'进入' + course.title} onClick={() => openCourse(course)}>{course.title}</button></strong>
-                  {course.textbook ? <span>{course.textbook}</span> : null}</span>
+                  {course.learning_goal ? <span>{course.learning_goal}</span> : null}</span>
               </div>
                 </li>)}</ul>
               </li>;

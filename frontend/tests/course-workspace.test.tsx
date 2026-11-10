@@ -97,6 +97,8 @@ describe('subject course groups', () => {
     await expandSubject();
     const title = screen.getByRole('button', { name: '进入线性代数' });
     expect(title).toHaveTextContent(/^线性代数$/);
+    expect(title.closest('.course-row')).toHaveTextContent('理解极限');
+    expect(title.closest('.course-row')).not.toHaveTextContent('高等数学（上册）');
     expect(screen.queryByText('进入', { exact: true })).not.toBeInTheDocument();
     expect(document.querySelector('.subject-toggle svg:not(:last-child), .subject-courses svg')).toBeNull();
     fireEvent.click(title);
