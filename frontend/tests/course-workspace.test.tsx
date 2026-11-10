@@ -99,7 +99,7 @@ describe('subject course groups', () => {
     expect(title).toHaveTextContent(/^线性代数$/);
     expect(title.closest('.course-row')).toHaveTextContent('高等数学（上册）');
     expect(screen.queryByText('进入', { exact: true })).not.toBeInTheDocument();
-    expect(document.querySelector('.subject-toggle svg:not(:last-child), .subject-courses svg')).toBeNull();
+    expect(document.querySelector('.subject-toggle svg:not(:last-child), .course-title-button svg')).toBeNull();
     fireEvent.click(title);
     expect(screen.getByRole('heading', { name: '线性代数' })).toBeInTheDocument();
     const items = breadcrumbs.mock.lastCall![0];
@@ -110,6 +110,64 @@ describe('subject course groups', () => {
 });
 
 describe('desktop course workspace', () => {
+  it('opens deletion from the list without navigating and returns focus on cancellation', async () => {
+    render(<CourseSpace />);
+    await expandSubject();
+    const remove = screen.getByRole('button', { name: '删除课程：高等数学' });
+    fireEvent.click(remove);
+    expect(screen.getByRole('alertdialog', { name: '删除“高等数学”？' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '高等数学' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '取消' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('button', { name: '取消' }), { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(remove).toHaveFocus());
+    expect(vi.mocked(api).mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '进入高等数学' }));
+    expect(screen.queryByRole('button', { name: /删除课程/ })).not.toBeInTheDocument();
+  });
+
+  it('deletes only the confirmed list row and keeps the other course', async () => {
+    let rows = [courses[0], { ...courses[0], id: 'math-2', title: '线性代数' }];
+    let finish!: () => void;
+    vi.mocked(api).mockImplementation(async (path, init) => {
+      if (init?.method === 'DELETE') {
+        await new Promise<void>(resolve => { finish = resolve; });
+        rows = rows.filter(course => path !== 'courses/' + course.id);
+        return null;
+      }
+      if (path.startsWith('courses?')) return rows;
+      throw new Error('Unexpected request');
+    });
+    render(<CourseSpace />);
+    await expandSubject();
+    fireEvent.click(screen.getByRole('button', { name: '删除课程：线性代数' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }));
+    expect(screen.getByRole('button', { name: '删除中…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '取消' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '删除课程：高等数学' })).toBeDisabled();
+    expect(screen.getByRole('searchbox')).toBeDisabled();
+    await act(async () => finish());
+    await screen.findByRole('button', { name: '进入高等数学' });
+    expect(screen.queryByRole('button', { name: '进入线性代数' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '数学 1 门' })).toBeInTheDocument();
+    expect(vi.mocked(api).mock.calls.filter(([, init]) => init?.method === 'DELETE')).toEqual([
+      ['courses/math-2', { method: 'DELETE' }],
+    ]);
+  });
+
+  it('clears a pending row confirmation when search or collapsing hides it', async () => {
+    render(<CourseSpace />);
+    await expandSubject();
+    fireEvent.click(screen.getByRole('button', { name: '删除课程：高等数学' }));
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '数学' } });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '删除课程：高等数学' }));
+    fireEvent.click(screen.getByRole('button', { name: '数学 1 门' }));
+    fireEvent.click(screen.getByRole('button', { name: '数学 1 门' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(vi.mocked(api).mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+  });
+
   it('protects model subpage edits and preserves the selected connection across navigation', async () => {
     const original = vi.mocked(api).getMockImplementation()!;
     vi.mocked(api).mockImplementation(async (path, options) => {
@@ -242,8 +300,8 @@ describe('desktop course workspace', () => {
     expect(screen.queryByRole('region', { name: '学习中的课程' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索当前页课程' }), { target: { value: '上册' } });
-    expect(screen.getByRole('button', { name: /高等数学/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /大学物理/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '进入高等数学' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '进入大学物理' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '不存在' } });
     expect(screen.getByRole('heading', { name: '没有找到匹配的课程' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '清除搜索' }));
@@ -292,14 +350,15 @@ describe('desktop course workspace', () => {
     expect(vi.mocked(api).mock.calls.some(([path]) => path.endsWith('/uploads'))).toBe(false);
   });
 
-  it('keeps a course visible when its confirmed deletion fails', async () => {
-    await ready();
+  it('keeps the list course and confirmation available when deletion fails', async () => {
+    render(<CourseSpace />);
+    await expandSubject();
     vi.mocked(api).mockRejectedValueOnce(new Error('删除失败，请重试'));
-    fireEvent.click(screen.getByRole('button', { name: '删除课程' }));
+    fireEvent.click(screen.getByRole('button', { name: '删除课程：高等数学' }));
     expect(screen.getByText(/永久删除/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '确认删除' }));
     await screen.findByText('删除失败，请重试');
-    expect(screen.getByRole('heading', { name: '高等数学' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '进入高等数学' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '确认删除' })).toBeEnabled();
   });
 

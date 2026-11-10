@@ -659,7 +659,7 @@ html, body { height: 100%; overflow: hidden; }
 .course-library .subject-toggle { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 14px 20px; border: 0; background: var(--surface); color: var(--ink); text-align: left; }
 .course-library .subject-toggle:hover { background: var(--surface-hover); }
 .course-library .subject-toggle:focus-visible { outline-offset: -4px; }
-.subject-name { min-width: 0; flex: 1; overflow-wrap: anywhere; font-weight: var(--weight-emphasis); }
+.subject-name { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 18px; font-weight: var(--weight-emphasis); }
 .subject-count { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
 .subject-toggle > svg { flex-shrink: 0; }
 .subject-toggle[aria-expanded="true"] > svg:last-child { transform: rotate(90deg); }
@@ -668,6 +668,9 @@ html, body { height: 100%; overflow: hidden; }
 .course-library .subject-courses .course-row { min-height: 76px; padding: 14px 12px; gap: 12px; }
 .course-library .course-title-button { display: block; max-width: 100%; min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: var(--ink); text-align: left; overflow-wrap: anywhere; }
 .course-library .course-title-button:hover:enabled { text-decoration: underline; text-underline-offset: 4px; }
+.course-library .course-title-button { font-size: 13px; }
+.course-library .course-delete { flex-shrink: 0; margin-left: auto; min-height: 44px; font-size: 12px; white-space: nowrap; }
+.course-library .course-delete-confirmation { max-height: none; margin: 0 12px 14px; overflow: visible; }
 .course-library .detail-region { flex: 1; }
 .account-page:has(.archived-courses) { overflow: auto; overscroll-behavior: contain; }
 .account-page:has(.archived-courses) .account-overview { overflow: visible; flex-shrink: 0; }

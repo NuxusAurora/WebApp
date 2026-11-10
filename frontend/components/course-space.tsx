@@ -35,7 +35,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'curriculum' | 'knowledge'>('overview');
   const newButton = useRef<HTMLButtonElement>(null);
-  const confirmButton = useRef<HTMLButtonElement>(null);
+  const deleteCancelButton = useRef<HTMLButtonElement>(null);
   const errorElement = useRef<HTMLParagraphElement>(null);
   const detailRegion = useRef<HTMLDivElement>(null);
   const sessionExpired = useRef(onSessionExpired);
@@ -87,7 +87,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     return () => { active = false; controller.abort(); };
   }, [offset, reload, handleError]);
 
-  useEffect(() => { if (deleteTarget) confirmButton.current?.focus({ preventScroll: true }); }, [deleteTarget]);
+  useEffect(() => { if (deleteTarget) deleteCancelButton.current?.focus(); }, [deleteTarget]);
 
   function tabKey(event: KeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -173,6 +173,12 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     });
   }
 
+  function cancelDelete() {
+    const targetId = deleteTarget?.id;
+    setDeleteTarget(null); setError('');
+    requestAnimationFrame(() => document.getElementById('delete-' + targetId)?.focus({ preventScroll: true }));
+  }
+
   function page(next: number) {
     if (!leaveEditor()) return;
     setEditing(null); setDirty(false); setDeleteTarget(null);
@@ -181,6 +187,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   }
 
   function searchCourses(value: string) {
+    setDeleteTarget(null);
     setQuery(value);
     setExpandedSubjects(new Map());
   }
@@ -208,9 +215,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     <div className="library-toolbar">
       <div className="search-field"><Icon name="search" size={18} />
         <label className="visually-hidden" htmlFor="course-search">搜索当前页课程</label>
-        <input id="course-search" type="search" value={query} onChange={event => searchCourses(event.target.value)}
+        <input id="course-search" type="search" value={query} disabled={busy} onChange={event => searchCourses(event.target.value)}
           placeholder="搜索课程、学科或教材" autoComplete="off" />
-        {query ? <button className="icon-button" aria-label="清空课程搜索" onClick={() => searchCourses('')}><Icon name="close" size={16} /></button> : null}
+        {query ? <button className="icon-button" aria-label="清空课程搜索" disabled={busy} onClick={() => searchCourses('')}><Icon name="close" size={16} /></button> : null}
       </div>
       <button ref={newButton} className="button primary" disabled={busy} onClick={newCourse}>
         <Icon name="plus" size={18} />新建课程</button>
@@ -228,8 +235,11 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
               const expanded = expandedSubjects.get(subject) ?? hasFilters;
               const groupId = subjectListId + '-subject-' + index;
               return <li key={subject} className="subject-group">
-                <button type="button" className="subject-toggle" aria-label={subject + ' ' + group.length + ' 门'} aria-expanded={expanded} aria-controls={groupId}
-                  onClick={() => setExpandedSubjects(previous => new Map(previous).set(subject, !expanded))}>
+                <button type="button" className="subject-toggle" disabled={busy} aria-label={subject + ' ' + group.length + ' 门'} aria-expanded={expanded} aria-controls={groupId}
+                  onClick={() => {
+                    if (expanded && group.some(course => course.id === deleteTarget?.id)) setDeleteTarget(null);
+                    setExpandedSubjects(previous => new Map(previous).set(subject, !expanded));
+                  }}>
                   <span className="subject-name">{subject}</span>
                   <span className="subject-count">{group.length} 门</span><Icon name="chevron" size={16} />
                 </button>
@@ -240,7 +250,19 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                   <button id={'enter-' + course.id} type="button" className="course-title-button" disabled={busy}
                     aria-label={'进入' + course.title} onClick={() => openCourse(course)}>{course.title}</button></strong>
                   {course.textbook ? <span>{course.textbook}</span> : null}</span>
+                <button id={'delete-' + course.id} type="button" className="text-button danger-quiet course-delete" disabled={busy}
+                  aria-label={'删除课程：' + course.title} onClick={() => { setError(''); setDeleteTarget(course); }}>
+                  <Icon name="trash" size={16} />删除课程</button>
               </div>
+                {deleteTarget?.id === course.id ? <div className="delete-confirmation course-delete-confirmation" role="alertdialog"
+                  aria-labelledby="delete-course-title" aria-describedby="delete-course-description"
+                  onKeyDown={event => { if (event.key === 'Escape' && !busy) { event.preventDefault(); cancelDelete(); } }}>
+                  <h3 id="delete-course-title">删除“{course.title}”？</h3>
+                  <p id="delete-course-description">课程及其目录、文件将被永久删除，此操作无法撤销。</p>
+                  <div className="button-row"><button className="button danger" disabled={busy}
+                    onClick={() => void removeCourse()}>{busy ? '删除中…' : '确认删除'}</button>
+                    <button ref={deleteCancelButton} className="button" disabled={busy} onClick={cancelDelete}>取消</button></div>
+                </div> : null}
                 </li>)}</ul>
               </li>;
             })}</ul>}
@@ -282,14 +304,6 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
               detailTab === 'curriculum' ? <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} /> :
               <KnowledgeEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} />}
             </div>
-            <div className="detail-bottom"><button className="text-button danger-quiet" disabled={busy}
-              onClick={() => setDeleteTarget(selected)}><Icon name="trash" size={16} />删除课程</button></div>
-            {deleteTarget ? <div className="delete-confirmation" role="alert" aria-labelledby="delete-course-title">
-              <h3 id="delete-course-title">删除这门课程？</h3><p>“{deleteTarget.title}”及其目录、文件将被永久删除，此操作无法撤销。</p>
-              <div className="button-row"><button ref={confirmButton} className="button danger" disabled={busy}
-                onClick={() => void removeCourse()}>{busy ? '删除中…' : '确认删除'}</button>
-                <button className="button" disabled={busy} onClick={() => setDeleteTarget(null)}>取消</button></div>
-            </div> : null}
           </section> : null}
       </PageContainer>}
   </div>;
