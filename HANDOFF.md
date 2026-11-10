@@ -4,7 +4,11 @@
 
 线上失败330a8368/8d540cfa及后续重试均为inspect/unsupported_format：扩展名.jpg、Content-Type image/jpeg，但解码器识别MPO，原图1888×1755/5184272字节与1888×1552/5780984字节，SHA256分别4b976ab7…/33fea9aa…。与前次114422字节普通JPEG并非同一字节流；现有证据定位为MPO未列入格式允许范围，不能据此断言Linux浏览器或文件头损坏。失败文件未持久存储，本机没有这两个原文件，不能将合成验证称作原图复验。
 
-normalizer新增MPO主照片提取：frame0完整解码/EXIF纠正后输出普通JPEG，移除MPF/辅助帧；普通JPEG直接保留、其他动图/多页拒绝及50MiB/无缩放保持。167项后端全量、Ruff/格式和运行镜像构建通过。主代理解耦复查限normalizer→上传/模型直接调用链通过：bytes/存储/MIME/模型契约及取消/错误补偿保持，规则与diagnostics仍归normalizer，无新依赖/迁移/UI改动。部署及合成MPO在线验收结果收尾补记。
+normalizer新增MPO主照片提取：frame0完整解码/EXIF纠正后输出普通JPEG，移除MPF/辅助帧；普通JPEG直接保留、其他动图/多页拒绝及50MiB/无缩放保持。167项后端全量、Ruff/格式和运行镜像构建通过。主代理解耦复查限normalizer→上传/模型直接调用链通过：bytes/存储/MIME/模型契约及取消/错误补偿保持，规则与diagnostics仍归normalizer，无新依赖/迁移/UI改动。
+
+实现c4396572034b0df50b11b7072fb071bb8c4c1e4b已按队列本地合入master，本地及正式backend/worker运行同一验收镜像3c262733c404，正式current为releases/c439657，前端保持3d924db。两端用原生双帧MPO合成文件5956342/5253552字节，覆盖image/jpeg、application/octet-stream、image/mpo，上传均201；签名下载为image/jpeg/curriculum.jpg，独立解码确认为普通单帧JPEG、无MPF，主照片尺寸1888×1755及旋转后1552×1888正确。旧运行版本事先用同一合成MPO复现inspect/unsupported_format，修复后通过。模型载荷由MockTransport验证JPEG，无新真实模型调用或用户MPO质量验收；仍需用户Linux重传两张原图确认。
+
+两端六服务健康，health/ready200；云端一致停写备份/切换前后业务表排序行摘要和数量相同，QA课程/图片/会话删除后各表数量仍与切换前相同，原用户课程/上传/模型配置保留。Nginx配置摘要保持。仅传79872字节OCI增量并复用云端既有层，重建/加载后的镜像索引与本地验收镜像完全相同；不是在生产用另一个未验收构建替代。云端增量/两份OCI归档/源码包/数据库及存储与环境回退副本315594871逻辑字节已清理，无依赖旧/测试镜像标签删除；本地归档/合成图片/任务缓存和普通worktree收尾回收，保留当前源快照/运行依赖/共享BuildKit及mainbook/workbook外部修改。未推送GitHub或更新Sites，精确发布记录见production.json。
 
 ## 2026-11-10 JPEG直接传输
 

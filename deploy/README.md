@@ -2,7 +2,15 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
-## 2026-11-10 当前：JPEG直接发送与超时定位
+## 2026-11-10 当前：MPO/JPG主照片兼容
+
+backend/worker发布c4396572034b0df50b11b7072fb071bb8c4c1e4b，current为releases/c439657；本地同步使用验收镜像3c262733c404，前端保持3d924db。日志中的Linux .jpg/image/jpeg实际为MPO，旧版在inspect/unsupported_format拒绝；现在提取frame0、纠正EXIF后编码普通JPEG，剥离MPF及其他帧，无缩放。普通JPEG原样传输、其他多帧拒绝和原90秒预算保持，未新增依赖或迁移。
+
+167项后端全量、Ruff/格式、运行镜像构建与主代理解耦复查通过；两端原生双帧MPO合成文件约6MB/5.3MB通过image/jpeg、application/octet-stream及image/mpo上传201，签名下载为普通单帧JPEG，无MPF且主图/旋转尺寸正确。模型JPEG载荷通过MockTransport验收；失败原文件未保存，用户Linux原图重传和真实模型质量未代验。
+
+两端六服务健康，health/ready200；停写一致备份与切换后原业务表数量/排序摘要相同，QA课程/图片/会话清理后数量仍保持，Nginx摘要未变。只上传79872字节OCI增量，云端复用已有层重建后核对与本地镜像索引完全相同。云端临时归档/增量/源码/一致备份315594871逻辑字节和旧/任务镜像标签已清理，保留源快照/运行依赖/用户数据。精确摘要见production.json，行为及限制见HANDOFF最新节；GitHub/Sites未更新。
+
+## 2026-11-10 JPEG直接发送与超时定位（历史）
 
 后端/Worker发布bcb38c93f3db030d6edadd5ea274931983b3ca7f，current为releases/bcb38c9；本地同步，同一已验收镜像14b5e2c7ba13，前端仍3d924db。JPEG在完整解码校验后保留原始压缩字节，需要EXIF/CMYK处理时仍编码JPEG；其他格式和历史PNG兼容。存储及签名下载MIME与模型data URL一致，90秒预算不变，无数据库迁移。
 

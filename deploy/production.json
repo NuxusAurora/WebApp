@@ -1,11 +1,11 @@
 {
-  "revision": "bcb38c93f3db030d6edadd5ea274931983b3ca7f",
-  "image_source_revision": "bcb38c93f3db030d6edadd5ea274931983b3ca7f",
-  "configuration_source_revision": "bcb38c93f3db030d6edadd5ea274931983b3ca7f",
+  "revision": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
+  "image_source_revision": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
+  "configuration_source_revision": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:bcb38c9",
-      "id": "sha256:14b5e2c7ba1342dc175236bc4f908b48070fc687bbf06985ceaa2a257e447927"
+      "source": "webapp-release-backend:c439657",
+      "id": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8"
     },
     "frontend": {
       "source": "webapp-release-frontend:3d924db",
@@ -13,8 +13,8 @@
     }
   },
   "runtime_images": {
-    "backend": "sha256:14b5e2c7ba1342dc175236bc4f908b48070fc687bbf06985ceaa2a257e447927",
-    "worker": "sha256:14b5e2c7ba1342dc175236bc4f908b48070fc687bbf06985ceaa2a257e447927",
+    "backend": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
+    "worker": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
     "frontend": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
@@ -33,33 +33,34 @@
   },
   "smtp_configured": false,
   "local_data_migrated": false,
-  "real_provider_call_verified": true,
-  "data_preservation": "business counts and sorted row hashes equal through stopped-writer backup/cutover; diagnostic QA objects removed after testing; new normal call audit retained",
+  "real_provider_call_verified": false,
+  "data_preservation": "consistent stopped-writer backup/cutover with equal business counts/sorted hashes; final QA upload/course/session removed and original table counts unchanged; no real provider calls",
   "business_counts": {
     "users": 1,
     "courses": 2,
-    "uploads": 2,
+    "uploads": 3,
     "chapters": 0,
     "sections": 0,
-    "workflow_runs": 2,
-    "structure_versions": 0,
-    "structure_events": 0,
+    "workflow_runs": 3,
+    "structure_versions": 1,
+    "structure_events": 1,
     "ai_providers": 2,
     "ai_models": 1,
-    "ai_call_logs": 6,
+    "ai_call_logs": 7,
     "knowledge_points": 0
   },
   "backup_before_upgrade": "database/storage/environment backed up after writer stop; no migration; removed after acceptance",
-  "released_at_utc": "2026-11-10T15:49:41.642195+00:00",
+  "released_at_utc": "2026-11-10T16:17:17.666073+00:00",
   "validation": {
-    "backend_tests": 163,
+    "backend_tests": 167,
     "ruff_format_runtime_build": "passed",
-    "jpeg_private_storage_and_download": "both local/public: exact 114422 original bytes; image/jpeg and curriculum.jpg; truncated JPEG400",
-    "real_provider_retry": "user original: local201/25335ms, public201/22128ms, both 3 chapters and19 children; QA course/images/drafts/session deleted; normal audit retained",
-    "frontend": "unchanged 3d924db; no new visual acceptance",
-    "https_health_ready": "200",
+    "mpo_runtime": "both local/public: native2-frameMPO5956342/5253552bytes upload201, private JPEG download verified1frame/noMPF/correct orientation; image/jpeg,image/mpo,application/octet-stream accepted",
+    "http_vision_contract": "MPO actual JPEG bytes asserted by MockTransport, no new real model call",
+    "real_original_mpo_files": "unavailable: rejected uploads not retained; user Linux retry needed",
+    "frontend": "unchanged3d924db; no UI/visual change",
     "business_hashes_preserved_across_cutover": true,
-    "nginx_template_and_runtime": "unchanged verified configuration hash"
+    "business_counts_preserved_after_qa": true,
+    "https_health_ready": "200"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -68,12 +69,12 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 158962184,
+  "cleanup_logical_bytes": 315594871,
   "obsolete_image_tags_removed": [
-    "webapp-release-backend:a994598",
-    "webapp-jpeg-backend:latest"
+    "webapp-release-backend:bcb38c9",
+    "webapp-mpo-backend:latest"
   ],
-  "cleanup": "temporary image/source archives, consistent database/storage/environment rollback copies, original-image test copy and sender TCP samples removed; current source/runtime/user data/credentials retained",
+  "cleanup": "temporary reconstructedOCI archives/delta/source packages/database-storage-env rollback copies removed after acceptance; current source/runtime/user data retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
   "nginx_template_render_matches_runtime": true,
   "nginx_upload_limit": "50 MiB",
@@ -181,5 +182,15 @@
     "body_only_probe": "1.033MB blank-model request returned400 without generation; cloudflared-to-Caddy59.101s; Caddy-to-Nginx59.100s; Nginx-to-relay59.099s; each500ms sampled queue0; see HANDOFF for sender TCP findings",
     "relay_services": "no relay source/config/service/network changes; temporary time/length/queue observation only",
     "sender_tcp_probe": "second1.033MB validation-only probe took76.059s; Cloudflare TCP endpoint104.21.88.115 ACKed full TLS upload within8s of sampling start; send queue0 thereafter while response awaited; local retransmission293735bytes affected early upload but does not explain remaining~70s; slow delivery located after Cloudflare TCP ingress and before cloudflared origin dispatch, internal edge/Tunnel/network mechanism not resolved"
+  },
+  "mpo_primary": {
+    "selection": 0,
+    "output": "plainRGBJPEG without MPF index or auxiliary frames; EXIF orientation applied, no resize",
+    "failure_request_ids": [
+      "330a8368-1058-4292-ba80-7042be932bf7",
+      "8d540cfa-30db-46f8-9ad2-5146b83b73d8"
+    ],
+    "cause": "Pillow detectedMPO for .jpg/image/jpeg; rejected atinspect/unsupported_format beforedecode",
+    "real_provider_quality": "not tested for user original MPO; previous ordinaryJPEG local/public25.335/22.128s atbcb38c9 unchanged contract"
   }
 }
