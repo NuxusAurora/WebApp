@@ -2,6 +2,12 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
+## 2026-11-10 上传限制修复
+
+上次应用发布保留了旧Nginx运行配置（2MiB请求体、150秒超时），与当前源码模板5MiB/185秒不一致；两次5,184,272字节目录图片被代理413拦截，前端显示“服务暂不可用”。已按当前模板渲染正式站配置，nginx -t通过后平滑reload；未改其他站点、应用镜像、数据库或用户数据。
+
+线上匿名边界验证：3MiB与整5MiB图片请求到达应用认证并返回401 JSON，5MiB+1仍返回413；health/ready 200。未调用真实模型、写入课程或图片。运行配置与模板渲染结果完全一致，摘要写入production.json及服务器release.json。后续发布应同时核对已渲染Nginx配置与模板的差异，不能只验证Compose和服务健康；原始验证脚本和临时配置备份已清理。
+
 ## 2026-11-10 当前发布：默认测试登录
 
 已将已验收源码 b265cff966c5e3c642fe5c19a0cf3c89e1ccf16c 的前端、后端和 Worker 发布到正式入口，current 指向 /opt/learning-workbench/releases/b265cff。测试登录始终可用，生产环境旧测试开关已移除，无需额外部署授权参数。HTTPS、安全Cookie、同源校验、限流、固定普通账户和正常账户隔离继续保留。镜像与配置摘要集中见 production.json 和服务器 release.json。

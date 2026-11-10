@@ -71,7 +71,9 @@
     "browser": "1280x720 dark login button, real login and refresh persistence passed",
     "untested": "mobile/light theme, real provider generation and new private download content not repeated",
     "schema_upgrade": "0004_curriculum -> 0007_connection_slots",
-    "data_preservation": "existing business table counts and canonical row digests unchanged"
+    "data_preservation": "existing business table counts and canonical row digests unchanged",
+    "nginx_upload_boundary": "3MiB and exact 5MiB anonymous image requests reach API authentication (401 JSON); 5MiB+1 rejected (413); no user data written",
+    "nginx_reload": "syntax check passed; graceful reload; HTTPS health/ready 200"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -91,5 +93,9 @@
     "renewal": "webroot with targeted nginx deploy hook",
     "renewal_dry_run": "passed",
     "not_after_utc": "2027-02-07T03:49:49Z"
-  }
+  },
+  "nginx_runtime_sha256": "6896b3c8764ea2f1d95a8ce8958cde6d537ae361d9fd96254390ef4566923eb2",
+  "nginx_template_render_matches_runtime": true,
+  "nginx_upload_limit": "5 MiB; aligned with frontend/backend image limit",
+  "nginx_proxy_timeout_seconds": 185
 }
