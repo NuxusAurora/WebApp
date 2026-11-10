@@ -1,5 +1,9 @@
 # 运行手册
 
+## 知识点编辑与 AI 核对界面 · 2026-11-09
+
+入口仍为 `/` → 课程详情 → 知识点 → 已确认小节。实现为 `frontend/components/knowledge.tsx`，局部样式 `frontend/styles/knowledge.css`；`course-space.tsx` 仅在知识点页增加 `knowledge-workspace` 作用域。该区域统一滚动，卡片折叠保持编辑值，定义/目标/标准文本框随内容和宽度增长。审核数量直接取草稿待核对项，展开显示完整原文；逐项核对后仍须保存，差异复核和显式确认规则保持。未新增服务、依赖或 API，原 check/test/build 命令继续适用；本次 104 项前端测试及运行验证限制集中见 HANDOFF 最新节。
+
 ## 教材目录上传入口 · 2026-11-09
 
 课程详情→教材目录的空状态只显示“上传”。选择单张PNG/JPEG（最大5 MiB）后，自动选第一个已启用且明确支持图片的模型，上传后直接识别成待核对草稿；确认流程保持。模型下拉、图片选择列表、OCR/文字备用和手动新建入口已移除，旧图片/后端接口不删除。实现仍为 `frontend/components/curriculum.tsx`，按钮样式限 `.curriculum > .curriculum-upload`。原前端check/test/build命令继续适用，本轮90项测试及实际验收边界见HANDOFF最新节。

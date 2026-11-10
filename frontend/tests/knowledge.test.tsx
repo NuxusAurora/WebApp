@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { KnowledgeEditor } from '../components/knowledge';
 import { ApiError } from '../lib/api';
@@ -22,6 +22,46 @@ function mock(current = initial) {
 function renderEditor(onDirtyChange = vi.fn()) { return render(<KnowledgeEditor courseId="course" onDirtyChange={onDirtyChange} />); }
 
 describe('section knowledge draft workflow', () => {
+  it('keeps full review opinions through disclosure and saves only the explicitly reviewed item as resolved', async () => {
+    const opinions = ['请逐字核对教材符号。\n' + '保留完整的模型审核原文及说明。'.repeat(40), '第二项独立意见，不应被一并核对。'];
+    const fetcher = mock({ ...initial, draft: { ...version, payload: { ...payload, uncertain_items: opinions } } });
+    renderEditor();
+    const review = await screen.findByRole('region', { name: 'AI 审核与核对' });
+    expect(within(review).getByText('2 项待核对')).toBeInTheDocument();
+    const text = review.querySelector('.knowledge-review-text')!;
+    const disclosure = text.closest('details')!;
+    expect(text.textContent).toBe(opinions[0]);
+    expect(disclosure).not.toHaveAttribute('open');
+    fireEvent.click(disclosure.querySelector('summary')!);
+    expect(disclosure).toHaveAttribute('open');
+    expect(text.textContent).toBe(opinions[0]);
+    expect(fetcher.mock.calls.some(([, init]) => init?.method)).toBe(false);
+    fireEvent.click(within(review).getByRole('button', { name: '已核对第 1 项' }));
+    expect(within(review).getByText('1 项待核对')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '保存知识草稿' }));
+    await screen.findByText('知识草稿已保存');
+    const saved = fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')!;
+    expect(JSON.parse(String(saved[1]?.body)).payload).toEqual({ ...payload, uncertain_items: [opinions[1]] });
+  });
+  it('preserves every field while folding points, and does not mark disclosure as an edit', async () => {
+    const second = { ...payload.knowledge_points[0], temp_id: 'kp2', title: '第二个知识点', importance: 'LOW' as const };
+    const fetcher = mock({ ...initial, draft: { ...version, payload: { ...payload, knowledge_points: [...payload.knowledge_points, second] } } });
+    const { container } = renderEditor();
+    await screen.findByDisplayValue('第二个知识点');
+    const cards = container.querySelectorAll('.knowledge-point-editor');
+    expect(cards[0]).toHaveAttribute('open');
+    expect(cards[1]).not.toHaveAttribute('open');
+    fireEvent.click(cards[1].querySelector('summary')!);
+    expect(screen.getByLabelText('知识点 2名称')).toBeVisible();
+    expect(screen.getByRole('button', { name: '保存知识草稿' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('知识点 2定义'), { target: { value: '只修改这一条定义' } });
+    fireEvent.click(cards[1].querySelector('summary')!);
+    expect(cards[1]).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByRole('button', { name: '保存知识草稿' }));
+    await screen.findByText('知识草稿已保存');
+    const saved = fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')!;
+    expect(JSON.parse(String(saved[1]?.body)).payload.knowledge_points).toEqual([payload.knowledge_points[0], { ...second, description: '只修改这一条定义' }]);
+  });
   it('shows model knowledge provenance without a search service or citation UI', async () => {
     const generated: KnowledgeVersion = { ...version, source: { kind: 'ai', model_name: 'fixture', knowledge_basis: 'model_knowledge', prompt_version: 'knowledge-extract-v2' } };
     const fetcher = mock({ ...initial, draft: generated }); renderEditor();

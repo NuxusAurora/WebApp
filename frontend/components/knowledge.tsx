@@ -1,9 +1,39 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
+import { Icon } from './icon';
 import { api, ApiError } from '../lib/api';
 import type { Curriculum, Provider } from '../lib/curriculum';
 import { pointPayload, validKnowledge, type KnowledgeData, type KnowledgePayload, type KnowledgeVersion, type PointInput } from '../lib/knowledge';
+
+// Presentation only; observers are cleaned up when fields leave the editor.
+function ExpandingTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const field = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const element = field.current;
+    if (!element) return;
+    const disclosure = element.closest('details');
+    const resize = () => {
+      if ((disclosure && !disclosure.open) || !element.getClientRects().length) return;
+      element.style.height = 'auto';
+      element.style.minHeight = '';
+      const height = element.scrollHeight + 2 + 'px';
+      element.style.minHeight = height;
+      element.style.height = height;
+    };
+    resize();
+    disclosure?.addEventListener('toggle', resize);
+    if (typeof ResizeObserver === 'undefined') return () => disclosure?.removeEventListener('toggle', resize);
+    let width = -1;
+    const observer = new ResizeObserver(entries => {
+      const next = entries[0]?.contentRect.width ?? 0;
+      if (next !== width) { width = next; resize(); }
+    });
+    observer.observe(element);
+    return () => { observer.disconnect(); disclosure?.removeEventListener('toggle', resize); };
+  }, [props.value]);
+  return <textarea {...props} ref={field} />;
+}
 
 type Props = { onDirtyChange: (dirty: boolean) => void; onSessionExpired?: () => void };
 type SectionChoice = { id: string; title: string; chapter: string };
@@ -37,7 +67,7 @@ export function KnowledgeEditor({ courseId, onDirtyChange, onSessionExpired }: P
   return <section className="knowledge" aria-label="知识点">
     {loading ? <p role="status">正在加载小节…</p> : error ? <div role="alert"><p>{error}</p><button className="button" onClick={() => setReload(v => v + 1)}>重新加载小节</button></div> :
       !sections.length ? <p className="muted">先在教材目录中确认小节，再生成知识点。</p> : <>
-        <label className="knowledge-section">小节<select value={selected} onChange={event => {
+        <label className="knowledge-section">当前小节<select aria-label="小节" value={selected} onChange={event => {
           if (dirty.current && !window.confirm('当前修改尚未保存或生成尚未完成。离开此小节？')) return;
           reportDirty(false); setSelected(event.target.value);
         }}>{sections.map(s => <option key={s.id} value={s.id}>{s.chapter} / {s.title}</option>)}</select></label>
@@ -115,6 +145,9 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
     {error ? <p ref={errorRef} tabIndex={-1} className="notice error" role="alert">{error}</p> : null}
     {notice ? <p role="status">{notice}</p> : null}
     {loading ? <p role="status">正在加载知识点…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载知识点</button> : <>
+      <div className="knowledge-workspace-heading">
+        <div><h3>{payload ? '知识点编辑' : '小节知识点'}<span className="knowledge-count">{payload ? payload.knowledge_points.length : data.knowledge_points.length}</span></h3>
+          <p className="muted">{payload ? '知识草稿 · 确认后应用到课程' : '已确认的知识点'}</p></div>
       <div className="knowledge-toolbar">
         <button className="button primary" disabled={Boolean(busy) || confirming} onClick={() => void generate()}>{data.knowledge_points.length || version ? '重新生成知识点' : '生成知识点'}</button>
         {!payload ? <button className="button" disabled={Boolean(busy)} onClick={() => {
@@ -122,34 +155,46 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
           else { setVersion(null); setPayload(pointPayload(data.knowledge_points)); setDirty(true); }
         }}>{data.draft ? '继续编辑知识草稿' : '编辑知识点'}</button> : null}
         <button className="text-button" disabled={Boolean(busy)} onClick={() => { if (!dirty || window.confirm('放弃未保存的知识点修改并重新加载？')) void refresh(); }}>重新加载</button>
-      </div>
-      <p className="muted">基于模型自身知识生成，请核对教材特有内容。</p>
+      </div></div>
       {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => <li key={point.id}>
-        <div className="knowledge-point-heading"><h3>{point.title}</h3><span className="muted">{importance[point.importance]} · {statuses[point.status]}</span></div>
-        <p>{point.description}</p>
+        <div className="knowledge-point-heading"><h3>{point.title}</h3><span className="knowledge-state">{importance[point.importance]} · {statuses[point.status]}</span></div>
+        <h4>基本定义</h4><p className="knowledge-definition">{point.description}</p>
         {point.source?.knowledge_basis === 'model_knowledge' ? <small>生成依据：模型自身知识{point.source.model_name ? ' · ' + point.source.model_name : ''}</small> : null}
         <details><summary>学习目标与掌握标准</summary>
-          <h4>学习目标</h4><ul>{point.learning_objectives.map((text, i) => <li key={i}>{text}</li>)}</ul>
-          <h4>掌握标准</h4><ul>{point.mastery_criteria.map((text, i) => <li key={i}>{text}</li>)}</ul>
+          <div className="knowledge-goals"><div><h4>学习目标</h4><ul>{point.learning_objectives.map((text, i) => <li key={i}>{text}</li>)}</ul></div>
+          <div><h4>掌握标准</h4><ul>{point.mastery_criteria.map((text, i) => <li key={i}>{text}</li>)}</ul></div></div>
         </details></li>)}</ol> : <p className="muted">此小节还没有知识点。</p>) : <>
-        <p className="muted">知识草稿 · 确认后应用到课程</p>
         {stale ? <p role="alert" className="notice error">课程结构已变化。请重新加载后，从正式知识点编辑或重新生成；旧草稿仍保留。</p> : null}
         <fieldset disabled={disabled} className="knowledge-fields"><legend className="visually-hidden">知识草稿</legend>
-          {payload.uncertain_items.length ? <div className="knowledge-uncertainties"><h3>待核对项</h3><ul>{payload.uncertain_items.map((item, index) => <li key={index}>
-            <span>{item}</span><button className="text-button" onClick={() => change({ ...payload, uncertain_items: payload.uncertain_items.filter((_, i) => i !== index) })}>已核对第 {index + 1} 项</button>
-          </li>)}</ul></div> : null}
+          <section className="knowledge-review" aria-label="AI 审核与核对">
+            <div className="knowledge-review-heading"><div><h3>AI 审核与核对</h3><p className="muted">基于模型自身知识生成，请核对教材特有内容。</p></div>
+              <span className={'knowledge-state ' + (payload.uncertain_items.length ? 'is-pending' : 'is-clear')}><Icon name={payload.uncertain_items.length ? 'alert' : 'check'} size={15} />{payload.uncertain_items.length ? payload.uncertain_items.length + ' 项待核对' : '无待核对项'}</span></div>
+            {payload.uncertain_items.length ? <ol className="knowledge-review-list">{payload.uncertain_items.map((item, index) => <li key={index}>
+              <details className="knowledge-review-item"><summary>
+                <span className="knowledge-review-title"><strong>核对项 {index + 1}</strong><span className="knowledge-review-status">待核对</span><Icon name="chevron" size={16} /></span>
+                <span className="knowledge-review-text">{item}</span>
+                <span className="knowledge-disclosure"><span className="when-closed">展开完整意见</span><span className="when-open">收起完整意见</span></span>
+              </summary><div className="knowledge-review-action"><button className="button" onClick={() => change({ ...payload, uncertain_items: payload.uncertain_items.filter((_, i) => i !== index) })}><Icon name="check" size={15} />已核对第 {index + 1} 项</button></div></details>
+            </li>)}</ol> : null}
+          </section>
+          <div className="knowledge-list-heading"><h3>知识点内容</h3><span className="muted">{payload.knowledge_points.length} 个知识点 · 点击标题展开编辑</span></div>
           <ol className="knowledge-list">{payload.knowledge_points.map((point, index) => <li key={point.temp_id}>
-            <div className="knowledge-point-heading"><h3>知识点 {index + 1}</h3><button className="text-button" onClick={() => {
-              if (window.confirm('从草稿移除“' + (point.title || '未命名知识点') + '”？正式节点将在确认后归档。')) change({ ...payload, knowledge_points: payload.knowledge_points.filter((_, i) => i !== index) });
-            }}>移除知识点 {index + 1}</button></div>
+            <details className="knowledge-point-editor" open={index === 0 || !point.title}>
+              <summary className="knowledge-point-summary"><span className="knowledge-point-number">{String(index + 1).padStart(2, '0')}</span><h4>{point.title || '未命名知识点'}</h4><span className="knowledge-state">{importance[point.importance]}</span><Icon name="chevron" size={18} /></summary>
+            <div className="knowledge-point-body">
+            <div className="knowledge-group-heading"><h4>基本定义</h4><span className="muted">知识点 {index + 1}</span></div>
             <label>名称<input aria-label={'知识点 ' + (index + 1) + '名称'} value={point.title} maxLength={200} required onChange={e => editPoint(index, { title: e.target.value })} /></label>
-            <label>定义<textarea aria-label={'知识点 ' + (index + 1) + '定义'} value={point.description} maxLength={4000} required rows={3} onChange={e => editPoint(index, { description: e.target.value })} /></label>
-            <div className="knowledge-goals"><label>学习目标（每行一项）<textarea aria-label={'知识点 ' + (index + 1) + '学习目标'} value={point.learning_objectives.join('\n')} required rows={3} onChange={e => editPoint(index, { learning_objectives: e.target.value.split('\n') })} /></label>
-              <label>掌握标准（每行一项）<textarea aria-label={'知识点 ' + (index + 1) + '掌握标准'} value={point.mastery_criteria.join('\n')} required rows={3} onChange={e => editPoint(index, { mastery_criteria: e.target.value.split('\n') })} /></label></div>
-            <label className="knowledge-importance">重要程度<select aria-label={'知识点 ' + (index + 1) + '重要程度'} value={point.importance} onChange={e => editPoint(index, { importance: e.target.value as PointInput['importance'] })}>
+            <label>定义<ExpandingTextarea aria-label={'知识点 ' + (index + 1) + '定义'} value={point.description} maxLength={4000} required rows={3} onChange={e => editPoint(index, { description: e.target.value })} /></label>
+            <div className="knowledge-group-heading knowledge-requirements"><h4>学习要求</h4><span className="muted">每行一项</span></div>
+            <div className="knowledge-goals"><label>学习目标<ExpandingTextarea aria-label={'知识点 ' + (index + 1) + '学习目标'} value={point.learning_objectives.join('\n')} required rows={3} onChange={e => editPoint(index, { learning_objectives: e.target.value.split('\n') })} /></label>
+              <label>掌握标准<ExpandingTextarea aria-label={'知识点 ' + (index + 1) + '掌握标准'} value={point.mastery_criteria.join('\n')} required rows={3} onChange={e => editPoint(index, { mastery_criteria: e.target.value.split('\n') })} /></label></div>
+            <div className="knowledge-point-footer"><label className="knowledge-importance">重要程度<select aria-label={'知识点 ' + (index + 1) + '重要程度'} value={point.importance} onChange={e => editPoint(index, { importance: e.target.value as PointInput['importance'] })}>
               {Object.entries(importance).map(([value, title]) => <option key={value} value={value}>{title}</option>)}
-            </select></label>
+            </select></label><button className="text-button danger-quiet" onClick={() => {
+              if (window.confirm('从草稿移除“' + (point.title || '未命名知识点') + '”？正式节点将在确认后归档。')) change({ ...payload, knowledge_points: payload.knowledge_points.filter((_, i) => i !== index) });
+            }}><Icon name="trash" size={15} />移除知识点 {index + 1}</button></div>
             {(!point.title.trim() || !point.description.trim()) ? <small role="status">名称和定义必填。</small> : null}
+            </div></details>
           </li>)}</ol>
           <button className="button" disabled={payload.knowledge_points.length >= 50} onClick={() => change({ ...payload, knowledge_points: [...payload.knowledge_points, {
             temp_id: 'kp_' + crypto.randomUUID(), existing_knowledge_point_id: null, title: '', description: '', learning_objectives: [''], importance: 'MEDIUM', mastery_criteria: [''],
@@ -157,7 +202,8 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
         </fieldset>
         {!validKnowledge(payload) ? <small role="status">名称、定义、学习目标和掌握标准必填；目标及标准各限 20 项，每项 500 字。</small> : null}
         <div className="knowledge-actions">
-          <button className="button" disabled={disabled || !dirty || !validKnowledge(payload)} onClick={() => void run('正在保存草稿…', async signal => {
+          <span className="knowledge-save-status">{dirty ? '有未保存的修改' : '草稿已保存'}</span>
+          <button className={'button' + (dirty ? ' primary' : '')} disabled={disabled || !dirty || !validKnowledge(payload)} onClick={() => void run('正在保存草稿…', async signal => {
             const replacement = !version && data.draft ? { replace_version_id: data.draft.id, replace_revision: data.draft.revision } : {};
             const next = await api<KnowledgeVersion>(version ? path : path + '/drafts', { method: version ? 'PATCH' : 'POST', signal,
               body: JSON.stringify({ payload, base_course_revision: version?.base_course_revision ?? data.confirmed_revision, ...replacement,
@@ -165,7 +211,7 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
             if (signal.aborted) return;
             adopt(next); await load(signal); if (!signal.aborted) setNotice('知识草稿已保存');
           })}>保存知识草稿</button>
-          {version ? <button className="button" disabled={disabled || dirty || Boolean(payload.uncertain_items.length) || confirming} onClick={() => { setConfirming(true); setAcceptArchives(false); }}>核对并确认知识点</button> : null}
+          {version ? <button className={'button' + (!dirty ? ' primary' : '')} disabled={disabled || dirty || Boolean(payload.uncertain_items.length) || confirming} onClick={() => { setConfirming(true); setAcceptArchives(false); }}>核对并确认知识点</button> : null}
           <button className="text-button" disabled={Boolean(busy)} onClick={() => {
             if (dirty && !window.confirm('放弃未保存的知识点修改？')) return;
             setPayload(null); setDirty(false); setConfirming(false);
