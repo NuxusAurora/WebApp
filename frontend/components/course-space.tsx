@@ -30,6 +30,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   const [offset, setOffset] = useState(0);
   const [query, setQuery] = useState('');
   const [expandedSubjects, setExpandedSubjects] = useState(() => new Map<string, boolean>());
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const subjectListId = useId();
   const [reload, setReload] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
@@ -108,6 +109,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
 
   function openCourse(course: Course) {
     if (!leaveEditor()) return;
+    setSelectedSubject(course.subject.trim() || '未设置学科');
     setSelected(course); setEditing(null); setDirty(false); setDeleteTarget(null);
     setDetailTab('overview'); setError(''); setMessage('');
     requestAnimationFrame(() => document.getElementById('course-detail-title')?.focus({ preventScroll: true }));
@@ -155,7 +157,11 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
       setSelected(course.status === 'active' ? course : null); setEditing(null); setDirty(false);
       setCourses(previous => isNew ? [course, ...previous].slice(0, 100) :
         previous.map(row => row.id === course.id ? course : row));
-      if (course.status === 'active') setExpandedSubjects(previous => new Map(previous).set(course.subject.trim() || '未设置学科', true));
+      if (course.status === 'active') {
+        const subject = course.subject.trim() || '未设置学科';
+        setExpandedSubjects(previous => new Map(previous).set(subject, true));
+        setSelectedSubject(subject);
+      }
       if (isNew && offset !== 0) setOffset(0);
       setQuery(''); setDetailTab('overview'); setMessage(course.status === 'archived' ? '课程已归档，可在账户设置中恢复学习' : '课程已保存');
       requestAnimationFrame(() => (document.getElementById('course-detail-title') ?? newButton.current)?.focus({ preventScroll: true }));
@@ -184,10 +190,12 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     setEditing(null); setDirty(false); setDeleteTarget(null);
     setSelected(null); setQuery(''); setOffset(next);
     setExpandedSubjects(new Map());
+    setSelectedSubject(null);
   }
 
   function searchCourses(value: string) {
     setDeleteTarget(null);
+    setSelectedSubject(null);
     setQuery(value);
     setExpandedSubjects(new Map());
   }
@@ -236,7 +244,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
               const groupId = subjectListId + '-subject-' + index;
               return <li key={subject} className="subject-group">
                 <button type="button" className="subject-toggle" disabled={busy} aria-label={subject + ' ' + group.length + ' 门'} aria-expanded={expanded} aria-controls={groupId}
+                  aria-current={selectedSubject === subject ? 'true' : undefined}
                   onClick={() => {
+                    setSelectedSubject(subject);
                     if (expanded && group.some(course => course.id === deleteTarget?.id)) setDeleteTarget(null);
                     setExpandedSubjects(previous => new Map(previous).set(subject, !expanded));
                   }}>

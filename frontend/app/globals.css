@@ -658,6 +658,7 @@ html, body { height: 100%; overflow: hidden; }
 .course-library .course-row { background: var(--surface); }
 .course-library .subject-toggle { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 14px 20px; border: 0; background: var(--surface); color: var(--ink); text-align: left; }
 .course-library .subject-toggle:hover { background: var(--surface-hover); }
+.course-library .subject-toggle[aria-current="true"] { background: var(--accent-soft); color: var(--ink); }
 .course-library .subject-toggle:focus-visible { outline-offset: -4px; }
 .subject-name { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 18px; font-weight: var(--weight-emphasis); }
 .subject-count { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; }

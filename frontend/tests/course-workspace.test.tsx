@@ -65,12 +65,17 @@ describe('subject course groups', () => {
     expect(screen.queryByRole('button', { name: '进入高等数学' })).not.toBeInTheDocument();
     const calls = vi.mocked(api).mock.calls.length;
     fireEvent.click(math);
+    expect(math).toHaveAttribute('aria-current', 'true');
     expect(document.getElementById(math.getAttribute('aria-controls')!)).toBeVisible();
     expect(screen.getByRole('button', { name: '进入线性代数' })).toBeVisible();
     fireEvent.click(physics);
+    expect(physics).toHaveAttribute('aria-current', 'true');
+    expect(math).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('button', { name: '进入大学物理' })).toBeVisible();
     fireEvent.click(math);
     expect(screen.queryByRole('button', { name: '进入线性代数' })).not.toBeInTheDocument();
+    expect(math).toHaveAttribute('aria-current', 'true');
+    expect(physics).not.toHaveAttribute('aria-current');
     expect(physics).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(screen.getByRole('button', { name: '未设置学科 1 门' }));
     expect(screen.getByRole('button', { name: '进入阅读课程' })).toBeVisible();
@@ -89,6 +94,7 @@ describe('subject course groups', () => {
     expect(math).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(screen.getByRole('button', { name: '清空课程搜索' }));
     expect(screen.getByRole('button', { name: '数学 2 门' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: '数学 2 门' })).not.toHaveAttribute('aria-current');
   });
 
   it('preserves the expanded group and restores the course entry focus on return', async () => {
@@ -105,6 +111,7 @@ describe('subject course groups', () => {
     const items = breadcrumbs.mock.lastCall![0];
     act(() => items[0].onSelect());
     expect(screen.getByRole('button', { name: '数学 2 门' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: '数学 2 门' })).toHaveAttribute('aria-current', 'true');
     await waitFor(() => expect(screen.getByRole('button', { name: '进入线性代数' })).toHaveFocus());
   });
 });
