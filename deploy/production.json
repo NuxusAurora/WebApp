@@ -1,19 +1,19 @@
 {
-  "revision": "bd8e61846d5d369d516dfa9b4b874d6f2cd14bf9",
+  "revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
   "image_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
-  "configuration_source_revision": "bd8e61846d5d369d516dfa9b4b874d6f2cd14bf9",
+  "configuration_source_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
   "images": {
     "backend": {
       "source": "webapp-release-backend:8e8b56b",
       "id": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c"
     },
     "frontend": {
-      "source": "webapp-release-frontend:bd8e618",
-      "id": "sha256:10e322b7c1b68957c31cc4fc25c7bb856fb8ef0ed1d591c8a7e5894d9fafbbc9"
+      "source": "webapp-release-frontend:d4b46a5",
+      "id": "sha256:3af3c3331d55115e1a8ead8ea71fcc388fd1b5aca9e8528fb67ec099f14f368f"
     }
   },
   "runtime_images": {
-    "frontend": "sha256:10e322b7c1b68957c31cc4fc25c7bb856fb8ef0ed1d591c8a7e5894d9fafbbc9",
+    "frontend": "sha256:3af3c3331d55115e1a8ead8ea71fcc388fd1b5aca9e8528fb67ec099f14f368f",
     "backend": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "worker": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
@@ -34,7 +34,7 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": true,
-  "data_preservation": "frontend-only; non-frontend source and service images unchanged; no business data writes during QA",
+  "data_preservation": "only one default model context field changed; other model fields/test results and provider/credentials preserved; no course writes or model calls",
   "business_counts": {
     "users": 1,
     "courses": 1,
@@ -47,10 +47,10 @@
     "ai_call_logs": 0,
     "knowledge_points": 0
   },
-  "backup_before_upgrade": "frontend rollback environment/metadata removed after browser acceptance; no data-service changes",
-  "released_at_utc": "2026-11-10T14:17:15.592927+00:00",
+  "backup_before_upgrade": "frontend environment/metadata removed after acceptance; no data-service restart",
+  "released_at_utc": "2026-11-10T14:25:55.236740+00:00",
   "validation": {
-    "frontend_tests": 54,
+    "frontend_tests": 61,
     "backend_tests": 117,
     "deployment_tests": 10,
     "build_type_format": "passed",
@@ -60,9 +60,9 @@
     "qa_data": "no user/course/image data written; no real model call",
     "visual": "unchanged layout; frontend boundary/error message covered by tests; no new browser visual acceptance",
     "frontend_label_regressions": 37,
-    "frontend_type_and_build": "passed for bd8e618",
-    "frontend_visual": "1280x720/390x844 dark read-only fixture and production browser: all 3 course tabs use identical title/status/tab shell spacing, padding and theme; knowledge draft expanded/long text/full height and content scrolling checked in fixture; no horizontal overflow. No user data writes or model calls; light mode/real mobile hardware not newly tested.",
-    "frontend_tests_evidence": "54 course-workspace and knowledge regressions; TypeScript and production build passed",
+    "frontend_type_and_build": "passed for d4b46a5",
+    "frontend_visual": "1280x720/390x844 dark production browser: breadcrumb has no personal-space prefix or leading chevron; course list/detail and model-settings hierarchy/navigation retained; no horizontal overflow. Saved default Aurora-Zyron context input reads500000. No course writes or model calls; light mode/real mobile hardware not newly tested.",
+    "frontend_tests_evidence": "61 course-workspace and ai-settings regressions; TypeScript and production build passed",
     "deletion_regressions": "mock API: exact target, cancel/focus, error retry, busy gating, filter/collapse cleanup",
     "live_delete": "not executed; real browser only opened/cancelled; mock API verifies confirmed deletion target and failure behavior"
   },
@@ -73,11 +73,11 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 70290575,
+  "cleanup_logical_bytes": 70291301,
   "obsolete_image_tags_removed": [
-    "webapp-release-frontend:f0a1a47"
+    "webapp-release-frontend:bd8e618"
   ],
-  "cleanup": "task upload archives, rollback environment/metadata and scripts removed; source snapshots, running images, persistent data, credentials and shared caches retained",
+  "cleanup": "task packages, rollback environment/metadata and scripts removed; running images, source snapshots, user data and credentials retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
   "nginx_template_render_matches_runtime": true,
   "nginx_upload_limit": "50 MiB",
@@ -94,15 +94,24 @@
       "verification": "authenticated model catalog and built-in vision probe passed",
       "data_scope": "no course/image data read or sent; one normal capability audit record retained",
       "scope": "cloud default test account; application source/images unchanged"
+    },
+    {
+      "date": "2026-11-10",
+      "kind": "default model context",
+      "model_name": "Aurora-Zyron",
+      "before": 4096,
+      "after": 500000,
+      "scope": "single cloud default model; local already 500000",
+      "verification": "transactional JSON field update and database readback; all other model fields except updated_at, capability tests, provider and encrypted credentials unchanged; no model call"
     }
   ],
   "real_provider_vision_probe_verified": true,
-  "frontend_source_revision": "bd8e61846d5d369d516dfa9b4b874d6f2cd14bf9",
+  "frontend_source_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
   "service_source_revisions": {
-    "frontend": "bd8e61846d5d369d516dfa9b4b874d6f2cd14bf9",
+    "frontend": "d4b46a5a164631388c1e84c713faada979ef3b16",
     "backend": "8e8b56bb9512c4617a2275976a3df886b778d5b2"
   },
-  "latest_release_scope": "frontend knowledge tab style unified with shared course detail shell and theme tokens",
+  "latest_release_scope": "frontend breadcrumb personal-space prefix removed; saved default Aurora-Zyron context corrected to 500000",
   "course_detail_labels": [
     "创建课程中",
     "上传教材目录图片",
@@ -115,7 +124,7 @@
     "course_font_px": 13,
     "subject_highlight": "single current subject via aria-current; persistent across focus changes and independent of disclosure"
   },
-  "source_snapshot_revision": "bd8e61846d5d369d516dfa9b4b874d6f2cd14bf9",
+  "source_snapshot_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
   "knowledge_style": {
     "shared_course_detail_shell": true,
     "theme": "shared tokens; no tab-level palette override",
@@ -133,5 +142,7 @@
     "renewal": "webroot with targeted nginx deploy hook",
     "renewal_dry_run": "passed",
     "not_after_utc": "2027-02-07T03:49:49Z"
-  }
+  },
+  "default_model_context_tokens": 500000,
+  "workspace_breadcrumb": "starts with actual page/course hierarchy; personal-space prefix and its separator removed"
 }
