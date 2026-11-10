@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AISettings as Settings } from '../components/ai-settings';
 import { useCallback, useState, type ComponentProps } from 'react';
@@ -43,7 +43,7 @@ describe('local model settings', () => {
     expect(screen.queryByRole('button', { name: /默认连接/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
-    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    expect(fetcher.mock.calls.some(([url, init]) => init?.method === 'POST' && url.endsWith('/models'))).toBe(false);
     expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).not.toHaveProperty('provider_name');
     expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).not.toHaveProperty('api_key');
     expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).toHaveProperty('enabled', true);
@@ -112,12 +112,12 @@ describe('local model settings', () => {
     await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
     fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: model.model_name } });
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: '测试普通回复' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存模型' })).toBeEnabled());
     expect(screen.queryByLabelText('选择模型')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '测试普通回复' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '测试普通回复' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
-    expect(fetcher.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([url, init]) => init?.method === 'POST' && url.endsWith('/models'))).toHaveLength(1);
   });
 
   it('aborts configuration reads on unmount and handles expired sessions', async () => {
@@ -154,8 +154,8 @@ describe('provider model discovery', () => {
     fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'server-model' } });
     expect(screen.getByLabelText('服务模型')).toHaveValue('server-model');
     expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(32768);
-    expect(screen.getByLabelText('支持流式输出')).toBeChecked();
-    expect(screen.getByLabelText('支持原生 JSON Schema')).not.toBeChecked();
+    expect(screen.getByRole('status', { name: '流式输出：待测试' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('支持流式输出')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.every(([, init]: [string, RequestInit?]) => !init?.method)).toBe(true);
   });
 
@@ -193,7 +193,7 @@ describe('provider model discovery', () => {
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
     expect(JSON.parse(String(mutation[1]?.body)).capabilities.max_context_tokens).toBe(16384);
-    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    expect(fetcher.mock.calls.some(([url, init]) => init?.method === 'POST' && url.endsWith('/models'))).toBe(false);
   });
 
   it('blocks an empty model when listing fails and lets the user retry', async () => {
@@ -256,7 +256,7 @@ describe('provider model discovery', () => {
     expect(screen.getByLabelText('服务模型')).toHaveValue('replacement');
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([url, init]) => url.endsWith('/models/saved-model') && init?.method === 'PUT')).toBe(true));
-    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    expect(fetcher.mock.calls.some(([url, init]) => init?.method === 'POST' && url.endsWith('/models'))).toBe(false);
   });
 
   it('locks the default service to Aurora-Zyron and preserves its 500000-token context', async () => {
@@ -275,6 +275,55 @@ describe('provider model discovery', () => {
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
     expect(JSON.parse(String(mutation[1]?.body))).toMatchObject({ model_name: 'Aurora-Zyron', capabilities: { max_context_tokens: 500000 } });
+  });
+
+  it('automatically probes all three capabilities after saving and reports partial failure', async () => {
+    let stored = { id: 'auto', provider_id: provider.id, model_name: 'Aurora-Zyron', enabled: true, capabilities: { ...caps, max_context_tokens: 500000 }, tested_capabilities: {} as Record<string, boolean> };
+    const kinds: string[] = [];
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT') { stored = { ...stored, ...JSON.parse(String(init.body)), tested_capabilities: {} }; return success(stored); }
+      if (url.endsWith('/test')) {
+        const kind = JSON.parse(String(init?.body)).kind; kinds.push(kind);
+        stored = { ...stored, tested_capabilities: { ...stored.tested_capabilities, [kind]: kind !== 'stream' } };
+        return kind === 'stream' ? Promise.resolve(Response.json({ success: false, error: { message: '流式未通过' } }, { status: 502 })) : success({ model: stored });
+      }
+      return success([{ ...provider, required_model_name: 'Aurora-Zyron', models: [stored] }]);
+    });
+    await openModels(fetcher);
+    expect(kinds).toEqual([]);
+    expect(screen.queryByLabelText('启用模型')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('模型已保存，部分能力测试未通过');
+    expect(kinds).toEqual(['vision', 'stream', 'structured']);
+    expect(screen.getByRole('status', { name: '图片识别：已通过' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '流式输出：未通过' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: '原生 JSON Schema：已通过' })).toBeInTheDocument();
+    const save = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
+    expect(JSON.parse(String(save[1]?.body))).toMatchObject({ enabled: true, capabilities: { max_context_tokens: 500000, vision: false, streaming: false, structured_output: false } });
+  });
+
+  it('aborts an automatic probe on unmount and does not start later probes', async () => {
+    const model = { id: 'cancel-auto', provider_id: provider.id, model_name: 'Aurora-Zyron', enabled: true, capabilities: caps, tested_capabilities: {} };
+    const kinds: string[] = [];
+    let finish!: (response: Response) => void;
+    let signal!: AbortSignal;
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith('/test')) {
+        kinds.push(JSON.parse(String(init?.body)).kind); signal = init?.signal as AbortSignal;
+        return new Promise<Response>(resolve => { finish = resolve; });
+      }
+      return init?.method === 'PUT' ? success(model) : success([{ ...provider, required_model_name: 'Aurora-Zyron', models: [model] }]);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const view = render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByLabelText('接口地址');
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    fireEvent.click(await screen.findByRole('button', { name: '保存模型' }));
+    await waitFor(() => expect(kinds).toEqual(['vision']));
+    view.unmount(); expect(signal.aborted).toBe(true);
+    await act(async () => { finish(Response.json({ success: true, data: { model } })); });
+    expect(kinds).toEqual(['vision']);
   });
 
 });

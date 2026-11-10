@@ -9,11 +9,11 @@ from pydantic import Field, SecretStr
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.ai.contracts import AIError, Call, Capabilities, Message, RetryPolicy
+from app.ai.capability_tests import ProbeKind, run_capability_test
+from app.ai.contracts import AIError, Call, Capabilities
 from app.ai.credentials import KeyVault, validate_endpoint
 from app.ai.models import AICallLog, AIModel, AIProvider
 from app.ai.policy import validate_model_name
-from app.ai.prompts import prompt
 from app.ai.service import (
     discover_models,
     owned_model,
@@ -57,7 +57,7 @@ class Invoke(Call):
 
 
 class Probe(Input):
-    kind: Literal["chat", "stream", "structured"] = "chat"
+    kind: ProbeKind = "chat"
 
 
 def public_error(error):
@@ -69,6 +69,7 @@ def public_error(error):
         "AI_SCHEMA_MISMATCH": "模型输出不符合结构要求",
         "AI_UNSUPPORTED_CAPABILITY": "请先确认模型支持此能力",
         "AI_INVALID_SCHEMA": "输出结构定义无效",
+        "AI_VISION_MISMATCH": "图片识别测试未通过",
         "AI_AUDIT_UNAVAILABLE": "调用记录保存失败，请稍后重试",
     }
     return AppError(error.code, messages.get(error.code, "模型未能完成请求，请检查配置后重试"), 502)
@@ -257,64 +258,10 @@ async def remove_model(model_id: UUID, db: DB, actor: Actor):
 @router.post("/models/{model_id}/test")
 async def test_model(model_id: UUID, body: Probe, request: Request, db: DB, actor: Actor):
     await limit(request, "ai", str(actor.id))
-    model = await owned_model(db, actor.id, model_id)
-    schema = (
-        {
-            "type": "object",
-            "properties": {"ok": {"type": "boolean"}},
-            "required": ["ok"],
-            "additionalProperties": False,
-        }
-        if body.kind == "structured"
-        else None
-    )
-    call = Call(
-        task_type="capability_test",
-        messages=[Message(role="user", content=prompt("probe"))],
-        output_schema=schema,
-        timeout=30,
-        retry_policy=RetryPolicy(max_retries=0),
-        max_output_tokens=128,
-        prompt_version="gateway-probe-v1",
-    )
-    target, sink, log_id = await prepare(request, db, actor.id, model.provider_id, model_id, call)
-    capabilities = target.capabilities.model_dump()
-    capabilities.update(streaming=True, structured_output=body.kind == "structured")
-    target = target.model_copy(update={"capabilities": Capabilities(**capabilities)})
     try:
-        if body.kind == "stream":
-            text = ""
-            async with aclosing(request.app.state.ai_gateway.stream(target, call, sink)) as stream:
-                async for chunk in stream:
-                    text += chunk.text
-            if not text.strip():
-                raise AIError("AI_INVALID_RESPONSE")
-        else:
-            await request.app.state.ai_gateway.execute(target, call, sink)
+        return ok(await run_capability_test(request, db, actor.id, model_id, body.kind))
     except AIError as error:
         raise public_error(error) from None
-    # Re-read after network IO; do not attach stale probes to changed/deleted configuration.
-    await db.rollback()
-    current = await owned_model(db, actor.id, model_id)
-    provider = await owned_provider(db, actor.id, current.provider_id, lock=True)
-    await db.refresh(current)
-    if (
-        current.model_name != target.model_name
-        or provider.base_url != target.base_url
-        or f"{provider.updated_at.isoformat()}:{current.updated_at.isoformat()}"
-        != target.config_revision
-    ):
-        raise AppError("AI_CONFIG_CHANGED", "配置已变化，请重新测试", 409)
-    tested = dict(current.tested_capabilities)
-    tested[body.kind] = True
-    current.tested_capabilities = tested
-    if body.kind in {"stream", "structured"}:
-        confirmed = dict(current.capabilities)
-        confirmed["streaming" if body.kind == "stream" else "structured_output"] = True
-        current.capabilities = confirmed
-    current.capability_source = "tested"
-    await db.commit()
-    return ok({"model": public_model(current), "log_id": str(log_id), "kind": body.kind})
 
 
 @router.get("/calls")

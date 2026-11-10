@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../lib/api';
 import { Toast, useToast } from './toast';
 
+type ProbeKind = 'vision' | 'stream' | 'structured';
+const capabilityProbes = [['vision', '图片识别'], ['stream', '流式输出'], ['structured', '原生 JSON Schema']] as const;
+
 type Capabilities = { vision: boolean; streaming: boolean; structured_output: boolean; tool_calling: boolean; max_context_tokens: number };
 type Model = { id: string; provider_id: string; model_name: string; enabled: boolean; capabilities: Capabilities;
   capability_source: string; tested_capabilities: Record<string, boolean> };
@@ -23,6 +26,7 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
   const [loading, setLoading] = useState(true);
   const [configurationConflict, setConfigurationConflict] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [probing, setProbing] = useState<ProbeKind | null>(null);
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -97,23 +101,36 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
           markDirty(false); setRevision(value => value + 1); notify('连接已保存');
         })} /> : !provider ? <div className="ai-content ai-empty"><h2>先保存一个本地连接</h2><p className="muted">随后添加模型并测试连接。</p>
           <button className="button" onClick={() => onTabChange?.('connection')}>填写连接</button></div> :
-        <ModelForm key={provider.id} provider={provider} busy={busy} onDirty={markDirty} onSessionExpired={onSessionExpired}
+        <ModelForm key={provider.id} provider={provider} busy={busy} probing={probing} onDirty={markDirty} onSessionExpired={onSessionExpired}
           onSave={(model, data) => run(async signal => {
             const saved = await api<Model>(model ? `ai/models/${model.id}` : `ai/providers/${provider.id}/models`, {
               method: model ? 'PUT' : 'POST', body: JSON.stringify(data), signal,
             });
             if (!active.current) return;
-            markDirty(false); await refresh(signal); notify('模型已保存');
-            return saved;
+            markDirty(false); await refresh(signal);
+            let failed = false;
+            try {
+              for (const [kind] of capabilityProbes) {
+                if (!active.current || signal.aborted) return;
+                setProbing(kind);
+                try { await api(`ai/models/${saved.id}/test`, { method: 'POST', body: JSON.stringify({ kind }), signal }); }
+                catch (reason) {
+                  if (signal.aborted || !active.current) return;
+                  if (reason instanceof ApiError && [401, 409].includes(reason.status)) throw reason;
+                  failed = true;
+                }
+                if (!active.current || signal.aborted) return;
+                await refresh(signal);
+              }
+              if (failed) setError('模型已保存，部分能力测试未通过。请检查接口后重新保存。');
+              else notify('模型已保存，能力测试已完成');
+              return saved;
+            } finally { if (active.current) setProbing(null); }
           })} onDelete={model => run(async signal => {
             if (!window.confirm(`删除模型“${model.model_name}”？调用记录仍会保留。`)) return;
             await api(`ai/models/${model.id}`, { method: 'DELETE', signal });
             if (!active.current) return;
             markDirty(false); await refresh(signal); notify('模型已删除');
-          })} onTest={(model, kind) => run(async signal => {
-            await api(`ai/models/${model.id}/test`, { method: 'POST', body: JSON.stringify({ kind }), signal });
-            if (!active.current) return;
-            await refresh(signal); notify('测试通过');
           })} />}
   </section>;
 }
@@ -143,10 +160,10 @@ function ConnectionForm({ provider, busy, onDirty, onSave }: {
   </form>;
 }
 
-function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessionExpired }: {
-  provider: Provider; busy: boolean; onDirty: (value: boolean) => void;
+function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessionExpired }: {
+  provider: Provider; busy: boolean; probing: ProbeKind | null; onDirty: (value: boolean) => void;
   onSave: (model: Model | undefined, data: object) => Promise<Model | undefined>;
-  onDelete: (model: Model) => Promise<void>; onTest: (model: Model, kind: string) => Promise<void>;
+  onDelete: (model: Model) => Promise<void>;
   onSessionExpired: () => void;
 }) {
   const [dirty, setDirty] = useState(false);
@@ -195,8 +212,8 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     if (!draft.model_name) return;
-    const saved = await onSave(model, { model_name: draft.model_name, enabled: values.get('enabled') === 'on',
-      capabilities: { ...draft.capabilities, vision: values.get('vision') === 'on', streaming: values.get('streaming') === 'on', structured_output: values.get('structured_output') === 'on',
+    const saved = await onSave(model, { model_name: draft.model_name, enabled: true,
+      capabilities: { ...draft.capabilities, vision: false, streaming: false, structured_output: false,
         max_context_tokens: Number(values.get('context')) }, capabilities_confirmed: true });
     if (saved) { setCatalogSelection(''); setDirty(false); }
   }
@@ -220,25 +237,17 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
       <label>上下文长度（Token）<input name="context" type="number" min={256} max={2000000} value={Number.isFinite(draft.capabilities.max_context_tokens) ? draft.capabilities.max_context_tokens : ''}
         onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, max_context_tokens: event.target.valueAsNumber } }))} required disabled={busy} /></label>
       <p className="field-hint">服务未返回的字段可手动填写；上下文默认 4096，能力可在保存后测试确认。</p>
-      <fieldset className="ai-capabilities" disabled={busy}><legend>模型能力</legend>
-        <label className="ai-check"><input name="vision" type="checkbox" checked={draft.capabilities.vision}
-          onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, vision: event.target.checked } }))} />支持图片识别</label>
-        <label className="ai-check"><input name="streaming" type="checkbox" checked={draft.capabilities.streaming}
-          onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, streaming: event.target.checked } }))} />支持流式输出</label>
-        <label className="ai-check"><input name="structured_output" type="checkbox" checked={draft.capabilities.structured_output}
-          onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, structured_output: event.target.checked } }))} />支持原生 JSON Schema</label>
+      <fieldset className="ai-capabilities"><legend>模型能力</legend>
+        {capabilityProbes.map(([kind, label]) => {
+          const result = model?.tested_capabilities[kind];
+          const state = probing === kind ? '测试中…' : dirty || result === undefined ? '待测试' : result ? '已通过' : '未通过';
+          return <div key={kind} className="ai-capability-row"><span>{label}</span><span role="status" aria-label={label + '：' + state}>{state}</span></div>;
+        })}
       </fieldset>
-      <p className="field-hint">不支持原生 JSON Schema 时，使用文本生成与结构校验；失败后最多修复两次。</p>
-      <label className="ai-check"><input name="enabled" type="checkbox" defaultChecked={model?.enabled ?? true} disabled={busy} />启用模型</label>
-      {model ? <section className="ai-probes" aria-label="能力测试"><h3>能力测试</h3>
-        <p className="field-hint">仅发送固定测试文本，不包含课程资料。测试会使用本地模型算力。</p>
-        <div className="ai-test-buttons">{([['chat', '普通回复'], ['stream', '流式输出'], ['structured', '原生结构化']] as const).map(([kind, label]) =>
-          <button key={kind} className="button" type="button" disabled={busy || dirty || !model.enabled || !provider.enabled} onClick={() => onTest(model, kind)}>
-            测试{label}{model.tested_capabilities[kind] ? ' · 已通过' : ''}</button>)}</div>
-        <button type="button" className="text-button danger-text" disabled={busy} onClick={() => onDelete(model)}>删除模型</button>
-      </section> : null}
+      <p className="field-hint">保存后自动测试，使用固定样例，不发送课程资料。</p>
+      {model ? <button type="button" className="text-button danger-text" disabled={busy} onClick={() => onDelete(model)}>删除模型</button> : null}
     </div>
-    <div className="ai-actions"><button className="button primary" disabled={busy || !draft.model_name}>{busy ? '处理中…' : '保存模型'}</button></div>
+    <div className="ai-actions"><button className="button primary" disabled={busy || !draft.model_name}>{probing ? '自动测试中…' : busy ? '处理中…' : '保存模型'}</button></div>
   </form>;
 }
 
