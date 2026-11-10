@@ -422,7 +422,8 @@ describe('account and shell states', () => {
     vi.mocked(api).mockRejectedValue(new ApiError(401, '请登录'));
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ success: true })));
     render(<Workspace systemView />);
-    expect(await screen.findByRole('heading', { name: '连接状态' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '服务连接' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '连接状态' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '连接状态' })).toHaveAttribute('aria-current', 'page');
     await screen.findByRole('link', { name: '登录工作台' });
     expect(screen.queryByLabelText('密码')).not.toBeInTheDocument();
