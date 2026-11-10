@@ -675,3 +675,10 @@ html, body { height: 100%; overflow: hidden; }
 .ai-connection-form { padding-block: 18px; border-top: 1px solid var(--line); }
 .ai-connection-form.form-stack { display: flex; flex-direction: column; gap: 14px; }
 .ai-connection-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.ai-connection-form > h3 { margin: 0; }
+.ai-connection-toggle { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ai-connection-toggle [role="status"] { margin-left: auto; font-size: 14px; font-weight: var(--weight-body); }
+.ai-connection-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.ai-custom-fields { display: flex; flex-direction: column; gap: 14px; }
+.ai-custom-fields[hidden] { display: none; }

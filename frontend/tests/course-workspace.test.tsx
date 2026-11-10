@@ -53,7 +53,7 @@ describe('desktop course workspace', () => {
     });
     history.replaceState({}, '', '/?view=ai');
     render(<Workspace />);
-    await screen.findByLabelText('接口地址');
+    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
     expect(screen.queryByRole('group', { name: '模型设置分类' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'http://localhost:11434/v1' } });
     fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
@@ -86,7 +86,8 @@ describe('desktop course workspace', () => {
     });
     history.replaceState({}, '', '/?view=ai');
     render(<Workspace />);
-    fireEvent.change(await screen.findByLabelText('接口地址'), { target: { value: 'http://localhost:1234/v1' } });
+    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
+    fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'http://localhost:1234/v1' } });
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(location.search).toBe('?view=ai');

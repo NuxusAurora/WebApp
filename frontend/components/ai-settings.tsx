@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../lib/api';
 import { Toast, useToast } from './toast';
+import { Icon } from './icon';
 
 type ProbeKind = 'vision' | 'stream' | 'structured';
 const capabilityProbes = [['vision', '图片识别'], ['stream', '流式输出'], ['structured', '原生 JSON Schema']] as const;
@@ -171,6 +172,8 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onActivate }: {
   onSave: (provider: Provider | undefined, data: object) => Promise<Provider | undefined>;
   onActivate: (provider: Provider | undefined) => Promise<void>;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const fieldsId = useId();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
@@ -181,7 +184,10 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onActivate }: {
     if (saved) element.reset();
   }
   return <form className="ai-connection-form form-stack" aria-label="自定义连接" onSubmit={submit} onChange={() => onDirty(true)}>
-    <div className="panel-heading"><h3>自定义连接</h3><span className="muted" role="status">{provider?.enabled ? '当前使用' : provider ? '已保存' : '未配置'}</span></div>
+    <h3><button className="ai-connection-toggle" type="button" aria-label="自定义连接" aria-expanded={expanded} aria-controls={fieldsId} onClick={() => setExpanded(value => !value)}>
+      <span>自定义连接</span><span className="muted" role="status">{provider?.enabled ? '当前使用' : provider ? '已保存' : '未配置'}</span><Icon name="chevron" size={16} />
+    </button></h3>
+    <div className="ai-custom-fields" id={fieldsId} hidden={!expanded}>
     <label>接口地址<input name="base_url" type="url" defaultValue={provider?.base_url ?? ''} maxLength={500} required
       placeholder="https://example.com/v1" disabled={busy} /></label>
     <label>API Key（可选）<input name="api_key" type="password" maxLength={4096} autoComplete="new-password" disabled={busy}
@@ -190,6 +196,7 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onActivate }: {
     <div className="ai-connection-actions">
       <button className="button primary" disabled={busy}>{busy ? '处理中…' : '保存连接'}</button>
       {provider && !provider.enabled ? <button className="button" type="button" disabled={busy} onClick={() => onActivate(provider)}>使用自定义连接</button> : null}
+    </div>
     </div>
   </form>;
 }

@@ -34,7 +34,8 @@ describe('local model settings', () => {
     const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : init?.method === 'PATCH' ? success(provider) : success([provider]));
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    expect(await screen.findByLabelText('接口地址')).toHaveValue(provider.base_url);
+    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
+    expect(screen.getByLabelText('接口地址')).toHaveValue(provider.base_url);
     expect(screen.queryByLabelText('连接名称')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('启用连接')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '删除密钥' })).not.toBeInTheDocument();
@@ -67,7 +68,7 @@ describe('local model settings', () => {
     });
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('接口地址');
+    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
     fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: provider.base_url } });
     fireEvent.change(screen.getByLabelText('API Key（可选）'), { target: { value: 'private-local-key' } });
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
@@ -85,7 +86,7 @@ describe('local model settings', () => {
     }));
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('接口地址');
+    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
     fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: provider.base_url } });
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('地址未获允许');
@@ -348,6 +349,7 @@ describe('default and custom connection slots', () => {
     expect(defaults.compareDocumentPosition(custom) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(defaults).getByRole('status')).toHaveTextContent('当前使用');
     expect(within(custom).getByLabelText('接口地址')).toHaveValue(provider.base_url);
+    fireEvent.click(within(custom).getByRole('button', { name: '自定义连接' }));
     fireEvent.click(within(custom).getByRole('button', { name: '使用自定义连接' }));
     await waitFor(() => expect(within(screen.getByRole('form', { name: '自定义连接' })).getByRole('status')).toHaveTextContent('当前使用'));
     expect(fetcher.mock.calls.filter(([, init]) => init?.method)).toHaveLength(1);
@@ -363,7 +365,8 @@ describe('default and custom connection slots', () => {
     const fetcher = vi.fn((url: string, init?: RequestInit) => init?.method ? Promise.resolve(Response.json({ success: false, error: { message: '保存失败' } }, { status: 400 })) : success(stored));
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('接口地址'), { target: { value: 'https://custom.example:8443/v1' } });
+    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
+    fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'https://custom.example:8443/v1' } });
     fireEvent.change(screen.getByLabelText('API Key（可选）'), { target: { value: 'custom-secret' } });
     fireEvent.click(screen.getByRole('button', { name: '使用默认连接' }));
     expect(window.confirm).toHaveBeenCalledOnce();
@@ -403,6 +406,35 @@ describe('default and custom connection slots', () => {
     const request = fetcher.mock.calls.find(([, init]) => init?.method === 'POST')!;
     expect(JSON.parse(String(request[1]?.body))).toEqual({ provider_name: '默认连接', provider_kind: 'default', base_url: 'https://api.nuxusaurora.com/v1', enabled: true });
     expect(screen.queryByRole('button', { name: '保存默认连接' })).not.toBeInTheDocument();
+  });
+
+  it('starts collapsed and toggles the whole heading without losing a draft or making requests', async () => {
+    const dirty = vi.fn();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const fetcher = vi.fn(() => success([provider]));
+    vi.stubGlobal('fetch', fetcher);
+    render(<AISettings onDirtyChange={dirty} onSessionExpired={vi.fn()} />);
+    const toggle = await screen.findByRole('button', { name: '自定义连接' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByLabelText('接口地址')).not.toBeVisible();
+    expect(screen.getByLabelText('API Key（可选）')).not.toBeVisible();
+    expect(document.getElementById(toggle.getAttribute('aria-controls')!)).toHaveAttribute('hidden');
+    dirty.mockClear();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('接口地址')).toBeVisible();
+    expect(dirty).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'https://draft.example:8443/v1' } });
+    fireEvent.change(screen.getByLabelText('API Key（可选）'), { target: { value: 'draft-secret' } });
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText('接口地址')).not.toBeVisible();
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText('接口地址')).toHaveValue('https://draft.example:8443/v1');
+    expect(screen.getByLabelText('API Key（可选）')).toHaveValue('draft-secret');
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher.mock.calls).toHaveLength(1);
   });
 
 });
