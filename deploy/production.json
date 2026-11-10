@@ -6,22 +6,22 @@
     "root": "/opt/learning-workbench",
     "project": "learning-cloud"
   },
-  "source_snapshot_revision": "004664c9428fffe4d7d7e2ece9f77cfe3aade65f",
-  "revision": "004664c9428fffe4d7d7e2ece9f77cfe3aade65f",
+  "source_snapshot_revision": "f0a1a47984761eeca0b31e2b15e1a38a037cebc7",
+  "revision": "f0a1a47984761eeca0b31e2b15e1a38a037cebc7",
   "image_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
-  "configuration_source_revision": "004664c9428fffe4d7d7e2ece9f77cfe3aade65f",
+  "configuration_source_revision": "f0a1a47984761eeca0b31e2b15e1a38a037cebc7",
   "images": {
     "backend": {
       "source": "webapp-release-backend:8e8b56b",
       "id": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c"
     },
     "frontend": {
-      "source": "webapp-release-frontend:004664c",
-      "id": "sha256:b98a7601db95bc653b33776d77352973e2fe62abeb36730b3b68fcc78425703c"
+      "source": "webapp-release-frontend:f0a1a47",
+      "id": "sha256:a1235e413981cb6274855d9be3a2fdf9e6cc609ca1088fd38c6a966143a7bd65"
     }
   },
   "runtime_images": {
-    "frontend": "sha256:b98a7601db95bc653b33776d77352973e2fe62abeb36730b3b68fcc78425703c",
+    "frontend": "sha256:a1235e413981cb6274855d9be3a2fdf9e6cc609ca1088fd38c6a966143a7bd65",
     "backend": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "worker": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
@@ -56,7 +56,7 @@
     "knowledge_points": 0
   },
   "backup_before_upgrade": "frontend rollback environment/metadata saved and removed after acceptance; data services unchanged",
-  "released_at_utc": "2026-11-10T13:50:32.040924+00:00",
+  "released_at_utc": "2026-11-10T14:05:20.233123+00:00",
   "validation": {
     "frontend_tests": 40,
     "backend_tests": 117,
@@ -68,9 +68,9 @@
     "qa_data": "no user/course/image data written; no real model call",
     "visual": "unchanged layout; frontend boundary/error message covered by tests; no new browser visual acceptance",
     "frontend_label_regressions": 37,
-    "frontend_type_and_build": "passed for 004664c",
-    "frontend_visual": "1280x720/390x844 dark browser: trash SVG only, empty visible text, accessible delete name, approx 44x44px hit target; confirmation opened/cancelled; no real deletion",
-    "frontend_tests_evidence": "40 affected course-workspace regressions for 004664c; last full 131-suite belongs to f81febe",
+    "frontend_type_and_build": "passed for f0a1a47",
+    "frontend_visual": "1280x720/390x844 dark browser: current subject stays highlighted after focus leaves; selecting another moves aria-current/highlight; independent disclosure; no horizontal overflow; no data writes",
+    "frontend_tests_evidence": "40 course-workspace regressions for f0a1a47; selection, disclosure independence, search clearing and return retention covered",
     "deletion_regressions": "mock API: exact target, cancel/focus, error retry, busy gating, filter/collapse cleanup",
     "live_delete": "not executed; real browser only opened/cancelled; mock API verifies confirmed deletion target and failure behavior"
   },
@@ -81,9 +81,9 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 70288743,
+  "cleanup_logical_bytes": 70289131,
   "obsolete_image_tags_removed": [
-    "webapp-release-frontend:f81febe"
+    "webapp-release-frontend:004664c"
   ],
   "cleanup": "task upload archives, temporary backups and scripts removed; current source, runtime images, persistent data and secrets retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
@@ -105,12 +105,12 @@
     }
   ],
   "real_provider_vision_probe_verified": true,
-  "frontend_source_revision": "004664c9428fffe4d7d7e2ece9f77cfe3aade65f",
+  "frontend_source_revision": "f0a1a47984761eeca0b31e2b15e1a38a037cebc7",
   "service_source_revisions": {
-    "frontend": "004664c9428fffe4d7d7e2ece9f77cfe3aade65f",
+    "frontend": "f0a1a47984761eeca0b31e2b15e1a38a037cebc7",
     "backend": "8e8b56bb9512c4617a2275976a3df886b778d5b2"
   },
-  "latest_release_scope": "frontend trash icon only; existing accessible name and delete confirmation unchanged",
+  "latest_release_scope": "frontend current subject highlight; selection independent of expanded groups",
   "course_detail_labels": [
     "创建课程中",
     "上传教材目录图片",
@@ -120,7 +120,8 @@
   "course_list": {
     "delete_entry": "trash icon only at row right; 44x44px; accessible name and confirmation retained",
     "subject_font_px": 18,
-    "course_font_px": 13
+    "course_font_px": 13,
+    "subject_highlight": "single current subject via aria-current; persistent across focus changes and independent of disclosure"
   },
   "certificate": {
     "name": "learning-workbench-cn",
