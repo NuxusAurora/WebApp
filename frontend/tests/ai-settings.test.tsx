@@ -109,11 +109,11 @@ describe('local model settings', () => {
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     await waitFor(() => expect(screen.getByLabelText('选择模型')).toBeEnabled());
     fireEvent.change(screen.getByLabelText('选择模型'), { target: { value: model.model_name } });
-    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: '保存模型' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存' })).toBeEnabled());
     expect(screen.getAllByLabelText('选择模型')).toHaveLength(1);
     expect(screen.queryByRole('button', { name: '测试普通回复' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
     expect(fetcher.mock.calls.filter(([url, init]) => init?.method === 'POST' && url.endsWith('/models'))).toHaveLength(1);
   });
@@ -187,7 +187,7 @@ describe('provider model discovery', () => {
     fireEvent.change(screen.getByLabelText('选择模型'), { target: { value: 'same-model' } });
     expect(screen.getByLabelText('选择模型')).toHaveValue(model.model_name);
     expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(16384);
-    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
     expect(JSON.parse(String(mutation[1]?.body)).capabilities.max_context_tokens).toBe(16384);
@@ -203,11 +203,11 @@ describe('provider model discovery', () => {
     await openModels(fetcher);
     await screen.findByRole('alert');
     expect(screen.queryByLabelText('模型名称')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '保存模型' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled();
     fail = false;
     fireEvent.click(screen.getByRole('button', { name: '刷新模型列表' }));
     await screen.findByText('服务暂无可用模型，请刷新重试。');
-    expect(screen.getByRole('button', { name: '保存模型' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled();
     expect(fetcher.mock.calls.some(([, init]: [string, RequestInit?]) => init?.method)).toBe(false);
   });
 
@@ -218,7 +218,7 @@ describe('provider model discovery', () => {
     await screen.findByText('服务暂无可用模型，请刷新重试。');
     expect(screen.getByLabelText('选择模型')).toHaveValue('saved-model');
     fireEvent.change(screen.getByLabelText('上下文长度（Token）'), { target: { value: '8192' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
     expect(JSON.parse(String(mutation[1]?.body))).toMatchObject({ model_name: 'saved-model', capabilities: { max_context_tokens: 8192 } });
@@ -252,7 +252,7 @@ describe('provider model discovery', () => {
     await waitFor(() => expect(screen.getByLabelText('选择模型')).toBeEnabled());
     fireEvent.change(screen.getByLabelText('选择模型'), { target: { value: 'replacement' } });
     expect(screen.getByLabelText('选择模型')).toHaveValue('replacement');
-    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([url, init]) => url.endsWith('/models/saved-model') && init?.method === 'PUT')).toBe(true));
     expect(fetcher.mock.calls.some(([url, init]) => init?.method === 'POST' && url.endsWith('/models'))).toBe(false);
   });
@@ -269,7 +269,7 @@ describe('provider model discovery', () => {
     expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(500000);
     expect(screen.queryByRole('button', { name: '刷新模型列表' })).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/discovery'))).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
     expect(JSON.parse(String(mutation[1]?.body))).toMatchObject({ model_name: 'Aurora-Zyron', capabilities: { max_context_tokens: 500000 } });
@@ -291,7 +291,7 @@ describe('provider model discovery', () => {
     expect(kinds).toEqual([]);
     expect(screen.queryByLabelText('启用模型')).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('模型已保存，部分能力测试未通过');
     expect(kinds).toEqual(['vision', 'stream', 'structured']);
     expect(screen.getByRole('status', { name: '图片识别：已通过' })).toBeInTheDocument();
@@ -317,7 +317,7 @@ describe('provider model discovery', () => {
     const view = render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     await screen.findByLabelText('接口地址');
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
-    fireEvent.click(await screen.findByRole('button', { name: '保存模型' }));
+    fireEvent.click(await screen.findByRole('button', { name: '保存' }));
     await waitFor(() => expect(kinds).toEqual(['vision']));
     view.unmount(); expect(signal.aborted).toBe(true);
     await act(async () => { finish(Response.json({ success: true, data: { model } })); });

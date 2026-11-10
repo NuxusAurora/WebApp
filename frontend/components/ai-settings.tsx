@@ -284,7 +284,7 @@ function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessi
       <p className="field-hint">保存后自动测试，使用固定样例，不发送课程资料。</p>
       {model ? <button type="button" className="text-button danger-text" disabled={busy} onClick={() => onDelete(model)}>删除模型</button> : null}
     </div>
-    <div className="ai-actions"><button className="button primary" disabled={busy || !draft.model_name}>{probing ? '自动测试中…' : busy ? '处理中…' : '保存模型'}</button></div>
+    <div className="ai-actions"><button className="button primary" disabled={busy || !draft.model_name}>{probing ? '自动测试中…' : busy ? '处理中…' : '保存'}</button></div>
   </form>;
 }
 
