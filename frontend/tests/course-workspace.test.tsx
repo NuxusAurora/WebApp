@@ -68,7 +68,7 @@ describe('desktop course workspace', () => {
     expect(screen.getByLabelText('接口地址')).toHaveValue('http://localhost:11434/v1');
     vi.mocked(window.confirm).mockReturnValue(true);
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
-    await screen.findByLabelText('服务模型');
+    await screen.findByLabelText('选择模型');
     expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '模型与测试' })).toHaveAttribute('aria-current', 'page');
     history.replaceState({ workspaceIndex: 0 }, '', '/?view=ai');

@@ -191,7 +191,7 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onSelect }: {
       placeholder={provider?.has_api_key ? '已保存；留空保留原密钥' : '无需密钥时留空'} /></label>
     <p className="field-hint">{provider?.has_api_key ? '密钥已保存。更换接口地址时需重新输入密钥。' : '未保存密钥。'}</p>
     <div className="ai-connection-actions">
-      <button className="button primary" disabled={busy}>{busy ? '处理中…' : '保存连接'}</button>
+      <button className="button primary" disabled={busy}>{busy ? '处理中…' : '保存'}</button>
     </div>
     </div>
   </form>;
@@ -256,12 +256,12 @@ function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessi
   }
   useEffect(() => { setDirty(false); }, [provider]);
   return <form key={JSON.stringify(model)} className="ai-content" onSubmit={submit} onChange={event => {
-    if (['服务模型'].includes((event.target as HTMLElement).getAttribute('aria-label') ?? '')) return;
+    if (['选择模型'].includes((event.target as HTMLElement).getAttribute('aria-label') ?? '')) return;
     setDirty(true); onDirty(true);
   }}>
     <div className="ai-fields form-stack">
       <div><h2>模型与能力</h2><p className="muted">{requiredModel ? `默认连接仅支持 ${requiredModel}。` : '仅保存一个模型，可从服务列表选择替换。'}</p></div>
-      <label>服务模型<select aria-label="服务模型" value={requiredModel ?? draft.model_name} required disabled={Boolean(requiredModel) || busy || catalogLoading || Boolean(catalogError) || !modelNames.length}
+      <label>选择模型<select aria-label="选择模型" value={requiredModel ?? draft.model_name} required disabled={Boolean(requiredModel) || busy || catalogLoading || Boolean(catalogError) || !modelNames.length}
         onChange={event => applyDiscovered(event.target.value)}>
         {requiredModel ? <option value={requiredModel}>{requiredModel}</option> : <><option value="" disabled>{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>
           {modelNames.map(name => <option key={name} value={name}>{name}</option>)}</>}
