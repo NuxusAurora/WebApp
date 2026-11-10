@@ -1,3 +1,4 @@
+export type KnowledgeSource = { kind: string; model_name?: string; knowledge_basis?: 'model_knowledge'; prompt_version?: string };
 export type PointInput = {
   temp_id: string; existing_knowledge_point_id: string | null; title: string; description: string;
   learning_objectives: string[]; importance: 'HIGH' | 'MEDIUM' | 'LOW'; mastery_criteria: string[];
@@ -5,12 +6,13 @@ export type PointInput = {
 export type KnowledgePayload = { knowledge_points: PointInput[]; uncertain_items: string[] };
 export type Point = Omit<PointInput, 'temp_id' | 'existing_knowledge_point_id'> & {
   id: string; section_id: string; status: 'NOT_STARTED' | 'LEARNING' | 'PRACTICING' | 'NEEDS_REVIEW' | 'MASTERED';
+  source?: KnowledgeSource;
 };
 type Change = { id: string; title: string; review_mastery?: boolean };
 export type KnowledgeVersion = {
   id: string; revision: number; base_course_revision: number; status: 'DRAFT' | 'CONFIRMED' | 'SUPERSEDED';
   payload: KnowledgePayload; change_summary: { added: Change[]; modified: Change[]; archived: Change[] };
-  source: { kind: string; model_name?: string };
+  source: KnowledgeSource;
 };
 export type KnowledgeData = { confirmed_revision: number; knowledge_points: Point[]; draft: KnowledgeVersion | null };
 export function pointPayload(points: Point[]): KnowledgePayload {

@@ -245,12 +245,14 @@ API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirme
 
 ## Phase 4 首条闭环：小节知识点
 
-入口：课程详情 → 知识点。先在教材目录确认小节，选择小节后用首个已启用连接中的首个启用模型生成知识草稿；当前浏览器的默认连接偏好不参与自动选择。生成使用小节/章节标题、页码、课程目标及已有正式知识点，没有读取教材正文；模型输出须核对。也可手动编辑。名称、定义、学习目标、重要程度和掌握标准可修改，目标/标准每行一项。保存只写草稿，清除并保存待核对项后，通过 核对并确认知识点 → 确认应用知识点写入正式表。
+入口：课程详情 → 知识点。先在教材目录确认小节，选择小节后用首个已启用连接中的首个启用模型生成知识草稿；当前浏览器的默认连接偏好不参与自动选择。按用户最新要求直接使用模型自身知识，不配置或调用搜索服务。输入包括学科、教材名、小节/章节标题、相邻小节、页码、课程目标及已有正式知识点；页码/教材名仅用于范围判断，没有读取教材正文。knowledge-extract-v2 明确基础到应用顺序、三档目标深度及不确定内容处理，不生成网页或原文引用。也可手动编辑。名称、定义、学习目标、重要程度和掌握标准可修改，目标/标准每行一项。保存只写草稿，清除并保存待核对项后，通过 核对并确认知识点 → 确认应用知识点写入正式表。
 
 重新生成和从过期草稿重建都要求明确替换；失败保留原草稿。显式匹配已有UUID才能保留身份和学习状态，模型不写学习状态。新增节点初始化NOT_STARTED；内容实质改变显示复核掌握状态提示。移除知识点及目录小节均采用确认后归档，目录差异列出受影响知识点；没有依赖关系处理或教学流程。
 
 API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_revision、正式knowledge_points和draft；POST generate接收provider_id、model_id、base_course_revision；POST drafts接收payload及基线。已有草稿替换须附replace_version_id/replace_revision。PATCH接收version_id、expected_revision、base_course_revision和payload；POST confirm接收前三个版本字段及accept_archives。payload使用knowledge_points数组（最多50项；手动移除可空），每项temp_id、existing_knowledge_point_id（新增为null）、title、description、learning_objectives、importance（HIGH/MEDIUM/LOW）、mastery_criteria，以及uncertain_items。草稿revision与课程confirmed_revision不符返回409；跨小节/账户引用拒绝。只提供小节级读写/确认，单点入口和通用结构版本浏览留后续。
 
-迁移0005_knowledge接0004，保留现有目录数据，扩大共享版本类型约束及分范围唯一索引、新建knowledge_points。降级时如已有知识版本历史会拒绝执行，以免静默丢数据；勿在用户库回退。源码：backend/app/knowledge、backend/prompts/knowledge/extract-v1.md、frontend/components/knowledge.tsx及frontend/lib/knowledge.ts。Knowledge服务只依赖目录模型，目录通过其查询/归档函数协调，不反向调用目录服务。
+生成版本 source 保留 knowledge_basis=model_knowledge、模型名称、Prompt 版本及生成上下文；正式知识点 GET 仅返回来源类型/依据/模型/Prompt 元信息，界面显示生成依据。旧版本兼容，不据此声称事实已经核验。生成期间课程标题/学科/教材/学习目标变化将拒绝迟到结果，旧草稿保留。无需新增依赖、凭据或数据库迁移。
+
+迁移0005_knowledge接0004，保留现有目录数据，扩大共享版本类型约束及分范围唯一索引、新建knowledge_points。降级时如已有知识版本历史会拒绝执行，以免静默丢数据；勿在用户库回退。源码：backend/app/knowledge、backend/prompts/knowledge/extract-v2.md（v1保留历史）、frontend/components/knowledge.tsx及frontend/lib/knowledge.ts。Knowledge服务只依赖目录模型，目录通过其查询/归档函数协调，不反向调用目录服务。
 
 验证：node scripts/phase0.mjs verify在隔离p0c-verify-*栈运行迁移、测试与scripts/phase4-acceptance.mjs；覆盖真实Gateway协议fixture、PostgreSQL并发、跨范围/租户隔离、幂等、ID与重启持久化。fixture不是AI推理质量验收；本次实际结果与视觉限制集中见HANDOFF最新节。

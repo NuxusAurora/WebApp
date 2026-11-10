@@ -123,9 +123,12 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
         }}>{data.draft ? '继续编辑知识草稿' : '编辑知识点'}</button> : null}
         <button className="text-button" disabled={Boolean(busy)} onClick={() => { if (!dirty || window.confirm('放弃未保存的知识点修改并重新加载？')) void refresh(); }}>重新加载</button>
       </div>
+      <p className="muted">基于模型自身知识生成，请核对教材特有内容。</p>
       {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => <li key={point.id}>
         <div className="knowledge-point-heading"><h3>{point.title}</h3><span className="muted">{importance[point.importance]} · {statuses[point.status]}</span></div>
-        <p>{point.description}</p><details><summary>学习目标与掌握标准</summary>
+        <p>{point.description}</p>
+        {point.source?.knowledge_basis === 'model_knowledge' ? <small>生成依据：模型自身知识{point.source.model_name ? ' · ' + point.source.model_name : ''}</small> : null}
+        <details><summary>学习目标与掌握标准</summary>
           <h4>学习目标</h4><ul>{point.learning_objectives.map((text, i) => <li key={i}>{text}</li>)}</ul>
           <h4>掌握标准</h4><ul>{point.mastery_criteria.map((text, i) => <li key={i}>{text}</li>)}</ul>
         </details></li>)}</ol> : <p className="muted">此小节还没有知识点。</p>) : <>
@@ -176,7 +179,7 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
           {(['added', 'modified', 'archived'] as const).map(kind => version.change_summary[kind].length ? <details key={kind} open={kind === 'archived'}>
             <summary>{kind === 'added' ? '新增项' : kind === 'modified' ? '修改项' : '归档项'}</summary><ul>{version.change_summary[kind].map(item => <li key={item.id}>{item.title}{item.review_mastery ? ' · 内容已变化，请复核原掌握状态' : ''}</li>)}</ul>
           </details> : null)}
-          {version.source.model_name ? <small>生成模型：{version.source.model_name}</small> : null}
+          {version.source.model_name ? <small>{version.source.knowledge_basis === 'model_knowledge' ? '生成依据：模型自身知识 · ' : '生成模型：'}{version.source.model_name}</small> : null}
         </div> : null}
         {confirming && version ? <div className="knowledge-confirm" role="region" aria-label="确认知识点"><h3>应用这份知识草稿？</h3><p>确认内容不会改变已有学习状态，移除的知识点将归档。</p>
           {version.change_summary.archived.length ? <label className="knowledge-archive"><input type="checkbox" checked={acceptArchives} onChange={e => setAcceptArchives(e.target.checked)} />我已核对全部归档知识点</label> : null}

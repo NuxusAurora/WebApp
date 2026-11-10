@@ -269,7 +269,9 @@ def test_generation_gateway_schema_provenance_and_failed_replacement_keeps_draft
     response = client.post(path + "/generate", json=body)
     assert response.status_code == 201, response.text
     first = response.json()["data"]
-    assert first["source"]["prompt_version"] == "knowledge-extract-v1"
+    assert first["source"]["prompt_version"] == "knowledge-extract-v2"
+    assert first["source"]["knowledge_basis"] == "model_knowledge"
+    assert first["source"]["context"]["adjacent_sections"] == ["极限"]
     assert "函数的概念" in requests[0]["messages"][-1]["content"]
     assert client.get(path).json()["data"]["knowledge_points"] == []
     assert client.post(path + "/generate", json=body).status_code == 409
@@ -279,6 +281,14 @@ def test_generation_gateway_schema_provenance_and_failed_replacement_keeps_draft
     )
     assert failure.status_code == 502
     assert client.get(path).json()["data"]["draft"]["id"] == first["id"]
+    assert apply(client, path, first).status_code == 200
+    formal = client.get(path).json()["data"]["knowledge_points"][0]
+    assert formal["source"] == {
+        "kind": "ai",
+        "knowledge_basis": "model_knowledge",
+        "model_name": "knowledge-fixture",
+        "prompt_version": "knowledge-extract-v2",
+    }
 
     async def audit():
         async with app.state.resources.session() as db:
@@ -316,7 +326,9 @@ def test_course_delete_cascades_formal_knowledge_and_source_versions(account_app
     client.portal.call(verify)
 
 
-@pytest.mark.parametrize("mode", ["course_changes", "cancel", "model_error"])
+@pytest.mark.parametrize(
+    "mode", ["course_changes", "course_metadata_changes", "cancel", "model_error"]
+)
 def test_generation_inflight_change_cancellation_and_model_error_keep_previous(account_app, mode):
     app, client, path, directory, _ = setup(account_app)
     previous = draft(client, path)
@@ -336,7 +348,10 @@ def test_generation_inflight_change_cancellation_and_model_error_keep_previous(a
                 raise AIError("UPSTREAM_UNAVAILABLE")
             async with app.state.resources.session() as db:
                 course = await db.get(Course, UUID(directory.split("/")[4]))
-                course.confirmed_revision += 1
+                if mode == "course_metadata_changes":
+                    course.learning_goal = "mastery"
+                else:
+                    course.confirmed_revision += 1
                 await db.commit()
             return Result(text=json.dumps(PAYLOAD), structured=PAYLOAD)
 
@@ -355,7 +370,7 @@ def test_generation_inflight_change_cancellation_and_model_error_keep_previous(a
             pass
     else:
         assert client.post(path + "/generate", json=body).status_code == (
-            409 if mode == "course_changes" else 502
+            409 if mode.startswith("course_") else 502
         )
     assert client.get(path).json()["data"]["draft"]["id"] == previous["id"]
 

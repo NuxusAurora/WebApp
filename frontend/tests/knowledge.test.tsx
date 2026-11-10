@@ -22,6 +22,14 @@ function mock(current = initial) {
 function renderEditor(onDirtyChange = vi.fn()) { return render(<KnowledgeEditor courseId="course" onDirtyChange={onDirtyChange} />); }
 
 describe('section knowledge draft workflow', () => {
+  it('shows model knowledge provenance without a search service or citation UI', async () => {
+    const generated: KnowledgeVersion = { ...version, source: { kind: 'ai', model_name: 'fixture', knowledge_basis: 'model_knowledge', prompt_version: 'knowledge-extract-v2' } };
+    const fetcher = mock({ ...initial, draft: generated }); renderEditor();
+    await screen.findByText('生成依据：模型自身知识 · fixture');
+    expect(screen.getByText('基于模型自身知识生成，请核对教材特有内容。')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.every(([url]) => !/research|search/i.test(url))).toBe(true);
+  });
   it('resumes the saved draft after closing without replacing its contents with formal points', async () => {
     const fetcher = mock({ ...initial, draft: version }); renderEditor();
     await screen.findByDisplayValue('函数定义');

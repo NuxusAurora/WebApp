@@ -5,12 +5,12 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
 from pydantic import Field, ValidationError
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from app.ai.contracts import AIError, Call, Message
 from app.ai.service import prepare
 from app.auth import DB, Actor, Input, limit
-from app.curriculum.models import StructureEvent, StructureVersion, WorkflowRun
+from app.curriculum.models import Section, StructureEvent, StructureVersion, WorkflowRun
 from app.errors import AppError, ok
 from app.knowledge.contracts import KnowledgeInput, output_schema
 from app.knowledge.service import (
@@ -28,7 +28,7 @@ from app.knowledge.service import (
 )
 
 router = APIRouter(prefix="/api/v1/sections/{section_id}/knowledge-points")
-PROMPT = (Path(__file__).resolve().parents[2] / "prompts/knowledge/extract-v1.md").read_text(
+PROMPT = (Path(__file__).resolve().parents[2] / "prompts/knowledge/extract-v2.md").read_text(
     encoding="utf-8"
 )
 
@@ -66,11 +66,39 @@ class GenerateInput(Input):
 async def current(section_id: UUID, db: DB, actor: Actor):
     course, section, chapter = await owned_section(db, section_id, actor.id)
     draft = await latest_draft(db, section_id)
+    current_points = await points(db, section_id)
+    versions = (
+        {
+            v.id: v
+            for v in await db.scalars(
+                select(StructureVersion).where(
+                    StructureVersion.id.in_({p.content_version_id for p in current_points}),
+                    StructureVersion.course_id == course.id,
+                    StructureVersion.section_id == section_id,
+                    StructureVersion.user_id == actor.id,
+                )
+            )
+        }
+        if current_points
+        else {}
+    )
     return ok(
         {
             "confirmed_revision": course.confirmed_revision,
             "section": {"id": section.id, "title": section.title, "chapter_title": chapter.title},
-            "knowledge_points": [point_data(p) for p in await points(db, section_id)],
+            "knowledge_points": [
+                {
+                    **point_data(p),
+                    "source": {
+                        key: value
+                        for key, value in versions[p.content_version_id].source.items()
+                        if key in {"kind", "knowledge_basis", "model_name", "prompt_version"}
+                    }
+                    if p.content_version_id in versions
+                    else {"kind": "manual"},
+                }
+                for p in current_points
+            ],
             "draft": version_data(draft) if draft else None,
         }
     )
@@ -165,6 +193,19 @@ async def generate(section_id: UUID, body: GenerateInput, request: Request, db: 
         "subject": course.subject,
         "textbook": course.textbook,
         "learning_goal": course.learning_goal,
+        "knowledge_basis": "model_knowledge",
+        "adjacent_sections": list(
+            await db.scalars(
+                select(Section.title)
+                .where(
+                    Section.chapter_id == chapter.id,
+                    Section.archived.is_(False),
+                    Section.order_index.between(section.order_index - 1, section.order_index + 1),
+                    Section.id != section_id,
+                )
+                .order_by(Section.order_index)
+            )
+        ),
         "chapter_title": chapter.title,
         "section": {
             "id": str(section.id),
@@ -195,7 +236,7 @@ async def generate(section_id: UUID, body: GenerateInput, request: Request, db: 
     await db.rollback()
     call = Call(
         task_type="knowledge_extraction",
-        prompt_version="knowledge-extract-v1",
+        prompt_version="knowledge-extract-v2",
         messages=[Message(role="system", content=PROMPT), Message(role="user", content=serialized)],
         task_context=context,
         output_schema=output_schema(),
@@ -207,6 +248,7 @@ async def generate(section_id: UUID, body: GenerateInput, request: Request, db: 
     )
     source = {
         "kind": "ai",
+        "knowledge_basis": "model_knowledge",
         "prompt_version": call.prompt_version,
         "model_name": target.model_name,
         "provider_id": str(body.provider_id),
@@ -230,8 +272,17 @@ async def generate(section_id: UUID, body: GenerateInput, request: Request, db: 
     try:
         result = await request.app.state.ai_gateway.execute(target, call, sink)
         payload = KnowledgeInput.model_validate(result.structured).model_dump(mode="json")
-        course, _, _ = await owned_section(db, section_id, actor_id)
-        if course.confirmed_revision != base:
+        course, current_section, current_chapter = await owned_section(db, section_id, actor_id)
+        if course.confirmed_revision != base or any(
+            (
+                course.title != context["course_title"],
+                course.subject != context["subject"],
+                course.textbook != context["textbook"],
+                course.learning_goal != context["learning_goal"],
+                current_section.title != context["section"]["title"],
+                current_chapter.title != context["chapter_title"],
+            )
+        ):
             raise conflict()
         await db.execute(
             update(WorkflowRun)
