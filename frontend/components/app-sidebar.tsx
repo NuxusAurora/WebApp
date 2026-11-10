@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import type { User } from './account';
 import { Icon } from './icon';
-import { workspaceHref, workspaceLabels, type WorkspaceView } from '../lib/workspace-navigation';
+import { isModelSettings, modelSettingsItems, workspaceHref, workspaceLabels, type WorkspaceView } from '../lib/workspace-navigation';
 
 const preferenceKey = 'learning-workspace.sidebar-collapsed';
 const groups = [{ label: '学习', items: [{ view: 'courses', icon: 'courses' }] },
@@ -18,6 +18,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   const [mobile, setMobile] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [modelsOpen, setModelsOpen] = useState(isModelSettings(view));
   const [storageNotice, setStorageNotice] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -48,6 +49,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
     else opener.current?.focus({ preventScroll: true });
   }, [mobile, drawer]);
   useEffect(() => { setDrawer(false); setMenu(false); }, [view]);
+  useEffect(() => { if (isModelSettings(view)) setModelsOpen(true); }, [view]);
   useEffect(() => () => { dialog.current?.close(); }, []);
 
   useEffect(() => {
@@ -71,7 +73,10 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   function follow(event: MouseEvent<HTMLAnchorElement>, next: WorkspaceView) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    if (navigate(next)) { setDrawer(false); setMenu(false); }
+    if (navigate(next)) {
+      if (next === 'ai' && collapsed && !mobile) { toggle(); setModelsOpen(true); }
+      setDrawer(false); setMenu(false);
+    }
   }
   function navItem(next: WorkspaceView, icon: 'courses' | 'sliders' | 'user' | 'pulse') {
     return <a href={workspaceHref(next)} className={'sidebar-item' + (view === next ? ' is-current' : '')}
@@ -106,7 +111,19 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
       <nav className="sidebar-navigation" aria-label="主导航">
         {groups.map(group => <div className="sidebar-group" key={group.label}>
           <span className="sidebar-group-label">{group.label}</span>
-          {group.items.map(item => <div key={item.view}>{navItem(item.view, item.icon)}</div>)}
+          {group.items.map(item => <div key={item.view}>{item.view === 'ai' ? <>
+            <div className={'sidebar-model-heading' + (isModelSettings(view) ? ' is-active' : '')}>
+              <a href={workspaceHref('ai')} className="sidebar-item" aria-label="模型设置" onClick={event => follow(event, 'ai')}>
+                <Icon name="sliders" size={18} /><span className="sidebar-label">模型设置</span><span className="sidebar-tooltip" role="tooltip">模型设置</span>
+              </a>
+              <button type="button" className="sidebar-submenu-toggle" aria-label={modelsOpen ? '收起模型设置' : '展开模型设置'} aria-expanded={modelsOpen}
+                aria-controls="model-settings-navigation" onClick={() => setModelsOpen(value => !value)}><Icon name="chevron" size={14} /></button>
+            </div>
+            <ul id="model-settings-navigation" className="sidebar-submenu" aria-label="模型设置" hidden={!modelsOpen}>
+              {modelSettingsItems.map(child => <li key={child.view}><a href={workspaceHref(child.view)} className={'sidebar-item' + (view === child.view ? ' is-current' : '')}
+                aria-current={view === child.view ? 'page' : undefined} onClick={event => follow(event, child.view)}>{child.label}</a></li>)}
+            </ul>
+          </> : navItem(item.view, item.icon)}</div>)}
         </div>)}
       </nav>
       <div className="sidebar-bottom-area">

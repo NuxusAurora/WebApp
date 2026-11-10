@@ -15,16 +15,16 @@ const defaults: Capabilities = { vision: false, streaming: false, structured_out
 const states: Record<string, string> = { SUCCEEDED: '成功', FAILED: '失败', CANCELLED: '已取消', RUNNING: '进行中' };
 const defaultApiBase = 'https://api.nuxusaurora.com/v1';
 
-export function AISettings({ onDirtyChange, onSessionExpired, userId = '' }: {
+export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab = 'connection', onTabChange, onBusyChange }: {
   onDirtyChange: (dirty: boolean) => void; onSessionExpired: () => void;
   userId?: string;
+  tab?: 'connection' | 'models' | 'logs'; onTabChange?: (tab: 'connection') => void; onBusyChange?: (busy: boolean) => void;
 }) {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [selected, setSelected] = useState('');
   const [defaultProvider, setDefaultProvider] = useState('');
   const selectionInitialized = useRef(false);
   const defaultKey = 'learning.default-provider:' + userId;
-  const [tab, setTab] = useState<'connection' | 'models' | 'logs'>('connection');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -36,6 +36,9 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '' }: {
   const { notification, notify, dismiss } = useToast();
   const provider = providers.find(item => item.id === selected);
   const markDirty = useCallback((value: boolean) => { setDirty(value); onDirtyChange(value); }, [onDirtyChange]);
+
+  useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
+  useEffect(() => { markDirty(false); setError(''); }, [tab, markDirty]);
 
   useEffect(() => {
     active.current = true;
@@ -83,7 +86,6 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '' }: {
       setDefaultProvider(provider.id); setError(''); notify('默认连接已设置');
     } catch { setError('无法保存默认连接，请检查浏览器存储权限。'); }
   }
-  function switchTab(value: typeof tab) { if (busy || value === tab || !leave()) return; markDirty(false); setTab(value); setError(''); }
   async function run<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {
     if (busy) return;
     const abort = new AbortController(); controller.current = abort;
@@ -104,11 +106,6 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '' }: {
       <label>本地连接<select aria-label="本地连接" value={selected} disabled={busy || loading} onChange={event => choose(event.target.value)}>
         <option value="">新建连接</option>{providers.map(item => <option key={item.id} value={item.id}>{item.provider_name}{item.id === defaultProvider ? '（默认）' : ''}{item.enabled ? '' : '（已停用）'}</option>)}
       </select></label>
-    </div>
-    <div className="segmented-control settings-tabs" role="group" aria-label="模型设置分类">
-      {([['connection', '连接与密钥'], ['models', '模型与测试'], ['logs', '调用记录']] as const).map(([value, label]) =>
-        <button key={value} type="button" aria-pressed={tab === value} disabled={busy} className={tab === value ? 'active' : ''}
-          onClick={() => switchTab(value)}>{label}</button>)}
     </div>
     {error ? <p className="notice error" role="alert">{error}<button className="text-button" disabled={busy} onClick={() => { if (leave()) { markDirty(false); setRevision(value => value + 1); } }}>重新读取</button></p> : null}
     {loading ? <p role="status">正在读取模型配置…</p> : tab === 'logs' ? <CallHistory key={revision} onError={handleError} /> :
@@ -131,7 +128,7 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '' }: {
           if (!active.current) return;
           markDirty(false); setSelected(''); setRevision(value => value + 1); notify('连接已删除');
         })} /> : !provider ? <div className="ai-content ai-empty"><h2>先保存一个本地连接</h2><p className="muted">随后添加模型并测试连接。</p>
-          <button className="button" onClick={() => switchTab('connection')}>填写连接</button></div> :
+          <button className="button" onClick={() => onTabChange?.('connection')}>填写连接</button></div> :
         <ModelForm key={provider.id} provider={provider} busy={busy} onDirty={markDirty} onSessionExpired={onSessionExpired}
           onSave={(model, data) => run(async signal => {
             const saved = await api<Model>(model ? `ai/models/${model.id}` : `ai/providers/${provider.id}/models`, {

@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-export type WorkspaceView = 'courses' | 'ai' | 'profile' | 'system';
-export const workspaceLabels: Record<WorkspaceView, string> = { courses: '我的课程', ai: '模型设置', profile: '账户设置', system: '连接状态' };
+export type WorkspaceView = 'courses' | 'ai' | 'ai-models' | 'ai-logs' | 'profile' | 'system';
+export const modelSettingsItems = [{ view: 'ai', label: '连接与密钥' }, { view: 'ai-models', label: '模型与测试' }, { view: 'ai-logs', label: '调用记录' }] as const;
+export const isModelSettings = (view: WorkspaceView) => view === 'ai' || view === 'ai-models' || view === 'ai-logs';
+export const workspaceLabels: Record<WorkspaceView, string> = { courses: '我的课程', ai: '模型设置', 'ai-models': '模型与测试', 'ai-logs': '调用记录', profile: '账户设置', system: '连接状态' };
 export function workspaceHref(view: WorkspaceView) {
-  return view === 'system' ? '/system' : view === 'courses' ? '/' : '/?view=' + view;
+  return view === 'system' ? '/system' : view === 'courses' ? '/' : view === 'ai-models' ? '/?view=ai&tab=models' : view === 'ai-logs' ? '/?view=ai&tab=logs' : '/?view=' + view;
 }
 export function workspaceView(url: string): WorkspaceView {
   const parsed = new URL(url, 'http://localhost');
   if (parsed.pathname === '/system') return 'system';
   const view = parsed.searchParams.get('view');
-  return view === 'ai' || view === 'profile' ? view : 'courses';
+  if (view === 'ai') return parsed.searchParams.get('tab') === 'models' ? 'ai-models' : parsed.searchParams.get('tab') === 'logs' ? 'ai-logs' : 'ai';
+  return view === 'profile' ? view : 'courses';
 }
 
 // The URL owns the selection; the shell supplies its existing unsaved-change guard.

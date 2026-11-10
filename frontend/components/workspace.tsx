@@ -10,7 +10,7 @@ import { Icon } from './icon';
 import { AppSidebar } from './app-sidebar';
 import { ConnectionStatus } from './connection-status';
 import { Breadcrumb, type BreadcrumbItem } from './ui';
-import { useWorkspaceNavigation, workspaceLabels } from '../lib/workspace-navigation';
+import { isModelSettings, modelSettingsItems, useWorkspaceNavigation, workspaceLabels } from '../lib/workspace-navigation';
 import { api, ApiError } from '../lib/api';
 
 export function Workspace({ testLoginEnabled = false, accountNotice = '', systemView = false }: {
@@ -22,6 +22,7 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [aiBusy, setAIBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const [courseCrumbs, setCourseCrumbs] = useState<BreadcrumbItem[]>([]);
   const { view, navigate } = useWorkspaceNavigation(systemView ? 'system' : 'courses', leaveEditor, () => setDirty(false));
@@ -43,6 +44,7 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
   }, [retry]);
 
   function leaveEditor() {
+    if (isModelSettings(view) && aiBusy) return false;
     return !dirty || window.confirm('修改尚未保存。放弃修改并离开？');
   }
 
@@ -96,12 +98,12 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
             {index ? <Icon name="chevron" size={14} /> : null}
             {item.onSelect ? <button type="button" disabled={item.disabled} onClick={item.onSelect} title={item.label}>{item.label}</button> :
               <strong aria-current={index === courseCrumbs.length - 1 ? 'page' : undefined} title={item.label}>{item.label}</strong>}
-          </Fragment>) : <strong aria-current="page">{workspaceLabels[view]}</strong>}</Breadcrumb>
+          </Fragment>) : isModelSettings(view) ? <><span>模型设置</span><Icon name="chevron" size={14} /><strong aria-current="page">{modelSettingsItems.find(item => item.view === view)?.label}</strong></> : <strong aria-current="page">{workspaceLabels[view]}</strong>}</Breadcrumb>
       </header>
       <main id="main-content" className="workspace-main">
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
         {view === 'system' ? <div className="status-page"><div className="page-heading"><div><h1>连接状态</h1>
-          <p>查看工作台与基础服务的连接情况。</p></div></div><ConnectionStatus /></div> : user && (view === 'ai' ? <AISettings key={user.id} userId={user.id} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
+          <p>查看工作台与基础服务的连接情况。</p></div></div><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} userId={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired} onBreadcrumbChange={setCourseCrumbs} />)}
       </main>

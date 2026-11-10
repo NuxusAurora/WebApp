@@ -262,3 +262,7 @@ API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_re
 迁移0005_knowledge接0004，保留现有目录数据，扩大共享版本类型约束及分范围唯一索引、新建knowledge_points。降级时如已有知识版本历史会拒绝执行，以免静默丢数据；勿在用户库回退。源码：backend/app/knowledge、backend/prompts/knowledge/extract-v2.md（v1保留历史）、frontend/components/knowledge.tsx及frontend/lib/knowledge.ts。Knowledge服务只依赖目录模型，目录通过其查询/归档函数协调，不反向调用目录服务。
 
 验证：node scripts/phase0.mjs verify在隔离p0c-verify-*栈运行迁移、测试与scripts/phase4-acceptance.mjs；覆盖真实Gateway协议fixture、PostgreSQL并发、跨范围/租户隔离、幂等、ID与重启持久化。fixture不是AI推理质量验收；本次实际结果与视觉限制集中见HANDOFF最新节。
+
+## 模型设置二级导航（2026-11-09）
+
+左侧模型设置 → 连接与密钥 / 模型与测试 / 调用记录。入口分别为 `/?view=ai`、`/?view=ai&tab=models`、`/?view=ai&tab=logs`，旧模型设置链接仍打开连接页。导航类型/URL在 `frontend/lib/workspace-navigation.ts`，层级在 `frontend/components/app-sidebar.tsx` 及 `sidebar.css`；`Workspace` 连接受控分类和未保存/忙状态保护，`AISettings` 管理表单和请求。前端 `npm run check`、`npm test`、`npm run build`；实际界面验收与限制见HANDOFF最新节。

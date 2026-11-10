@@ -11,6 +11,25 @@ beforeEach(() => { history.replaceState({}, '', '/'); localStorage.clear(); side
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('shared sidebar', () => {
+  it('nests the three model pages and restores selection from direct links', () => {
+    const navigate = vi.fn(() => true);
+    render(<AppSidebar user={user} view="ai-logs" busy={false} navigate={navigate} logout={vi.fn()} />);
+    expect(screen.getByRole('link', { name: '调用记录' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '模型与测试' })).toHaveAttribute('href', '/?view=ai&tab=models');
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    expect(navigate).toHaveBeenCalledWith('ai-models');
+    fireEvent.click(screen.getByRole('button', { name: '收起模型设置' }));
+    expect(screen.queryByRole('link', { name: '连接与密钥' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '展开模型设置' }));
+    expect(screen.getByRole('link', { name: '连接与密钥' })).toBeVisible();
+  });
+  it('expands the compact rail when entering model settings', () => {
+    localStorage.setItem('learning-workspace.sidebar-collapsed', 'true');
+    render(<AppSidebar user={user} view="courses" busy={false} navigate={() => true} logout={vi.fn()} />);
+    fireEvent.click(screen.getByRole('link', { name: '模型设置' }));
+    expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.getByRole('link', { name: '调用记录' })).toBeVisible();
+  });
   it('keeps the signed-out entry named and supplies its compact-rail tooltip', () => {
     localStorage.setItem('learning-workspace.sidebar-collapsed', 'true');
     render(<AppSidebar user={null} view="system" busy={false} navigate={() => true} logout={vi.fn()} />);
@@ -23,7 +42,7 @@ describe('shared sidebar', () => {
     const navigate = vi.fn(() => true); const logout = vi.fn(async () => {});
     render(<AppSidebar user={user} view="ai" busy={false} navigate={navigate} logout={logout} />);
     expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'true');
-    expect(screen.getByRole('link', { name: '模型设置' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: '连接与密钥' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: '账户设置' })).toHaveAttribute('href', '/?view=profile');
     expect(screen.getByRole('link', { name: '连接状态' })).toHaveAttribute('href', '/system');
     fireEvent.click(screen.getByRole('button', { name: '展开侧边栏' }));
@@ -75,6 +94,21 @@ describe('shared sidebar', () => {
 });
 
 describe('URL selection and unsaved protection', () => {
+  it('guards model subpages and restores accepted browser history', () => {
+    history.replaceState({}, '', '/?view=ai&tab=models');
+    const guard = vi.fn(() => false);
+    const { result } = renderHook(() => useWorkspaceNavigation('courses', guard, vi.fn()));
+    expect(result.current.view).toBe('ai-models');
+    act(() => { expect(result.current.navigate('ai-logs')).toBe(false); });
+    expect(location.search).toBe('?view=ai&tab=models');
+    guard.mockReturnValue(true);
+    act(() => { result.current.navigate('ai-logs'); });
+    expect(location.search).toBe('?view=ai&tab=logs');
+    history.replaceState({ workspaceIndex: 0 }, '', '/?view=ai&tab=models');
+    act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+    expect(result.current.view).toBe('ai-models');
+    expect(workspaceView('/?view=ai&tab=unknown')).toBe('ai');
+  });
   it('reads refresh URLs and follows navigation without adding business routes', () => {
     history.replaceState({}, '', '/?view=profile');
     const leave = vi.fn(); const { result } = renderHook(() => useWorkspaceNavigation('courses', () => true, leave));

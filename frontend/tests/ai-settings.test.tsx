@@ -1,10 +1,31 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AISettings } from '../components/ai-settings';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AISettings as Settings } from '../components/ai-settings';
+import { useCallback, useState, type ComponentProps } from 'react';
+import { AppSidebar } from '../components/app-sidebar';
+import { type WorkspaceView } from '../lib/workspace-navigation';
+import { sidebarDOM } from './sidebar-test-dom';
+
+function AISettings(props: ComponentProps<typeof Settings>) {
+  const [view, setView] = useState<WorkspaceView>('ai');
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const onDirtyChange = useCallback((value: boolean) => { setDirty(value); props.onDirtyChange(value); }, [props.onDirtyChange]);
+  const navigate = (next: WorkspaceView) => {
+    if (next === view) return true;
+    if (busy || (dirty && !window.confirm('修改尚未保存。放弃修改并离开？'))) return false;
+    setView(next); return true;
+  };
+  return <><AppSidebar user={null} view={view} busy={busy} navigate={navigate} logout={async () => {}} />
+    <Settings {...props} onDirtyChange={onDirtyChange} onBusyChange={setBusy} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} /></>;
+}
+
 
 const caps = { vision: false, streaming: false, structured_output: false, tool_calling: false, max_context_tokens: 4096 };
 const provider = { id: '11111111-1111-1111-1111-111111111111', provider_name: '本地连接', base_url: 'http://localhost:1234/v1', enabled: true, has_api_key: true, models: [] as object[] };
 const success = (data: unknown) => Promise.resolve(Response.json({ success: true, data, error: null }));
+beforeEach(() => sidebarDOM());
+
 afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('local model settings', () => {
@@ -80,8 +101,9 @@ describe('local model settings', () => {
     fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: provider.base_url } });
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('地址未获允许');
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存连接' })).toBeEnabled());
     expect(screen.getByLabelText('连接名称')).toHaveValue('未保存连接');
-    fireEvent.click(screen.getByRole('button', { name: '模型与测试' }));
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(window.confirm).toHaveBeenCalled();
     expect(screen.getByLabelText('连接名称')).toHaveValue('未保存连接');
   });
@@ -100,7 +122,7 @@ describe('local model settings', () => {
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     await screen.findByLabelText('连接名称');
     fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
-    fireEvent.click(screen.getByRole('button', { name: '模型与测试' }));
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: model.model_name } });
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(screen.getByLabelText('选择模型')).toHaveValue(model.id));
@@ -130,7 +152,7 @@ describe('provider model discovery', () => {
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     await screen.findByLabelText('连接名称');
     fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
-    fireEvent.click(screen.getByRole('button', { name: '模型与测试' }));
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     await screen.findByLabelText('服务模型');
   }
 

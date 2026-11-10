@@ -43,6 +43,58 @@ async function ready() {
 }
 
 describe('desktop course workspace', () => {
+  it('protects model subpage edits and preserves the selected connection across navigation', async () => {
+    const original = vi.mocked(api).getMockImplementation()!;
+    vi.mocked(api).mockImplementation(async (path, options) => {
+      if (path === 'ai/providers') return [{ id: 'provider', provider_name: '导航连接', enabled: true, has_api_key: false, base_url: 'http://localhost:1234/v1', models: [] }];
+      if (path === 'ai/options') return { allowed_origins: [] };
+      if (path.includes('discovery') || path.startsWith('ai/logs')) return [];
+      return original(path, options);
+    });
+    history.replaceState({}, '', '/?view=ai');
+    render(<Workspace />);
+    await screen.findByLabelText('连接名称');
+    expect(screen.queryByRole('group', { name: '模型设置分类' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('连接名称'), { target: { value: '保留输入' } });
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(location.search).toBe('?view=ai');
+    expect(screen.getByLabelText('连接名称')).toHaveValue('保留输入');
+    vi.mocked(window.confirm).mockReturnValue(true);
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    fireEvent.click(screen.getByRole('button', { name: '填写连接' }));
+    expect(location.search).toBe('?view=ai');
+    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: 'provider' } });
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    await screen.findByLabelText('模型名称');
+    expect(screen.getByLabelText('本地连接')).toHaveValue('provider');
+    expect(screen.getByRole('link', { name: '模型与测试' })).toHaveAttribute('aria-current', 'page');
+    history.replaceState({ workspaceIndex: 0 }, '', '/?view=ai');
+    act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+    expect(screen.getByLabelText('本地连接')).toHaveValue('provider');
+    expect(screen.getByLabelText('连接名称')).toHaveValue('导航连接');
+  });
+  it('keeps the model form mounted until an in-flight save settles', async () => {
+    const original = vi.mocked(api).getMockImplementation()!;
+    let finishSave!: (value: unknown) => void;
+    vi.mocked(api).mockImplementation(async (path, options) => {
+      if (path === 'ai/options') return { allowed_origins: [] };
+      if (path === 'ai/providers') return options?.method === 'POST' ? new Promise(resolve => { finishSave = resolve; }) : [];
+      return original(path, options);
+    });
+    history.replaceState({}, '', '/?view=ai');
+    render(<Workspace />);
+    fireEvent.change(await screen.findByLabelText('连接名称'), { target: { value: '保存中' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    expect(location.search).toBe('?view=ai');
+    expect(screen.getByLabelText('连接名称')).toHaveValue('保存中');
+    expect(window.confirm).not.toHaveBeenCalled();
+    await act(async () => { finishSave({ id: 'saved' }); });
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存连接' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    expect(location.search).toBe('?view=ai&tab=models');
+  });
   it('navigates each course breadcrumb level and protects unsaved changes', async () => {
     await ready();
     expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument();
