@@ -6,24 +6,24 @@
     "root": "/opt/learning-workbench",
     "project": "learning-cloud"
   },
-  "source_snapshot_revision": "b265cff966c5e3c642fe5c19a0cf3c89e1ccf16c",
-  "image_source_revision": "b265cff966c5e3c642fe5c19a0cf3c89e1ccf16c",
-  "configuration_source_revision": "b265cff966c5e3c642fe5c19a0cf3c89e1ccf16c",
-  "revision": "b265cff966c5e3c642fe5c19a0cf3c89e1ccf16c",
+  "source_snapshot_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
+  "revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
+  "image_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
+  "configuration_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:b265cff",
-      "id": "sha256:b4d1ce5ccb2fc08a6293061737aa598522020d7c117bd16a9bf8f6072322b317"
+      "source": "webapp-release-backend:8e8b56b",
+      "id": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c"
     },
     "frontend": {
-      "source": "webapp-release-frontend:b265cff",
-      "id": "sha256:c21e7c0c3966f2d053262a07c456816353a64be5398008fdaf2fdac1135862bf"
+      "source": "webapp-release-frontend:8e8b56b",
+      "id": "sha256:b123119731d323601a0f4a99dfdb3474e7eaeffb26c997c76180db42f15a4aa8"
     }
   },
   "runtime_images": {
-    "backend": "sha256:b4d1ce5ccb2fc08a6293061737aa598522020d7c117bd16a9bf8f6072322b317",
-    "frontend": "sha256:c21e7c0c3966f2d053262a07c456816353a64be5398008fdaf2fdac1135862bf",
-    "worker": "sha256:b4d1ce5ccb2fc08a6293061737aa598522020d7c117bd16a9bf8f6072322b317",
+    "backend": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
+    "frontend": "sha256:b123119731d323601a0f4a99dfdb3474e7eaeffb26c997c76180db42f15a4aa8",
+    "worker": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -42,60 +42,54 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": false,
-  "data_preservation": "existing business table counts and canonical row digests unchanged",
+  "data_preservation": "business row counts and digests unchanged; no migration",
   "business_counts": {
     "users": 1,
-    "courses": 0,
+    "courses": 1,
     "uploads": 0,
     "chapters": 0,
     "sections": 0,
     "structure_versions": 0,
-    "ai_providers": 1,
+    "ai_providers": 2,
     "ai_models": 1,
-    "ai_call_logs": 0
+    "ai_call_logs": 0,
+    "knowledge_points": 0
   },
-  "backup_before_upgrade": "consistent database/storage/environment backup completed; temporary backup removed after successful acceptance",
-  "released_at_utc": "2026-11-10T12:18:28.430555+00:00",
+  "backup_before_upgrade": "consistent data/config backup completed; temporary copy removed after acceptance",
+  "released_at_utc": "2026-11-10T12:51:46.454434+00:00",
   "validation": {
-    "https_health_ready": "200",
-    "test_login": "200; dedicated ordinary verified account reused",
-    "secure_cookie": "Secure/HttpOnly/SameSite=strict",
-    "authenticated_course_read": "200",
-    "csrf": "foreign origin rejected with 403",
-    "logout": "old session rejected with 401",
-    "qa_data": "no courses/uploads/model changes; two isolated API sessions logged out",
-    "frontend_tests": 127,
-    "backend_tests": 115,
+    "frontend_tests": 128,
+    "backend_tests": 117,
     "deployment_tests": 10,
-    "test_evidence": "same source and exact images validated locally before deployment",
-    "browser": "1280x720 dark login button, real login and refresh persistence passed",
-    "untested": "mobile/light theme, real provider generation and new private download content not repeated",
-    "schema_upgrade": "0004_curriculum -> 0007_connection_slots",
-    "data_preservation": "existing business table counts and canonical row digests unchanged",
-    "nginx_upload_boundary": "3MiB and exact 5MiB anonymous image requests reach API authentication (401 JSON); 5MiB+1 rejected (413); no user data written",
-    "nginx_reload": "syntax check passed; graceful reload; HTTPS health/ready 200"
+    "build_type_format": "passed",
+    "pixel_limit": "disabled in running backend; 4001x4000 PNG normalized at unchanged dimensions",
+    "https_health_ready": "200",
+    "nginx_upload_boundary": "exact 50MiB reaches API authentication (401 JSON); 50MiB+1 rejected (413)",
+    "qa_data": "no user/course/image data written; no real model call",
+    "visual": "unchanged layout; frontend boundary/error message covered by tests; no new browser visual acceptance"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
     "deploy/compose.production.yaml": "89c48527132f9fdb90b54c4a52c7028ab50b9a122b645f5d4b771aef7dc920d6",
     "deploy/compose.nginx.yaml": "a59baf7920af4a44bbde8d2a79c3024c46c881a9fdd91e5c6257e7aaeb8f4e08",
-    "deploy/nginx.conf.template": "2161c87eccac0f5fc7efb96512a63558b55f1472e365dee3b224759d82267d6c",
+    "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 225481323,
+  "cleanup_logical_bytes": 225441130,
   "obsolete_image_tags_removed": [
-    "public-login-backend:release",
-    "public-login-frontend:release"
+    "webapp-release-backend:b265cff",
+    "webapp-release-frontend:b265cff"
   ],
   "cleanup": "task upload archives, temporary backups and scripts removed; current source, runtime images, persistent data and secrets retained",
+  "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
+  "nginx_template_render_matches_runtime": true,
+  "nginx_upload_limit": "50 MiB",
+  "nginx_proxy_timeout_seconds": 185,
+  "image_pixel_limit": null,
   "certificate": {
     "name": "learning-workbench-cn",
     "renewal": "webroot with targeted nginx deploy hook",
     "renewal_dry_run": "passed",
     "not_after_utc": "2027-02-07T03:49:49Z"
-  },
-  "nginx_runtime_sha256": "6896b3c8764ea2f1d95a8ce8958cde6d537ae361d9fd96254390ef4566923eb2",
-  "nginx_template_render_matches_runtime": true,
-  "nginx_upload_limit": "5 MiB; aligned with frontend/backend image limit",
-  "nginx_proxy_timeout_seconds": 185
+  }
 }
