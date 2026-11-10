@@ -19,7 +19,7 @@ from app.auth import DB, Actor, Input, limit
 from app.courses import owned, owned_by_id, upload_data
 from app.curriculum.contracts import CurriculumInput, output_schema
 from app.curriculum.models import StructureEvent, StructureVersion, WorkflowRun
-from app.curriculum.ocr import MAX_IMAGE, normalize_image
+from app.curriculum.ocr import MAX_IMAGE, normalize_image, normalized_image_type
 from app.curriculum.service import (
     changes,
     confirm,
@@ -183,13 +183,14 @@ async def upload_image(course_id: UUID, request: Request, db: DB, actor: Actor):
         raise
     diagnostics["outcome"] = "normalized"
     logger.info(json.dumps(diagnostics))
-    key = f"{actor.id}/{course_id}/{uuid4()}.png"
+    media_type, suffix = normalized_image_type(normalized)
+    key = f"{actor.id}/{course_id}/{uuid4()}{suffix}"
     row = Upload(
         course_id=course_id,
         filename=filename,
         object_key=key,
         size=len(normalized),
-        media_type="image/png",
+        media_type=media_type,
         purpose="curriculum",
     )
     try:
@@ -263,7 +264,7 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
         "input_mode": body.input_mode,
     }
     records = await image_records(db, course_id, body.image_ids)
-    keys = [row.object_key for row in records]
+    stored_images = [(row.object_key, row.media_type) for row in records]
     vision = body.input_mode == "images"
     if vision:
         model = await owned_model(db, actor_id, body.model_id)
@@ -274,11 +275,12 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
     if vision:
         try:
             async with asyncio.timeout(30):
-                for key in keys:
+                for key, media_type in stored_images:
                     content = await run_in_threadpool(request.app.state.store.read, key, MAX_IMAGE)
                     inputs.append(
                         ImageInput(
-                            data_url="data:image/png;base64," + base64.b64encode(content).decode()
+                            data_url=f"data:{media_type};base64,"
+                            + base64.b64encode(content).decode()
                         )
                     )
         except TimeoutError:

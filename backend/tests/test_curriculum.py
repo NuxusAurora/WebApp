@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import io
 import json
@@ -312,7 +313,9 @@ def test_image_upload_failure_logs_reason_without_content(
         ("AVIF", "avif"),
     ],
 )
-def test_upload_supported_formats_normalizes_to_private_png(account_app, format, extension):
+def test_upload_supported_formats_preserves_jpeg_and_normalizes_others(
+    account_app, format, extension
+):
     app, client, path, _ = setup(account_app)
     output = io.BytesIO()
     Image.new("RGB", (40, 20), "white").save(output, format=format)
@@ -327,9 +330,13 @@ def test_upload_supported_formats_normalizes_to_private_png(account_app, format,
     assert result.status_code == 201, result.text
     assert len(app.state.store.objects) == 1
     key, value = next(iter(app.state.store.objects.items()))
-    assert key.endswith(".png")
+    jpeg = format == "JPEG"
+    assert key.endswith(".jpg" if jpeg else ".png")
+    if jpeg:
+        assert value == output.getvalue()
     with Image.open(io.BytesIO(value)) as image:
-        assert image.format == "PNG" and image.mode == "RGB" and image.size == (40, 20)
+        assert image.format == ("JPEG" if jpeg else "PNG")
+        assert image.mode == "RGB" and image.size == (40, 20)
     assert client.delete(path.removesuffix("/curriculum")).status_code == 200
     assert app.state.store.objects == {}
 
@@ -366,6 +373,23 @@ def test_image_normalization_keeps_orientation_and_rejects_unsupported_content()
         with pytest.raises(AppError) as error:
             normalize_image(content)
         assert error.value.code == "FILE_TYPE"
+
+
+@pytest.mark.parametrize("mode, orientation", [("RGB", 6), ("CMYK", 1), ("L", 1)])
+def test_jpeg_orientation_and_color_conversion_remain_jpeg(mode, orientation):
+    output = io.BytesIO()
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new(mode, (40, 20)).save(output, format="JPEG", exif=exif)
+    normalized = normalize_image(output.getvalue())
+    with Image.open(io.BytesIO(normalized)) as image:
+        assert image.format == "JPEG"
+        assert image.mode == ("L" if mode == "L" else "RGB")
+        assert image.size == ((20, 40) if orientation == 6 else (40, 20))
+        if orientation == 6:
+            assert image.getexif().get(274, 1) == 1
+    if mode == "L":
+        assert normalized == output.getvalue()
 
 
 def test_image_normalization_does_not_limit_dimensions_or_pixel_count():
@@ -497,8 +521,9 @@ def test_parse_uses_gateway_with_private_provenance_and_schema_failures(account_
     client.portal.call(transport_client.aclose)
 
 
+@pytest.mark.parametrize("image_format", ["PNG", "JPEG"])
 def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
-    account_app, monkeypatch, caplog
+    account_app, monkeypatch, caplog, image_format
 ):
     app, client, path, _ = setup(account_app)
     monkeypatch.setattr(
@@ -516,8 +541,10 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
             "capabilities_confirmed": True,
         },
     ).json()["data"]
+    output = io.BytesIO()
+    Image.new("RGB", (40, 20), "white").save(output, format=image_format)
     image = client.post(
-        path + "/images", content=png(), headers={"X-Filename": "photo.png"}
+        path + "/images", content=output.getvalue(), headers={"X-Filename": "photo.png"}
     ).json()["data"]
     expected = {
         "chapters": [
@@ -570,7 +597,10 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
         for message in requests[0]["messages"]
         if isinstance(message["content"], list)
     )
-    assert parts[1]["image_url"]["url"].startswith("data:image/png;base64,")
+    media_type = "image/jpeg" if image_format == "JPEG" else "image/png"
+    assert parts[1]["image_url"]["url"].startswith(f"data:{media_type};base64,")
+    if image_format == "JPEG":
+        assert base64.b64decode(parts[1]["image_url"]["url"].split(",", 1)[1]) == output.getvalue()
     assert parts[1]["image_url"]["detail"] == "high"
     assert requests[0]["response_format"]["json_schema"]["strict"] is True
     assert "uncertain_items" in requests[0]["response_format"]["json_schema"]["schema"]["required"]

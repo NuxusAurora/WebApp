@@ -32,7 +32,7 @@
 
 ## 目录图片大小与像素 · 2026-11-10
 
-上传单张JPG/JPEG/PNG/WebP/BMP/GIF/TIFF/AVIF图片最大50 MiB（52,428,800字节），不限制宽高或总像素。前端共享限制在frontend/lib/image-limits.ts；后端app/image_limits.py供请求体、图片规范化和视觉契约复用。规范化校验真实格式、单帧和生成文件大小；动图/多页图片提示导出单张后上传，透明区域铺白底，纠正EXIF方向后统一保存为PNG；识别流程和模型能力要求保持。Nginx模板同为50m，部署后须比较已渲染配置与实际运行配置。回归覆盖整50MiB、超限和超过原1600万像素的图片；实际运行版本及验收边界见HANDOFF最新节。
+上传单张JPG/JPEG/PNG/WebP/BMP/GIF/TIFF/AVIF图片最大50 MiB（52,428,800字节），不限制宽高或总像素。前端共享限制在frontend/lib/image-limits.ts；后端app/image_limits.py供请求体、图片规范化和视觉契约复用。规范化校验真实格式、单帧和生成文件大小；动图/多页图片提示导出单张后上传，透明区域铺白底。JPEG在完整解码校验后保留原始压缩字节；需要纠正EXIF方向或转换CMYK时仍输出JPEG，其他格式输出RGB PNG，不缩放。存储/签名下载使用对应MIME，模型输入据已保存的Upload.media_type发送data:image/jpeg或data:image/png；历史PNG保持兼容。图片规则归app/curriculum/ocr.py，组装归routes.py，存储MIME归storage.py；识别流程和模型能力要求保持。Nginx模板同为50m，部署后须比较已渲染配置与实际运行配置。回归覆盖整50MiB、超限和超过原1600万像素的图片；实际运行版本及验收边界见HANDOFF最新节。
 
 ## 界面动效 · 2026-11-10
 
@@ -265,7 +265,7 @@ node scripts/phase0.mjs down
 
 当前课程详情提供“课程概览 / 教材目录 / 知识点”。学习资料页签及前端读取已移除；既有文本文件及上传后端接口保留，目录图片上传不受影响。
 
-入口：课程详情 → 教材目录。上传 JPG/JPEG/PNG/WebP/BMP/GIF/TIFF/AVIF，每张 1 字节至 50 MiB、不限制像素；图片经解码、纠正 EXIF 方向和重新编码为 PNG 后进入私有存储。每批按勾选顺序识别最多 5 张图片；单张 OCR 35 秒、整批 120 秒上限。Tesseract chi_sim+eng 随后端 Docker 镜像安装，通过管道处理，无本地临时图片。原有学习资料 .txt 的 1 MiB 限制不变。
+入口：课程详情 → 教材目录。上传 JPG/JPEG/PNG/WebP/BMP/GIF/TIFF/AVIF，每张 1 字节至 50 MiB、不限制像素；图片校验、方向处理及JPEG保留规则见上方上传限制节，随后进入私有存储。每批按勾选顺序识别最多 5 张图片；单张 OCR 35 秒、整批 120 秒上限。Tesseract chi_sim+eng 随后端 Docker 镜像安装，通过管道处理，无本地临时图片。原有学习资料 .txt 的 1 MiB 限制不变。
 
 推荐流程：在模型设置中确认模型支持图片识别，上传/勾选目录图片并点击“模型识别目录”。所选图片以高细节内嵌图片连同目录 Prompt 和 JSON Schema 发送给所选模型，按图片直接提取，不经过本地 OCR。图片模式每个对象的全部字段均为必需项，未知页码显式 null；服务支持原生 JSON Schema 时启用 strict，另有 Gateway/目录校验和最多两次修复。JSON 格式有效不代表事实必然准确，草稿仍须核对。默认接口的 gpt-6.1-sol 已以用户实拍验证图片能力并启用，其他模型不按名称推定。
 

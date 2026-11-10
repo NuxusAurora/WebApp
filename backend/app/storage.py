@@ -9,6 +9,14 @@ from app.errors import AppError
 MAX_UPLOAD = 1024 * 1024
 
 
+def object_media_type(key):
+    if key.endswith(".png"):
+        return "image/png"
+    if key.endswith(".jpg"):
+        return "image/jpeg"
+    return "text/plain; charset=utf-8"
+
+
 def inspect_text(filename: str, content: bytes):
     if not re.fullmatch(r"[^/\\\x00-\x1f]{1,190}\.txt", filename, re.IGNORECASE):
         raise AppError("FILE_TYPE", "仅支持 UTF-8 .txt 文件")
@@ -68,7 +76,7 @@ class ObjectStore:
             Bucket=self.bucket,
             Key=key,
             Body=content,
-            ContentType="image/png" if key.endswith(".png") else "text/plain; charset=utf-8",
+            ContentType=object_media_type(key),
         )
 
     def read(self, key, limit):
@@ -88,12 +96,12 @@ class ObjectStore:
             Params={
                 "Bucket": self.bucket,
                 "Key": key,
-                "ResponseContentType": "image/png"
-                if key.endswith(".png")
-                else "text/plain; charset=utf-8",
+                "ResponseContentType": object_media_type(key),
                 "ResponseContentDisposition": (
                     'attachment; filename="curriculum.png"'
                     if key.endswith(".png")
+                    else 'attachment; filename="curriculum.jpg"'
+                    if key.endswith(".jpg")
                     else 'attachment; filename="learning-material.txt"'
                 ),
             },

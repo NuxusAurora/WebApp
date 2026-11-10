@@ -35,6 +35,12 @@ def normalize_image(content: bytes, *, diagnostics: dict | None = None):
             details["stage"] = "decode"
             original.load()
             details["stage"] = "transform"
+            # Keep a validated, correctly oriented JPEG in its original compressed form.
+            # Re-encoding a photograph as lossless PNG can multiply the request size.
+            jpeg = original.format == "JPEG"
+            if jpeg and original.mode in {"RGB", "L"} and original.getexif().get(274, 1) == 1:
+                details.update(stage="complete", output_bytes=len(content), output_format="JPEG")
+                return content
             oriented = ImageOps.exif_transpose(original)
             if oriented.has_transparency_data:
                 rgba = oriented.convert("RGBA")
@@ -44,9 +50,11 @@ def normalize_image(content: bytes, *, diagnostics: dict | None = None):
                 image = oriented.convert("RGB")
             output = io.BytesIO()
             details["stage"] = "encode"
-            image.save(output, format="PNG")
+            output_format = "JPEG" if jpeg else "PNG"
+            options = {"quality": 95, "subsampling": 0} if jpeg else {}
+            image.save(output, format=output_format, **options)
             value = output.getvalue()
-            details["output_bytes"] = len(value)
+            details.update(output_bytes=len(value), output_format=output_format)
             if len(value) > MAX_IMAGE:
                 details["reason"] = "output_size"
                 raise AppError("FILE_SIZE", "图片解码后过大，请缩小图片", 413)
@@ -77,6 +85,13 @@ def normalize_image(content: bytes, *, diagnostics: dict | None = None):
         raise AppError(
             "FILE_TYPE", "请选择有效的 PNG、JPEG、WebP、BMP、GIF、TIFF 或 AVIF 图片"
         ) from None
+
+
+def normalized_image_type(content: bytes):
+    """The only two output formats of normalize_image; independent of upload headers."""
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg", ".jpg"
+    return "image/png", ".png"
 
 
 class LocalOCR:
