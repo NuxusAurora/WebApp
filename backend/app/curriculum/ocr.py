@@ -15,10 +15,18 @@ def normalize_image(content: bytes):
         raise AppError("FILE_SIZE", "图片须为 1 字节至 50 MiB", 413)
     try:
         with Image.open(io.BytesIO(content)) as original:
-            if original.format not in {"PNG", "JPEG"} or getattr(original, "n_frames", 1) != 1:
+            if original.format not in {"PNG", "JPEG", "WEBP", "BMP", "GIF", "TIFF", "AVIF"}:
                 raise ValueError()
+            if getattr(original, "n_frames", 1) != 1:
+                raise AppError("FILE_TYPE", "请将动图或多页图片导出为单张图片后上传")
             original.load()
-            image = ImageOps.exif_transpose(original).convert("RGB")
+            oriented = ImageOps.exif_transpose(original)
+            if oriented.has_transparency_data:
+                rgba = oriented.convert("RGBA")
+                image = Image.new("RGB", rgba.size, "white")
+                image.paste(rgba, mask=rgba.getchannel("A"))
+            else:
+                image = oriented.convert("RGB")
             output = io.BytesIO()
             image.save(output, format="PNG")
             value = output.getvalue()
@@ -32,7 +40,9 @@ def normalize_image(content: bytes):
         Image.DecompressionBombError,
         Image.DecompressionBombWarning,
     ):
-        raise AppError("FILE_TYPE", "请选择有效的 PNG 或 JPEG 图片") from None
+        raise AppError(
+            "FILE_TYPE", "请选择有效的 PNG、JPEG、WebP、BMP、GIF、TIFF 或 AVIF 图片"
+        ) from None
 
 
 class LocalOCR:

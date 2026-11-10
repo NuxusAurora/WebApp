@@ -100,6 +100,28 @@ describe('reviewed curriculum', () => {
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['目录.jpg', 'image/jpeg'], ['目录.JPG', ''],
+    ['目录.webp', 'image/webp'], ['目录.bmp', 'image/bmp'], ['目录.gif', 'image/gif'],
+    ['目录.tiff', 'image/tiff'], ['目录.avif', 'image/avif'], ['目录.TIF', ''],
+  ])('uploads %s and uses the existing image parsing flow', async (name, type) => {
+    const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith('ai/providers') ? success([visionProvider]) :
+      url.endsWith('/images') ? success({ id: 'photo', filename: name }) :
+      url.endsWith('/parse') ? success(version) : success(empty));
+    vi.stubGlobal('fetch', fetcher);
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    await screen.findByRole('button', { name: '上传' });
+    const input = screen.getByLabelText('上传目录图片');
+    expect(input.getAttribute('accept')?.split(',')).toContain('.' + name.split('.').at(-1)!.toLowerCase());
+    const file = new File(['image'], name, { type });
+    fireEvent.change(input, { target: { files: [file] } });
+    await screen.findByText('草稿已生成，请核对后确认');
+    const request = fetcher.mock.calls.find(([url]) => url.endsWith('/images'))!;
+    expect(request[1]?.body).toBe(file);
+    expect(request[1]?.headers).toMatchObject({ 'Content-Type': type || 'application/octet-stream' });
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/confirm'))).toBe(false);
+  });
+
   it('does not send images to a model without confirmed vision capability', async () => {
     const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([{ id: 'p', provider_name: '文字', enabled: true,
       models: [{ id: 'm', model_name: 'text-model', enabled: true }] }]) : success(empty));

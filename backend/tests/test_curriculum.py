@@ -213,6 +213,76 @@ def png():
     return output.getvalue()
 
 
+@pytest.mark.parametrize(
+    "format, extension",
+    [
+        ("PNG", "png"),
+        ("JPEG", "jpeg"),
+        ("JPEG", "jpg"),
+        ("JPEG", "JPG"),
+        ("WEBP", "webp"),
+        ("BMP", "bmp"),
+        ("GIF", "gif"),
+        ("TIFF", "tiff"),
+        ("AVIF", "avif"),
+    ],
+)
+def test_upload_supported_formats_normalizes_to_private_png(account_app, format, extension):
+    app, client, path, _ = setup(account_app)
+    output = io.BytesIO()
+    Image.new("RGB", (40, 20), "white").save(output, format=format)
+    result = client.post(
+        path + "/images",
+        content=output.getvalue(),
+        headers={
+            "X-Filename": "contents." + extension,
+            "Content-Type": "application/octet-stream",
+        },
+    )
+    assert result.status_code == 201, result.text
+    assert len(app.state.store.objects) == 1
+    key, value = next(iter(app.state.store.objects.items()))
+    assert key.endswith(".png")
+    with Image.open(io.BytesIO(value)) as image:
+        assert image.format == "PNG" and image.mode == "RGB" and image.size == (40, 20)
+    assert client.delete(path.removesuffix("/curriculum")).status_code == 200
+    assert app.state.store.objects == {}
+
+
+@pytest.mark.parametrize("format", ["PNG", "WEBP", "GIF", "TIFF", "AVIF"])
+def test_image_normalization_flattens_transparency_on_white(format):
+    output = io.BytesIO()
+    Image.new("RGBA", (40, 20), (0, 0, 0, 0)).save(output, format=format)
+    with Image.open(io.BytesIO(normalize_image(output.getvalue()))) as image:
+        assert image.getpixel((0, 0)) == (255, 255, 255)
+
+
+@pytest.mark.parametrize("format", ["PNG", "WEBP", "GIF", "TIFF", "AVIF"])
+def test_image_normalization_rejects_animation_and_multiple_pages(format):
+    output = io.BytesIO()
+    Image.new("RGB", (40, 20), "white").save(
+        output, format=format, save_all=True, append_images=[Image.new("RGB", (40, 20), "black")]
+    )
+    with pytest.raises(AppError, match="单张图片"):
+        normalize_image(output.getvalue())
+
+
+def test_image_normalization_keeps_orientation_and_rejects_unsupported_content():
+    output = io.BytesIO()
+    exif = Image.Exif()
+    exif[274] = 6
+    Image.new("RGB", (40, 20), "white").save(output, format="TIFF", exif=exif)
+    with Image.open(io.BytesIO(normalize_image(output.getvalue()))) as image:
+        assert image.size == (20, 40)
+        assert not image.getexif()
+    unsupported = io.BytesIO()
+    Image.new("RGB", (40, 20), "white").save(unsupported, format="PPM")
+    for content in (unsupported.getvalue(), b"<svg/>", b"RIFFbrokenWEBP"):
+        with pytest.raises(AppError) as error:
+            normalize_image(content)
+        assert error.value.code == "FILE_TYPE"
+
+
 def test_image_normalization_does_not_limit_dimensions_or_pixel_count():
     assert Image.MAX_IMAGE_PIXELS is None
     output = io.BytesIO()
