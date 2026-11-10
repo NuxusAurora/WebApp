@@ -1,6 +1,15 @@
 from uuid import UUID
 
-from sqlalchemy import JSON, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models import Base, Record
@@ -8,7 +17,18 @@ from app.models import Base, Record
 
 class AIProvider(Record, Base):
     __tablename__ = "ai_providers"
-    __table_args__ = (UniqueConstraint("user_id", name="uq_ai_provider_user"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "provider_kind", name="uq_ai_provider_user_kind"),
+        CheckConstraint("provider_kind IN ('default', 'custom')", name="ck_ai_provider_kind"),
+        Index(
+            "uq_ai_provider_active",
+            "user_id",
+            unique=True,
+            postgresql_where=text("enabled"),
+            sqlite_where=text("enabled"),
+        ),
+    )
+    provider_kind: Mapped[str] = mapped_column(String(20), default="custom")
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     provider_name: Mapped[str] = mapped_column(String(80))
     protocol: Mapped[str] = mapped_column(String(20))

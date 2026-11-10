@@ -671,3 +671,8 @@ html, body { height: 100%; overflow: hidden; }
 
 .ai-capability-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; }
 .ai-capability-row [role="status"] { color: var(--muted); white-space: nowrap; }
+
+.ai-connection-form { padding-block: 18px; border-top: 1px solid var(--line); }
+.ai-connection-form.form-stack { display: flex; flex-direction: column; gap: 14px; }
+.ai-connection-form summary { cursor: pointer; margin-bottom: 12px; }
+.ai-connection-actions { display: flex; flex-wrap: wrap; gap: 10px; }

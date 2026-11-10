@@ -14,6 +14,18 @@ describe('authenticated same-origin proxy', () => {
     expect((await proxyBusiness(new Request('http://localhost'), (prefix + '/internal').split('/'), upstream, environment)).status).toBe(404);
     expect(upstream).toHaveBeenCalledTimes(1);
   });
+  it('proxies the authenticated activation command only at the provider path', async () => {
+    const path = 'ai/providers/11111111-1111-1111-1111-111111111111/activate';
+    const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: {} }));
+    const headers = { 'X-Requested-With': 'structured-learning' };
+    const response = await proxyBusiness(new Request('http://localhost/api/v1/' + path, { method: 'POST', headers }), path.split('/'), upstream, environment);
+    expect(response.status).toBe(200);
+    expect(upstream.mock.calls[0][0].pathname).toBe('/api/v1/' + path);
+    expect(upstream.mock.calls[0][1].method).toBe('POST');
+    expect((await proxyBusiness(new Request('http://localhost/api/v1/' + path, { method: 'POST' }), path.split('/'), upstream, environment)).status).toBe(403);
+    expect((await proxyBusiness(new Request('http://localhost'), (path + '/private').split('/'), upstream, environment)).status).toBe(404);
+    expect(upstream).toHaveBeenCalledTimes(1);
+  });
   it('proxies only the fixed discovery route for a provider', async () => {
     const path = 'ai/providers/11111111-1111-1111-1111-111111111111/discovery';
     const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: [] }));

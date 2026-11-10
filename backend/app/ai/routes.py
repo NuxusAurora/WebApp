@@ -13,15 +13,17 @@ from app.ai.capability_tests import ProbeKind, run_capability_test
 from app.ai.contracts import AIError, Call, Capabilities
 from app.ai.credentials import KeyVault, validate_endpoint
 from app.ai.models import AICallLog, AIModel, AIProvider
-from app.ai.policy import validate_model_name
+from app.ai.policy import required_model_name, validate_model_name
 from app.ai.service import (
     discover_models,
+    lock_connections,
     owned_model,
     owned_provider,
     prepare,
     public_model,
     public_provider,
     reset_tests,
+    select_connection,
 )
 from app.auth import DB, Actor, Input, limit
 from app.errors import AppError, ok
@@ -30,6 +32,7 @@ router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
 
 class ProviderInput(Input):
+    provider_kind: Literal["default", "custom"] | None = None
     provider_name: str = Field(min_length=1, max_length=80, pattern=r"\S")
     protocol: Literal["openai"] = "openai"
     base_url: str = Field(min_length=1, max_length=500)
@@ -113,10 +116,21 @@ async def providers(db: DB, actor: Actor):
 @router.post("/providers", status_code=201)
 async def add_provider(body: ProviderInput, request: Request, db: DB, actor: Actor):
     endpoint = validate_endpoint(body.base_url, request.app.state.settings.ai_allowed_origins)
-    if await db.scalar(select(AIProvider.id).where(AIProvider.user_id == actor.id)):
-        raise AppError("AI_PROVIDER_EXISTS", "只能保存一个连接，请修改现有连接", 409)
+    kind = "default" if required_model_name(endpoint) else "custom"
+    if body.provider_kind and body.provider_kind != kind:
+        raise AppError("AI_PROVIDER_KIND", "连接类型与接口地址不符")
+    await lock_connections(db, actor.id)
+    if await db.scalar(
+        select(AIProvider.id).where(
+            AIProvider.user_id == actor.id, AIProvider.provider_kind == kind
+        )
+    ):
+        raise AppError("AI_PROVIDER_EXISTS", "此类连接已保存，请修改现有配置", 409)
+    if body.enabled:
+        await select_connection(db, actor.id, None)
     provider = AIProvider(
         user_id=actor.id,
+        provider_kind=kind,
         provider_name=body.provider_name.strip(),
         protocol=body.protocol,
         base_url=endpoint,
@@ -132,7 +146,7 @@ async def add_provider(body: ProviderInput, request: Request, db: DB, actor: Act
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise AppError("AI_PROVIDER_EXISTS", "只能保存一个连接，请修改现有连接", 409) from None
+        raise AppError("AI_PROVIDER_EXISTS", "此类连接已保存，请修改现有配置", 409) from None
     return ok(public_provider(provider))
 
 
@@ -140,6 +154,7 @@ async def add_provider(body: ProviderInput, request: Request, db: DB, actor: Act
 async def edit_provider(
     provider_id: UUID, body: ProviderUpdate, request: Request, db: DB, actor: Actor
 ):
+    await lock_connections(db, actor.id)
     provider = await owned_provider(db, actor.id, provider_id, lock=True)
     values = body.model_dump(exclude_unset=True)
     if any(value is None for value in values.values()):
@@ -157,6 +172,19 @@ async def edit_provider(
         model = await db.scalar(select(AIModel).where(AIModel.provider_id == provider.id))
         if model:
             validate_model_name(values["base_url"], model.model_name)
+    if "base_url" in values:
+        kind = "default" if required_model_name(values["base_url"]) else "custom"
+        if await db.scalar(
+            select(AIProvider.id).where(
+                AIProvider.user_id == actor.id,
+                AIProvider.provider_kind == kind,
+                AIProvider.id != provider.id,
+            )
+        ):
+            raise AppError("AI_PROVIDER_EXISTS", "此类连接已保存，请修改现有配置", 409)
+        values["provider_kind"] = kind
+    if values.get("enabled"):
+        await select_connection(db, actor.id, provider.id)
     if "api_key" in values:
         key = values.pop("api_key")
         values["encrypted_api_key"] = (
@@ -169,6 +197,16 @@ async def edit_provider(
     if "base_url" in values or "encrypted_api_key" in values:
         await reset_tests(db, provider.id)
     await db.commit()
+    return ok(public_provider(provider))
+
+
+@router.post("/providers/{provider_id}/activate")
+async def activate_provider(provider_id: UUID, db: DB, actor: Actor):
+    await lock_connections(db, actor.id)
+    provider = await owned_provider(db, actor.id, provider_id, lock=True)
+    await select_connection(db, actor.id, provider.id)
+    await db.commit()
+    await db.refresh(provider)
     return ok(public_provider(provider))
 
 

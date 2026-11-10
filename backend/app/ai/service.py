@@ -9,6 +9,26 @@ from app.ai.credentials import KeyVault, validate_endpoint
 from app.ai.models import AICallLog, AIModel, AIProvider
 from app.ai.policy import required_model_name, validate_model_name
 from app.errors import AppError
+from app.models import User
+
+
+async def lock_connections(db, actor_id):
+    # All slot creation/activation takes this account lock before provider row locks.
+    await db.scalar(select(User.id).where(User.id == actor_id).with_for_update())
+
+
+async def select_connection(db, actor_id, provider_id):
+    await db.execute(
+        update(AIProvider)
+        .where(AIProvider.user_id == actor_id, AIProvider.enabled.is_(True))
+        .values(enabled=False)
+    )
+    if provider_id:
+        await db.execute(
+            update(AIProvider)
+            .where(AIProvider.id == provider_id, AIProvider.user_id == actor_id)
+            .values(enabled=True)
+        )
 
 
 async def owned_provider(db, actor_id, provider_id, lock=False):
@@ -46,6 +66,7 @@ def public_provider(provider, models=()):
     return {
         "id": str(provider.id),
         "provider_name": provider.provider_name,
+        "provider_kind": provider.provider_kind,
         "protocol": provider.protocol,
         "base_url": provider.base_url,
         "has_api_key": bool(provider.encrypted_api_key),

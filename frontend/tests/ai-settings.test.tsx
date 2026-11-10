@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AISettings as Settings } from '../components/ai-settings';
 import { useCallback, useState, type ComponentProps } from 'react';
@@ -22,7 +23,7 @@ function AISettings(props: ComponentProps<typeof Settings>) {
 
 
 const caps = { vision: false, streaming: false, structured_output: false, tool_calling: false, max_context_tokens: 4096 };
-const provider = { id: '11111111-1111-1111-1111-111111111111', provider_name: '本地连接', base_url: 'http://localhost:1234/v1', enabled: true, has_api_key: true, models: [] as object[] };
+const provider = { provider_kind: 'custom', id: '11111111-1111-1111-1111-111111111111', provider_name: '本地连接', base_url: 'http://localhost:1234/v1', enabled: true, has_api_key: true, models: [] as object[] };
 const success = (data: unknown) => Promise.resolve(Response.json({ success: true, data, error: null }));
 beforeEach(() => sidebarDOM());
 
@@ -40,7 +41,7 @@ describe('local model settings', () => {
     expect(screen.queryByRole('button', { name: '删除连接' })).not.toBeInTheDocument();
     expect(screen.queryByText(/地址需包含 \/v1/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /默认连接/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('form', { name: '默认连接' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
     expect(fetcher.mock.calls.some(([url, init]) => init?.method === 'POST' && url.endsWith('/models'))).toBe(false);
@@ -53,7 +54,7 @@ describe('local model settings', () => {
   it('does not silently choose one of multiple legacy connections', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider, { ...provider, id: 'other' }])));
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('存在多条旧配置');
+    expect(await screen.findByRole('alert')).toHaveTextContent('存在重复连接配置');
     expect(screen.queryByLabelText('接口地址')).not.toBeInTheDocument();
   });
 
@@ -72,7 +73,7 @@ describe('local model settings', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     await waitFor(() => expect(screen.getByLabelText('API Key（可选）')).toHaveValue(''));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'POST');
-    expect(JSON.parse(String(mutation?.[1]?.body))).toMatchObject({ provider_name: '默认连接', enabled: true, api_key: 'private-local-key' });
+    expect(JSON.parse(String(mutation?.[1]?.body))).toMatchObject({ provider_name: '自定义连接', enabled: true, api_key: 'private-local-key' });
     expect(localStorage.getItem('api_key')).toBeNull();
   });
 
@@ -261,7 +262,7 @@ describe('provider model discovery', () => {
 
   it('locks the default service to Aurora-Zyron and preserves its 500000-token context', async () => {
     const model = { id: 'saved-model', provider_id: provider.id, model_name: 'Aurora-Zyron', enabled: true, capabilities: { ...caps, max_context_tokens: 500000 }, tested_capabilities: {} };
-    const fixed = { ...provider, base_url: 'https://api.nuxusaurora.com/v1', required_model_name: 'Aurora-Zyron', models: [model] };
+    const fixed = { ...provider, provider_kind: 'default', base_url: 'https://api.nuxusaurora.com/v1', required_model_name: 'Aurora-Zyron', models: [model] };
     const fetcher = vi.fn((url: string, init?: RequestInit) => init?.method === 'PUT' ? success(model) : success([fixed]));
     await openModels(fetcher);
     expect(screen.getByLabelText('服务模型')).toHaveValue('Aurora-Zyron');
@@ -329,3 +330,68 @@ describe('provider model discovery', () => {
 });
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
+
+
+describe('default and custom connection slots', () => {
+  it('shows the default first and switches without saving either secret or model', async () => {
+    const model = { id: 'default-model', model_name: 'Aurora-Zyron', enabled: true, capabilities: { ...caps, max_context_tokens: 500000 }, tested_capabilities: {} };
+    let stored = [{ ...provider, enabled: false }, { ...provider, id: 'default', provider_kind: 'default', base_url: 'https://api.nuxusaurora.com/v1', required_model_name: 'Aurora-Zyron', models: [model], enabled: true }];
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith('/discovery')) return success([]);
+      if (url.endsWith('/activate')) { stored = stored.map(p => ({ ...p, enabled: p.id === provider.id })); return success(stored[0]); }
+      return success(stored);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    const defaults = await screen.findByRole('form', { name: '默认连接' });
+    const custom = screen.getByRole('form', { name: '自定义连接' });
+    expect(defaults.compareDocumentPosition(custom) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(defaults).getByRole('status')).toHaveTextContent('当前使用');
+    expect(within(custom).getByLabelText('接口地址')).toHaveValue(provider.base_url);
+    fireEvent.click(within(custom).getByRole('button', { name: '使用自定义连接' }));
+    await waitFor(() => expect(within(screen.getByRole('form', { name: '自定义连接' })).getByRole('status')).toHaveTextContent('当前使用'));
+    expect(fetcher.mock.calls.filter(([, init]) => init?.method)).toHaveLength(1);
+    expect(fetcher.mock.calls.find(([, init]) => init?.method)?.[1]?.body).toBeUndefined();
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    await screen.findByLabelText('服务模型');
+    expect(screen.getByText('仅保存一个模型，可从服务列表选择替换。')).toBeInTheDocument();
+  });
+
+  it('keeps both drafts when switching is declined and preserves fields on failed saves', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const stored = [provider, { ...provider, id: 'default', provider_kind: 'default', required_model_name: 'Aurora-Zyron', enabled: false }];
+    const fetcher = vi.fn((url: string, init?: RequestInit) => init?.method ? Promise.resolve(Response.json({ success: false, error: { message: '保存失败' } }, { status: 400 })) : success(stored));
+    vi.stubGlobal('fetch', fetcher);
+    render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText('接口地址'), { target: { value: 'https://custom.example:8443/v1' } });
+    fireEvent.change(screen.getByLabelText('API Key（可选）'), { target: { value: 'custom-secret' } });
+    fireEvent.click(screen.getByRole('button', { name: '使用默认连接' }));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(fetcher.mock.calls.some(([, init]) => init?.method)).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('接口地址')).toHaveValue('https://custom.example:8443/v1');
+    expect(screen.getByLabelText('API Key（可选）')).toHaveValue('custom-secret');
+  });
+  it('saving one slot preserves the other unsaved draft and its leave guard', async () => {
+    const defaultSlot = { ...provider, id: 'default', provider_kind: 'default', required_model_name: 'Aurora-Zyron', enabled: false };
+    let stored = [provider, defaultSlot];
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') { stored = [{ ...provider, ...JSON.parse(String(init.body)) }, defaultSlot]; return success(stored[0]); }
+      return success(stored);
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    vi.stubGlobal('fetch', fetcher);
+    render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    await screen.findByLabelText('接口地址');
+    fireEvent.change(screen.getByLabelText('默认连接 API Key（可选）'), { target: { value: 'unsaved-default-key' } });
+    fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'https://custom.example/v1' } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '保存连接' })); });
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存连接' })).toBeEnabled());
+    expect(screen.getByLabelText('默认连接 API Key（可选）')).toHaveValue('unsaved-default-key');
+    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText('默认连接 API Key（可选）')).toHaveValue('unsaved-default-key');
+  });
+
+});
