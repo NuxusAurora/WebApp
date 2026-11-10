@@ -135,11 +135,6 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
               else notify('模型已保存，能力测试已完成');
               return saved;
             } finally { if (active.current) setProbing(null); }
-          })} onDelete={model => run(async signal => {
-            if (!window.confirm(`删除模型“${model.model_name}”？调用记录仍会保留。`)) return;
-            await api(`ai/models/${model.id}`, { method: 'DELETE', signal });
-            if (!active.current) return;
-            markDirty(false); await refresh(signal); notify('模型已删除');
           })} />}
   </section>;
 }
@@ -196,10 +191,9 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onSelect }: {
   </form>;
 }
 
-function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessionExpired }: {
+function ModelForm({ provider, busy, probing, onDirty, onSave, onSessionExpired }: {
   provider: Provider; busy: boolean; probing: ProbeKind | null; onDirty: (value: boolean) => void;
   onSave: (model: Model | undefined, data: object) => Promise<Model | undefined>;
-  onDelete: (model: Model) => Promise<void>;
   onSessionExpired: () => void;
 }) {
   const [dirty, setDirty] = useState(false);
@@ -278,7 +272,6 @@ function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessi
           return <div key={kind} className="ai-capability-row"><span>{label}</span><span role="status" aria-label={label + '：' + state}>{state}</span></div>;
         })}
       </fieldset>
-      {model ? <button type="button" className="text-button danger-text" disabled={busy} onClick={() => onDelete(model)}>删除模型</button> : null}
     </div>
     <div className="ai-actions"><button className="button primary" disabled={busy || !draft.model_name}>{probing ? '自动测试中…' : busy ? '处理中…' : '保存'}</button></div>
   </form>;
