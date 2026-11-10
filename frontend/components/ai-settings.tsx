@@ -95,16 +95,6 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
           });
           if (!active.current) return;
           markDirty(false); setRevision(value => value + 1); notify('连接已保存');
-        })} onDeleteKey={() => run(async signal => {
-          if (!provider || !window.confirm('删除已存密钥？后续请求将不携带密钥。')) return;
-          await api(`ai/providers/${provider.id}/key`, { method: 'DELETE', signal });
-          if (!active.current) return;
-          markDirty(false); setRevision(value => value + 1); notify('密钥已删除');
-        })} onDelete={() => run(async signal => {
-          if (!provider || !window.confirm('删除连接及其模型？调用记录仍会保留。')) return;
-          await api(`ai/providers/${provider.id}`, { method: 'DELETE', signal });
-          if (!active.current) return;
-          markDirty(false); setRevision(value => value + 1); notify('连接已删除');
         })} /> : !provider ? <div className="ai-content ai-empty"><h2>先保存一个本地连接</h2><p className="muted">随后添加模型并测试连接。</p>
           <button className="button" onClick={() => onTabChange?.('connection')}>填写连接</button></div> :
         <ModelForm key={provider.id} provider={provider} busy={busy} onDirty={markDirty} onSessionExpired={onSessionExpired}
@@ -128,9 +118,9 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
   </section>;
 }
 
-function ConnectionForm({ provider, busy, onDirty, onSave, onDeleteKey, onDelete }: {
+function ConnectionForm({ provider, busy, onDirty, onSave }: {
   provider?: Provider; busy: boolean; onDirty: (value: boolean) => void;
-  onSave: (data: object) => Promise<void>; onDeleteKey: () => Promise<void>; onDelete: () => Promise<void>;
+  onSave: (data: object) => Promise<void>;
 }) {
   const form = useRef<HTMLFormElement>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -147,11 +137,7 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onDeleteKey, onDelete
         placeholder="http://host.docker.internal:1234/v1" disabled={busy} /></label>
       <label>API Key（可选）<input name="api_key" type="password" maxLength={4096} autoComplete="new-password" disabled={busy}
         placeholder={provider?.has_api_key ? '已保存；留空保留原密钥' : '本地服务无需密钥时留空'} /></label>
-      <p className="field-hint">{provider?.has_api_key ? '密钥已保存。更换接口地址时需重新输入，或先删除密钥。' : '未保存密钥，仅适用于无需验证的本地服务。'}</p>
-      {provider ? <div className="ai-secondary-actions">
-        <button type="button" className="button" disabled={busy || !provider.has_api_key} onClick={onDeleteKey}>删除密钥</button>
-        <button type="button" className="text-button danger-text" disabled={busy} onClick={onDelete}>删除连接</button>
-      </div> : null}
+      <p className="field-hint">{provider?.has_api_key ? '密钥已保存。更换接口地址时需重新输入密钥。' : '未保存密钥，仅适用于无需验证的本地服务。'}</p>
     </div>
     <div className="ai-actions"><button className="button primary" disabled={busy}>{busy ? '处理中…' : '保存连接'}</button></div>
   </form>;

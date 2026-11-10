@@ -36,6 +36,8 @@ describe('local model settings', () => {
     expect(await screen.findByLabelText('接口地址')).toHaveValue(provider.base_url);
     expect(screen.queryByLabelText('连接名称')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('启用连接')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '删除密钥' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '删除连接' })).not.toBeInTheDocument();
     expect(screen.queryByText(/地址需包含 \/v1/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /默认连接/ })).not.toBeInTheDocument();
@@ -43,6 +45,7 @@ describe('local model settings', () => {
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
     expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
     expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).not.toHaveProperty('provider_name');
+    expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).not.toHaveProperty('api_key');
     expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).toHaveProperty('enabled', true);
     expect(localStorage.getItem('learning.default-provider:')).toBeNull();
   });
