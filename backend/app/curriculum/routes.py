@@ -1,5 +1,8 @@
 import asyncio
 import base64
+import hashlib
+import json
+import logging
 from pathlib import Path
 from typing import Literal
 from urllib.parse import unquote
@@ -30,6 +33,7 @@ from app.errors import AppError, ok
 from app.models import Upload
 
 router = APIRouter(prefix="/api/v1/courses/{course_id}/curriculum")
+logger = logging.getLogger("structured_learning.requests")
 PROMPT = (Path(__file__).resolve().parents[2] / "prompts/curriculum/parse-v1.md").read_text(
     encoding="utf-8"
 )
@@ -109,18 +113,76 @@ async def images(course_id: UUID, db: DB, actor: Actor):
 async def upload_image(course_id: UUID, request: Request, db: DB, actor: Actor):
     await limit(request, "ocr", str(actor.id))
     await owned(db, course_id, actor)
-    filename = unquote(request.headers.get("X-Filename", ""))
-    if (
-        not filename
-        or len(filename) > 190
-        or any(c in filename for c in "/\\")
-        or any(ord(c) < 32 for c in filename)
-    ):
-        raise AppError("FILE_TYPE", "图片文件名无效")
-    content = await request.body()
-    if len(content) > MAX_IMAGE:
-        raise AppError("FILE_SIZE", "图片不能超过 50 MiB", 413)
-    normalized = await run_in_threadpool(normalize_image, content)
+    diagnostics = {
+        "event": "curriculum_image_validation",
+        "request_id": request.state.request_id,
+        "stage": "filename",
+    }
+    try:
+        filename = unquote(request.headers.get("X-Filename", ""))
+        extension = Path(filename).suffix.lower()
+        diagnostics["extension"] = (
+            extension
+            if extension
+            in {
+                ".png",
+                ".jpg",
+                ".jpeg",
+                ".jfif",
+                ".webp",
+                ".bmp",
+                ".gif",
+                ".tif",
+                ".tiff",
+                ".avif",
+                ".heic",
+                ".heif",
+            }
+            else "other"
+        )
+        content_type = request.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        diagnostics["content_type"] = (
+            content_type
+            if content_type
+            in {
+                "image/png",
+                "image/jpeg",
+                "image/webp",
+                "image/bmp",
+                "image/gif",
+                "image/tiff",
+                "image/avif",
+                "application/octet-stream",
+            }
+            else "other"
+        )
+        if (
+            not filename
+            or len(filename) > 190
+            or any(c in filename for c in "/\\")
+            or any(ord(c) < 32 for c in filename)
+        ):
+            diagnostics["reason"] = "invalid_filename"
+            raise AppError("FILE_TYPE", "图片文件名无效")
+        diagnostics["stage"] = "read"
+        content = await request.body()
+        diagnostics.update(
+            input_bytes=len(content), input_sha256=hashlib.sha256(content).hexdigest()
+        )
+        if len(content) > MAX_IMAGE:
+            diagnostics["reason"] = "input_size"
+            raise AppError("FILE_SIZE", "图片不能超过 50 MiB", 413)
+        normalized = await run_in_threadpool(normalize_image, content, diagnostics=diagnostics)
+    except Exception as error:
+        diagnostics.setdefault("exception_type", type(error).__name__)
+        diagnostics.update(
+            outcome="rejected",
+            error_code=error.code if isinstance(error, AppError) else "INTERNAL_ERROR",
+        )
+        logger.info(json.dumps(diagnostics))
+        raise
+    diagnostics["outcome"] = "normalized"
+    logger.info(json.dumps(diagnostics))
     key = f"{actor.id}/{course_id}/{uuid4()}.png"
     row = Upload(
         course_id=course_id,

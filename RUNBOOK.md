@@ -1,5 +1,13 @@
 # 运行手册
 
+## 目录图片诊断日志 · 2026-11-10
+
+后端上传校验额外输出JSON事件`curriculum_image_validation`，`request_id`与普通请求日志一致。记录允许列表内的扩展名/MIME、实际字节数、SHA-256、解码器识别的格式/模式/尺寸/帧数及规范化大小；不记录原文件名、图片内容、异常原文、请求头/凭据。`outcome=normalized`表示通过图片规范化，最终上传状态仍看同request_id的请求日志。
+
+失败按`stage`定位filename/read/input/open/inspect/decode/transform/encode；`reason`区分invalid_filename、input_size、unrecognized_image、unsupported_format、multiple_frames、truncated_image、corrupt_stream、decoder_rejected、output_size，并保留底层异常类型和业务错误码。服务器使用`sudo docker logs --since 15m --timestamps learning-cloud-backend-1 2>&1 | grep curriculum_image_validation`筛选，再用request_id关联普通请求。旧版本仅含400/耗时的历史失败无法补回解码细节。
+
+职责：middleware设置每请求request_id；normalize_image只填充路由所有的单次diagnostics字典；路由输出安全字段，不改变图片接受条件、API错误或存储补偿。回归在backend/tests/test_curriculum.py，包含成功关联、截断JPEG/未知/不支持/多帧拒绝及内容脱敏。
+
 ## 当前学科高亮 · 2026-11-10
 
 我的课程点击学科后以共享accent-soft保持当前行高亮，当前项由aria-current标识，和各组展开状态独立。进入/保存课程同步所属组，返回列表保留，搜索和分页清空；不跨刷新持久化。实现为CourseSpace的selectedSubject与subject-toggle样式，验证沿用course-workspace回归、类型与构建。

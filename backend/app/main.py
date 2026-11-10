@@ -110,6 +110,7 @@ def create_app(
     @app.middleware("http")
     async def request_context(request: Request, call_next):
         request_id = str(uuid4())
+        request.state.request_id = request_id
         started = time.monotonic()
         try:
             if request.method in {"POST", "PUT", "PATCH", "DELETE"} and (

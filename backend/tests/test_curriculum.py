@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import io
 import json
 from uuid import UUID, uuid4
@@ -211,6 +212,90 @@ def png():
     output = io.BytesIO()
     image.save(output, format="PNG")
     return output.getvalue()
+
+
+def test_image_upload_logs_safe_diagnostics_with_request_id(account_app, caplog):
+    _, client, path, _ = setup(account_app)
+    caplog.set_level("INFO", logger="structured_learning.requests")
+    output = io.BytesIO()
+    Image.new("RGB", (40, 20), "white").save(output, format="JPEG")
+    content = output.getvalue()
+    response = client.post(
+        path + "/images",
+        content=content,
+        headers={
+            "X-Filename": "private-course-title.JPG",
+            "Content-Type": "image/jpeg; private=secret-value",
+            "Authorization": "Bearer secret-value",
+        },
+    )
+    assert response.status_code == 201
+    events = [
+        json.loads(record.message) for record in caplog.records if '"event"' in record.message
+    ]
+    event = next(item for item in events if item["event"] == "curriculum_image_validation")
+    assert event["request_id"] == response.headers["X-Request-ID"]
+    assert event["stage"] == "complete" and event["outcome"] == "normalized"
+    assert event["input_bytes"] == len(content)
+    assert event["input_sha256"] == hashlib.sha256(content).hexdigest()
+    assert event["extension"] == ".jpg" and event["content_type"] == "image/jpeg"
+    assert event["detected_format"] == "JPEG" and event["dimensions"] == [40, 20]
+    assert event["frames"] == 1 and event["output_bytes"] == response.json()["data"]["size"]
+    assert "private-course-title" not in json.dumps(events)
+    assert "secret-value" not in json.dumps(events)
+
+
+@pytest.mark.parametrize(
+    "kind, reason, error_type",
+    [
+        ("unknown", "unrecognized_image", "UnidentifiedImageError"),
+        ("unsupported", "unsupported_format", "ValueError"),
+        ("truncated", "truncated_image", "OSError"),
+        ("animated", "multiple_frames", "AppError"),
+    ],
+)
+def test_image_upload_failure_logs_reason_without_content(
+    account_app, caplog, kind, reason, error_type
+):
+    app, client, path, _ = setup(account_app)
+    caplog.set_level("INFO", logger="structured_learning.requests")
+    output = io.BytesIO()
+    image = Image.new("RGB", (40, 20), "white")
+    if kind == "unknown":
+        content = b"private-image-content-not-a-real-photo"
+    elif kind == "unsupported":
+        image.save(output, format="PPM")
+        content = output.getvalue()
+    elif kind == "truncated":
+        image.save(output, format="JPEG")
+        content = output.getvalue()[:-10]
+    else:
+        image.save(
+            output,
+            format="GIF",
+            save_all=True,
+            append_images=[Image.new("RGB", (40, 20), "black")],
+        )
+        content = output.getvalue()
+    response = client.post(
+        path + "/images",
+        content=content,
+        headers={"X-Filename": "private-image-name.jpg", "Content-Type": "private/secret-value"},
+    )
+    assert response.status_code == 400 and response.json()["error"]["code"] == "FILE_TYPE"
+    events = [
+        json.loads(record.message) for record in caplog.records if '"event"' in record.message
+    ]
+    event = next(item for item in events if item["event"] == "curriculum_image_validation")
+    assert event["request_id"] == response.headers["X-Request-ID"]
+    assert event["outcome"] == "rejected" and event["error_code"] == "FILE_TYPE"
+    assert event["reason"] == reason and event["exception_type"] == error_type
+    assert event["input_sha256"] == hashlib.sha256(content).hexdigest()
+    assert event["content_type"] == "other"
+    logged = json.dumps(events)
+    assert "private-image" not in logged and "secret-value" not in logged
+    assert "exception_message" not in event
+    assert app.state.store.objects == {}
 
 
 @pytest.mark.parametrize(
