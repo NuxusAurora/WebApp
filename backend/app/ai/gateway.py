@@ -8,6 +8,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
 from app.ai.contracts import AIError, Call, Chunk, LLMProvider, Message, Result, Target, Usage
+from app.ai.diagnostics import call_trace, current_trace
 from app.ai.prompts import prompt
 
 AuditSink = Callable[[dict], Awaitable[None]]
@@ -49,12 +50,28 @@ class Gateway:
 
     async def _audit(self, sink, state, started):
         state["duration_ms"] = round((time.monotonic() - started) * 1000)
+        trace = current_trace()
+        previous_stage = trace.fields["stage"] if trace else None
+        if trace:
+            trace.step("audit")
         try:
             await asyncio.wait_for(sink(dict(state)), timeout=3)
-        except Exception:
+        except Exception as error:
+            if trace:
+                trace.fields["exception_type"] = type(error).__name__
             raise AIError("AI_AUDIT_UNAVAILABLE") from None
+        else:
+            if trace:
+                trace.fields["stage"] = previous_stage
 
-    async def execute(self, target: Target, call: Call, sink: AuditSink) -> Result:
+    async def execute(
+        self, target: Target, call: Call, sink: AuditSink, *, diagnostics: dict | None = None
+    ) -> Result:
+        with call_trace(call.task_type, diagnostics):
+            return await self._execute(target, call, sink)
+
+    async def _execute(self, target: Target, call: Call, sink: AuditSink) -> Result:
+        trace = current_trace()
         started = time.monotonic()
         state = {
             "status": "FAILED",
@@ -70,6 +87,7 @@ class Gateway:
                 schema_validator(call.output_schema) if call.output_schema is not None else None
             )
             messages = list(call.messages)
+            trace.step("prepare_messages")
             if validator:
                 messages.insert(
                     0,
@@ -82,6 +100,7 @@ class Gateway:
             async with asyncio.timeout(call.timeout):
                 for attempt in range(call.retry_policy.max_retries + 1):
                     state["attempts"] += 1
+                    trace.begin_attempt(state["attempts"])
                     try:
                         current = call.model_copy(update={"messages": messages})
                         result = await (
@@ -94,9 +113,12 @@ class Gateway:
                                 state[name] = (state[name] or 0) + value
                         if validator:
                             try:
+                                trace.step("parse_output_json")
                                 structured = extract_json(result.text)
+                                trace.step("validate_output_schema")
                                 validator.validate(structured)
-                            except ValueError, ValidationError, RecursionError:
+                            except (ValueError, ValidationError, RecursionError) as error:
+                                trace.exception(error)
                                 messages.append(Message(role="user", content=prompt("repair")))
                                 raise AIError("AI_SCHEMA_MISMATCH", True) from None
                             result = result.model_copy(update={"structured": structured})
@@ -110,14 +132,19 @@ class Gateway:
                             }
                         )
                     except AIError as error:
+                        trace.exception(error)
+                        trace.emit("ai_call_attempt", "failed", error.code)
                         if not error.retryable or attempt == call.retry_policy.max_retries:
                             raise
+                        trace.step("retry_backoff")
                         await asyncio.sleep(0.1 * 2**attempt)
             raise AIError("AI_UNAVAILABLE")
         except TimeoutError:
+            trace.fields.update(timeout_source="gateway_deadline", exception_type="TimeoutError")
             state["error_code"] = "AI_TIMEOUT"
             raise AIError("AI_TIMEOUT") from None
         except asyncio.CancelledError:
+            trace.fields.update(timeout_source="caller_cancelled", exception_type="CancelledError")
             state.update(status="CANCELLED", error_code="AI_CANCELLED")
             raise
         except AIError as error:

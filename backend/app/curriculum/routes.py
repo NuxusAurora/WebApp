@@ -318,7 +318,12 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
     await db.commit()
     result = None
     try:
-        result = await request.app.state.ai_gateway.execute(target, call, sink)
+        result = await request.app.state.ai_gateway.execute(
+            target,
+            call,
+            sink,
+            diagnostics={"request_id": request.state.request_id, "ai_call_id": str(log_id)},
+        )
         payload = CurriculumInput.model_validate(result.structured).model_dump()
         course = await owned_by_id(db, course_id, actor_id)
         await image_records(db, course_id, body.image_ids)

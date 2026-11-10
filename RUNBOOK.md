@@ -1,5 +1,15 @@
 # 运行手册
 
+## 模型调用分阶段诊断 · 2026-11-10
+
+非流式Gateway.execute输出`ai_call_diagnostics`最终日志；失败尝试另有`ai_call_attempt`，包含trace_id、task_type、attempt、outcome/error_code和阶段。目录解析还关联原HTTP request_id及ai_call_id，可与ai_call_logs对应。仅诊断元数据进入日志，不存模型正文、提示词、图片、URL、头、密钥或异常原文；不变更90秒总限、重试、API返回或数据库结构。流式调用和模型发现不在本轮阶段诊断范围。
+
+阶段包括validate_call、prepare_messages、build_request、dispatch、connection_pool、connect（含DNS/TCP）、tls、send_request_headers/send_request_body、wait_response_headers、check_http_status、read_response_body、parse_response_json、extract_response、parse_output_json、validate_output_schema、retry_backoff及audit。底层HTTP阶段取自当前httpcore的trace扩展，复用连接时不会伪造connect/TLS阶段；dispatch但无底层事件时不能进一步细分。milestones_ms记录各阶段首次进入的相对毫秒数。
+
+日志含http_status、响应头/首正文块耗时、wire_bytes（HTTPX已收网络正文）、response_bytes（解压后已消费正文）和异常类型。timeout_source区分gateway_deadline、transport和caller_cancelled。等待响应头时http_status为null；已收200及部分正文后超时会保留状态/字节数。audit失败标记audit，审计成功不会覆盖原失败阶段。查询：`sudo docker logs --since 15m --timestamps learning-cloud-backend-1 2>&1 | grep -E 'ai_call_diagnostics|ai_call_attempt'`。历史调用没有这些阶段记录，不能补回其原始上游返回。
+
+诊断生命周期由Gateway持有，ContextVar退出必复位；HTTP适配器上报固定安全元数据，不改LLMProvider协议或公开Call载荷。回归见backend/tests/test_ai_diagnostics.py，覆盖真实loopback HTTP等待头/部分正文、传输错误、HTTP状态、响应/目录JSON、Schema、重试、审计和并发取消隔离。
+
 ## 目录图片诊断日志 · 2026-11-10
 
 后端上传校验额外输出JSON事件`curriculum_image_validation`，`request_id`与普通请求日志一致。记录允许列表内的扩展名/MIME、实际字节数、SHA-256、解码器识别的格式/模式/尺寸/帧数及规范化大小；不记录原文件名、图片内容、异常原文、请求头/凭据。`outcome=normalized`表示通过图片规范化，最终上传状态仍看同request_id的请求日志。

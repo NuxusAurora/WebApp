@@ -1,5 +1,6 @@
 """Wire protocols only. Response bodies and transport exceptions never escape this layer."""
 
+import asyncio
 import codecs
 import json
 from collections.abc import AsyncIterator
@@ -8,6 +9,7 @@ import httpx
 from pydantic import SecretStr
 
 from app.ai.contracts import AIError, Call, Capabilities, Chunk, Message, Result, Target, Usage
+from app.ai.diagnostics import current_trace
 from app.ai.discovery import model_catalog
 from app.ai.prompts import prompt
 
@@ -123,22 +125,41 @@ class HTTPProvider:
         return data
 
     async def chat(self, target: Target, call: Call) -> Result:
+        trace = current_trace()
+        response = None
         try:
+            if trace:
+                trace.step("build_request")
+            payload = self.payload(target, call, False)
+            if trace:
+                trace.step("dispatch")
             async with self.client.stream(
                 "POST",
                 target.base_url + self.endpoint,
                 headers=self.headers(target),
-                json=self.payload(target, call, False),
+                json=payload,
                 timeout=call.timeout,
+                extensions={"trace": trace.transport} if trace else None,
             ) as response:
+                if trace:
+                    trace.headers(response)
+                    trace.step("check_http_status")
                 if response.status_code != 200:
                     raise status_error(response.status_code)
                 body = bytearray()
+                if trace:
+                    trace.step("read_response_body")
                 async for chunk in response.aiter_bytes():
+                    if trace:
+                        trace.received(chunk)
                     body.extend(chunk)
                     if len(body) > MAX_RESPONSE:
                         raise AIError("AI_RESPONSE_TOO_LARGE")
+                if trace:
+                    trace.step("parse_response_json")
                 data = json.loads(body)
+            if trace:
+                trace.step("extract_response")
             choice = data["choices"][0]
             if choice.get("finish_reason") != "stop":
                 raise AIError("AI_INCOMPLETE_RESPONSE")
@@ -146,12 +167,28 @@ class HTTPProvider:
             if not isinstance(text, str) or not text.strip():
                 raise AIError("AI_INVALID_RESPONSE")
             return Result(text=text, usage=usage(data.get("usage", {})))
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as error:
+            if trace:
+                trace.exception(error)
+                trace.fields["timeout_source"] = "transport"
+                if isinstance(error, httpx.PoolTimeout):
+                    trace.step("connection_pool")
             raise AIError("AI_TIMEOUT", True) from None
-        except httpx.HTTPError:
+        except httpx.HTTPError as error:
+            if trace:
+                trace.exception(error)
             raise AIError("AI_UNAVAILABLE", True) from None
-        except ValueError, KeyError, IndexError, TypeError:
+        except (ValueError, KeyError, IndexError, TypeError) as error:
+            if trace:
+                trace.exception(error)
             raise AIError("AI_INVALID_RESPONSE") from None
+        except asyncio.CancelledError as error:
+            if trace:
+                trace.exception(error)
+            raise
+        finally:
+            if trace and response is not None:
+                trace.fields["wire_bytes"] = response.num_bytes_downloaded
 
     async def generate_structured(self, target: Target, call: Call) -> Result:
         return await self.chat(target, call)
