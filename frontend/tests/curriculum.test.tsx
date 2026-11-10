@@ -111,6 +111,23 @@ describe('reviewed curriculum', () => {
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/images') || url.endsWith('/parse'))).toBe(false);
   });
 
+  it('accepts exactly 50 MiB and rejects a larger image before uploading', async () => {
+    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([visionProvider]) :
+      url.endsWith('/images') ? success({ id: 'photo', filename: '目录.png' }) :
+      url.endsWith('/parse') ? success(version) : success(empty));
+    vi.stubGlobal('fetch', fetcher);
+    render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
+    await screen.findByRole('button', { name: '上传' });
+    const file = new File(['image'], '目录.png', { type: 'image/png' });
+    Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 + 1, configurable: true });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [file] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('50 MiB');
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/images') || url.endsWith('/parse'))).toBe(false);
+    Object.defineProperty(file, 'size', { value: 50 * 1024 * 1024 });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [file] } });
+    await screen.findByText('草稿已生成，请核对后确认');
+  });
+
   it('keeps the previous draft and allows another upload when model parsing fails', async () => {
     const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([visionProvider]) :
       url.endsWith('/images') ? success({ id: 'photo', filename: '目录.png' }) : url.endsWith('/parse') ?

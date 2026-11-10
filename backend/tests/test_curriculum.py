@@ -213,6 +213,15 @@ def png():
     return output.getvalue()
 
 
+def test_image_normalization_does_not_limit_dimensions_or_pixel_count():
+    assert Image.MAX_IMAGE_PIXELS is None
+    output = io.BytesIO()
+    Image.new("RGB", (4001, 4000), "white").save(output, format="PNG")
+    normalized = normalize_image(output.getvalue())
+    with Image.open(io.BytesIO(normalized)) as image:
+        assert image.size == (4001, 4000)
+
+
 def test_image_validation_storage_ocr_order_and_cleanup(account_app, monkeypatch):
     app, client, path, _ = setup(account_app)
     monkeypatch.setattr(
@@ -238,11 +247,13 @@ def test_image_validation_storage_ocr_order_and_cleanup(account_app, monkeypatch
     )
     assert (
         client.post(
-            path + "/images", content=b"x" * (5 * 1024 * 1024 + 1), headers={"X-Filename": "x.png"}
+            path + "/images", content=b"x" * (50 * 1024 * 1024 + 1), headers={"X-Filename": "x.png"}
         ).status_code
         == 413
     )
-    result = client.post(path + "/images", content=png(), headers={"X-Filename": "contents.png"})
+    content = png()
+    content += b"\0" * (50 * 1024 * 1024 - len(content))
+    result = client.post(path + "/images", content=content, headers={"X-Filename": "contents.png"})
     assert result.status_code == 201, result.text
     image_id = result.json()["data"]["id"]
     assert client.get(path.removesuffix("/curriculum") + "/uploads").json()["data"] == []

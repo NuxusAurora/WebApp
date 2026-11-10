@@ -119,7 +119,7 @@ async def upload_image(course_id: UUID, request: Request, db: DB, actor: Actor):
         raise AppError("FILE_TYPE", "图片文件名无效")
     content = await request.body()
     if len(content) > MAX_IMAGE:
-        raise AppError("FILE_SIZE", "图片不能超过 5 MiB", 413)
+        raise AppError("FILE_SIZE", "图片不能超过 50 MiB", 413)
     normalized = await run_in_threadpool(normalize_image, content)
     key = f"{actor.id}/{course_id}/{uuid4()}.png"
     row = Upload(

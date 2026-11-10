@@ -21,6 +21,7 @@ from app.curriculum.ocr import LocalOCR
 from app.curriculum.routes import router as curriculum_router
 from app.database import Resources
 from app.errors import AppError
+from app.image_limits import MAX_IMAGE_BYTES
 from app.knowledge.routes import router as knowledge_router
 from app.mail import Mailer
 from app.storage import ObjectStore
@@ -135,7 +136,7 @@ def create_app(
                 if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
                     path = request.url.path
                     limit = (
-                        5 * 1024 * 1024
+                        MAX_IMAGE_BYTES
                         if path.endswith("/curriculum/images")
                         else 512 * 1024
                         if "/curriculum" in path or "/knowledge-points" in path

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
+import { MAX_IMAGE_BYTES } from '../lib/image-limits';
 import { CurriculumOutline } from './curriculum-outline';
 import { cleanTitles } from '../lib/curriculum-title';
 import { temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
@@ -85,7 +86,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
     provider.models.filter(model => model.enabled && model.capabilities?.vision).map(model => ({ ...model, provider }))).at(0);
   async function upload(file: File) {
     if (busy) return;
-    if (!file.size || file.size > 5 * 1024 * 1024) { setError('请选择 5 MiB 内的 PNG 或 JPEG 图片'); return; }
+    if (!file.size || file.size > MAX_IMAGE_BYTES) { setError('请选择 50 MiB 内的 PNG 或 JPEG 图片'); return; }
     if (!selectedModel) { setError('请先在模型设置中启用支持图片的模型。'); return; }
     if (dirty && !window.confirm('上传新图片将替换未保存的目录修改，继续？')) return;
     await run('上传中…', async signal => {

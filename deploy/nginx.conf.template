@@ -13,7 +13,7 @@ server {
     ssl_certificate /etc/letsencrypt/live/@CERT_NAME@/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/@CERT_NAME@/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
-    client_max_body_size 5m;
+    client_max_body_size 50m;
     access_log off;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy same-origin always;

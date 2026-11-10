@@ -40,8 +40,8 @@ describe('authenticated same-origin proxy', () => {
     const request = (body: Uint8Array) => new Request('http://localhost/api/v1/' + prefix + '/images', {
       method: 'POST', headers: { 'X-Requested-With': 'structured-learning', 'Content-Type': 'image/png' }, body: body as BodyInit,
     });
-    expect((await proxyBusiness(request(new Uint8Array(2 * 1024 * 1024)), (prefix + '/images').split('/'), upstream, environment)).status).toBe(200);
-    expect((await proxyBusiness(request(new Uint8Array(5 * 1024 * 1024 + 1)), (prefix + '/images').split('/'), upstream, environment)).status).toBe(413);
+    expect((await proxyBusiness(request(new Uint8Array(50 * 1024 * 1024)), (prefix + '/images').split('/'), upstream, environment)).status).toBe(200);
+    expect((await proxyBusiness(request(new Uint8Array(50 * 1024 * 1024 + 1)), (prefix + '/images').split('/'), upstream, environment)).status).toBe(413);
     expect(upstream).toHaveBeenCalledTimes(1);
     expect((await proxyBusiness(new Request('http://localhost'), (prefix + '/internal').split('/'), upstream, environment)).status).toBe(404);
   });

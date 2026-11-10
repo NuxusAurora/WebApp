@@ -1,3 +1,5 @@
+import { MAX_IMAGE_BYTES } from './image-limits';
+
 const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|ai\/(options|providers(?:\/[0-9a-f-]{36}(?:\/(key|models|discovery|activate))?)?|models\/[0-9a-f-]{36}(?:\/test)?|calls(?:\/stream)?)|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
 const curriculumAllowed = /^courses\/[0-9a-f-]{36}\/curriculum(?:\/(images|ocr|parse|drafts|confirm))?$/;
 const knowledgeAllowed = /^sections\/[0-9a-f-]{36}\/knowledge-points(?:\/(generate|drafts|confirm))?$/;
@@ -41,7 +43,7 @@ export async function proxyBusiness(request: Request, segments: string[], fetche
   try {
     let body: Uint8Array | undefined;
     if (mutation && request.body) {
-      const limit = path.endsWith('/curriculum/images') ? 5 * 1024 * 1024 : path.includes('/curriculum') || knowledgeAllowed.test(path) ? 512 * 1024 : path.endsWith('/uploads') ? 1024 * 1024 : 32768;
+      const limit = path.endsWith('/curriculum/images') ? MAX_IMAGE_BYTES : path.includes('/curriculum') || knowledgeAllowed.test(path) ? 512 * 1024 : path.endsWith('/uploads') ? 1024 * 1024 : 32768;
       const reader = request.body.getReader();
       const chunks: Uint8Array[] = []; let size = 0;
       try {

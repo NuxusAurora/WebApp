@@ -49,6 +49,15 @@ def test_image_json_schema_requires_every_field_and_explicit_unknown_pages():
     inspect(schema)
 
 
+def test_vision_accepts_fifty_mib_and_rejects_larger_images():
+    image_type = contracts.ImageInput
+    content = b"\xff\xd8\xff" + b"\0" * (50 * 1024 * 1024 - 3)
+    encoded = "data:image/jpeg;base64," + base64.b64encode(content).decode()
+    assert image_type(data_url=encoded).data_url.get_secret_value() == encoded
+    with pytest.raises(ValidationError):
+        image_type(data_url="data:image/jpeg;base64," + base64.b64encode(content + b"\0").decode())
+
+
 @pytest.mark.anyio
 async def test_adapter_sends_images_with_high_detail_and_keeps_text_calls_unchanged():
     image_type = getattr(contracts, "ImageInput", None)

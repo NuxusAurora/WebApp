@@ -5,6 +5,8 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
+from app.image_limits import MAX_IMAGE_BYTES
+
 
 class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
@@ -24,7 +26,7 @@ class Message(Contract):
 
 
 class ImageInput(Contract):
-    data_url: SecretStr = Field(max_length=7_000_000, repr=False)
+    data_url: SecretStr = Field(max_length=4 * ((MAX_IMAGE_BYTES + 2) // 3) + 23, repr=False)
 
     @field_validator("data_url")
     @classmethod
@@ -37,7 +39,7 @@ class ImageInput(Contract):
         except binascii.Error, ValueError:
             raise ValueError("Invalid image encoding") from None
         signature = b"\x89PNG\r\n\x1a\n" if header == "data:image/png;base64" else b"\xff\xd8\xff"
-        if not content.startswith(signature) or len(content) > 5 * 1024 * 1024:
+        if not content.startswith(signature) or len(content) > MAX_IMAGE_BYTES:
             raise ValueError("Invalid or oversized image")
         return value
 
