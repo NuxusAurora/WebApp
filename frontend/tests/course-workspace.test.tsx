@@ -95,7 +95,12 @@ describe('subject course groups', () => {
     const breadcrumbs = vi.fn();
     render(<CourseSpace onBreadcrumbChange={breadcrumbs} />);
     await expandSubject();
-    fireEvent.click(screen.getByRole('button', { name: '进入线性代数' }));
+    const title = screen.getByRole('button', { name: '进入线性代数' });
+    expect(title).toHaveTextContent(/^线性代数$/);
+    expect(screen.queryByText('进入', { exact: true })).not.toBeInTheDocument();
+    expect(document.querySelector('.subject-toggle svg:not(:last-child), .subject-courses svg')).toBeNull();
+    fireEvent.click(title);
+    expect(screen.getByRole('heading', { name: '线性代数' })).toBeInTheDocument();
     const items = breadcrumbs.mock.lastCall![0];
     act(() => items[0].onSelect());
     expect(screen.getByRole('button', { name: '数学 2 门' })).toHaveAttribute('aria-expanded', 'true');

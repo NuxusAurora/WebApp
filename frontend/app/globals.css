@@ -664,9 +664,8 @@ html, body { height: 100%; overflow: hidden; }
 .subject-courses { list-style: none; margin: 0 20px 16px 30px; padding: 0 0 0 16px; border-left: 1px solid var(--line-soft); }
 .subject-courses > li + li { border-top: 1px solid var(--line-soft); }
 .course-library .subject-courses .course-row { min-height: 76px; padding: 14px 12px; gap: 12px; }
-.course-library .subject-courses .course-symbol { width: 28px; background: transparent; }
-.course-library .course-enter { flex-shrink: 0; background: #256b45; border-color: #256b45; color: #ffffff; min-width: 90px; }
-.course-library .course-enter:hover:enabled { background: #1c5335; border-color: #1c5335; }
+.course-library .course-title-button { display: block; max-width: 100%; min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: var(--ink); text-align: left; overflow-wrap: anywhere; }
+.course-library .course-title-button:hover:enabled { text-decoration: underline; text-underline-offset: 4px; }
 .course-library .detail-region { flex: 1; }
 .account-page:has(.archived-courses) { overflow: auto; overscroll-behavior: contain; }
 .account-page:has(.archived-courses) .account-overview { overflow: visible; flex-shrink: 0; }
@@ -683,8 +682,6 @@ html, body { height: 100%; overflow: hidden; }
   .course-library .subject-toggle { padding-inline: 16px; }
   .subject-courses { margin-right: 8px; margin-left: 26px; padding-left: 8px; }
   .course-library .subject-courses .course-row { gap: 8px; padding-inline: 4px; }
-  .course-library .subject-courses .course-symbol { display: none; }
-  .course-library .course-enter { min-width: 68px; padding-inline: 10px; }
 }
 
 .ai-capability-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; }

@@ -228,17 +228,16 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
               return <li key={subject} className="subject-group">
                 <button type="button" className="subject-toggle" aria-label={subject + ' ' + group.length + ' 门'} aria-expanded={expanded} aria-controls={groupId}
                   onClick={() => setExpandedSubjects(previous => new Map(previous).set(subject, !expanded))}>
-                  <Icon name="folder" size={20} /><span className="subject-name">{subject}</span>
+                  <span className="subject-name">{subject}</span>
                   <span className="subject-count">{group.length} 门</span><Icon name="chevron" size={16} />
                 </button>
                 <ul id={groupId} className="subject-courses" aria-label={subject + '课程'} hidden={!expanded}>
                 {group.map(course => <li key={course.id}>
               <div className="course-row">
-                <span className="course-symbol"><Icon name="book" size={22} /></span>
-                <span className="course-description"><strong>{course.title}</strong>
+                <span className="course-description"><strong>
+                  <button id={'enter-' + course.id} type="button" className="course-title-button" disabled={busy}
+                    aria-label={'进入' + course.title} onClick={() => openCourse(course)}>{course.title}</button></strong>
                   {course.textbook ? <span>{course.textbook}</span> : null}</span>
-                <button id={'enter-' + course.id} className="button course-enter" disabled={busy}
-                  aria-label={'进入' + course.title} onClick={() => openCourse(course)}>进入<Icon name="arrow" size={16} /></button>
               </div>
                 </li>)}</ul>
               </li>;
