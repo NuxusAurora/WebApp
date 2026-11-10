@@ -298,6 +298,7 @@ def test_configuration_isolation_key_rotation_deletion_and_business_unchanged(ac
     client.post("/api/v1/auth/logout")
     authenticate(client, app, "two@example.com")
     assert client.get("/api/v1/ai/providers").json()["data"] == []
+
     assert (
         client.patch(f"/api/v1/ai/providers/{provider['id']}", json={"enabled": False}).status_code
         == 404
@@ -315,6 +316,58 @@ def test_configuration_isolation_key_rotation_deletion_and_business_unchanged(ac
     assert not client.get("/api/v1/ai/providers").json()["data"][0]["has_api_key"]
     assert client.delete(f"/api/v1/ai/providers/{provider['id']}").status_code == 200
     assert client.get("/api/v1/ai/providers").json()["data"] == []
+
+
+def test_single_configuration_limit_including_disabled_and_replacement(account_app):
+    app, client = account_app
+    provider, model = setup_api(app, client)
+    response = client.post(
+        "/api/v1/ai/providers", json={"provider_name": "second", "base_url": ENDPOINT}
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "AI_PROVIDER_EXISTS"
+    client.patch(f"/api/v1/ai/providers/{provider['id']}", json={"enabled": False})
+    assert (
+        client.post(
+            "/api/v1/ai/providers", json={"provider_name": "second", "base_url": ENDPOINT}
+        ).status_code
+        == 409
+    )
+    response = client.post(
+        f"/api/v1/ai/providers/{provider['id']}/models", json={"model_name": "second"}
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "AI_MODEL_EXISTS"
+    assert (
+        client.put(
+            f"/api/v1/ai/models/{model['id']}", json={"model_name": "replacement", "enabled": False}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            f"/api/v1/ai/providers/{provider['id']}/models", json={"model_name": "second"}
+        ).status_code
+        == 409
+    )
+    values = client.get("/api/v1/ai/providers").json()["data"]
+    assert len(values) == len(values[0]["models"]) == 1
+    assert values[0]["models"][0]["id"] == model["id"]
+    assert client.delete(f"/api/v1/ai/models/{model['id']}").status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/ai/providers/{provider['id']}/models", json={"model_name": "new"}
+        ).status_code
+        == 201
+    )
+    client.post("/api/v1/auth/logout")
+    authenticate(client, app, "another@example.com")
+    assert (
+        client.post(
+            "/api/v1/ai/providers", json={"provider_name": "other account", "base_url": ENDPOINT}
+        ).status_code
+        == 201
+    )
 
 
 def test_api_calls_probes_and_audit_are_sanitized(account_app):

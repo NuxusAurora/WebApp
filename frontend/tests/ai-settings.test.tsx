@@ -29,47 +29,26 @@ beforeEach(() => sidebarDOM());
 afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('local model settings', () => {
-  it('stores only the default connection ID per account and restores it on return', async () => {
-    const fetcher = vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider]));
+  it('edits the only connection automatically without a selector or browser default', async () => {
+    const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : init?.method === 'PATCH' ? success(provider) : success([provider]));
     vi.stubGlobal('fetch', fetcher);
-    const view = render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('连接名称');
-    expect(screen.getByLabelText('接口地址')).toHaveValue('https://api.nuxusaurora.com/v1');
-    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
-    fireEvent.click(screen.getByRole('button', { name: '设为默认连接' }));
-    expect(localStorage.getItem('learning.default-provider:account-one')).toBe(provider.id);
-    expect(screen.getByRole('button', { name: '当前默认连接' })).toBeDisabled();
-    view.unmount();
-    render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByRole('button', { name: '当前默认连接' });
-    expect(screen.getByLabelText('本地连接')).toHaveValue(provider.id);
+    render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    expect(await screen.findByLabelText('连接名称')).toHaveValue(provider.provider_name);
+    expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /默认连接/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
+    await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    expect(localStorage.getItem('learning.default-provider:')).toBeNull();
   });
 
-  it('does not reuse another account default or a disabled connection', async () => {
-    localStorage.setItem('learning.default-provider:account-one', provider.id);
-    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider])));
-    const view = render(<AISettings userId="account-two" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('连接名称');
-    expect(screen.getByLabelText('本地连接')).toHaveValue('');
-    view.unmount();
-    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([{ ...provider, enabled: false }])));
-    render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('连接名称');
-    expect(screen.getByLabelText('本地连接')).toHaveValue('');
+  it('does not silently choose one of multiple legacy connections', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider, { ...provider, id: 'other' }])));
+    render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('存在多条旧配置');
+    expect(screen.queryByLabelText('连接名称')).not.toBeInTheDocument();
   });
 
-  it('reports a preference storage failure without changing the connection', async () => {
-    const fetcher = vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider]));
-    vi.stubGlobal('fetch', fetcher);
-    render(<AISettings userId="account-one" onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('连接名称');
-    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('unavailable'); });
-    fireEvent.click(screen.getByRole('button', { name: '设为默认连接' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('无法保存默认连接');
-    expect(screen.getByRole('button', { name: '设为默认连接' })).toBeEnabled();
-    expect(fetcher.mock.calls.every(([, init]: [string, RequestInit?]) => !init?.method)).toBe(true);
-  });
   it('clears saved credentials and never receives a key from configuration reads', async () => {
     let saved = false;
     const fetcher = vi.fn((url: string, init?: RequestInit) => {
@@ -121,11 +100,11 @@ describe('local model settings', () => {
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     await screen.findByLabelText('连接名称');
-    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: model.model_name } });
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
-    await waitFor(() => expect(screen.getByLabelText('选择模型')).toHaveValue(model.id));
+    await waitFor(() => expect(screen.getByRole('button', { name: '测试普通回复' })).toBeEnabled());
+    expect(screen.queryByLabelText('选择模型')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '测试普通回复' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
@@ -151,7 +130,6 @@ describe('provider model discovery', () => {
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     await screen.findByLabelText('连接名称');
-    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: provider.id } });
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     await screen.findByLabelText('服务模型');
   }
@@ -200,7 +178,7 @@ describe('provider model discovery', () => {
     await openModels(fetcher);
     await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
     fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'same-model' } });
-    expect(screen.getByLabelText('选择模型')).toHaveValue(model.id);
+    expect(screen.getByLabelText('模型名称')).toHaveValue(model.model_name);
     expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(16384);
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
@@ -239,6 +217,24 @@ describe('provider model discovery', () => {
     expect(window.confirm).toHaveBeenCalledOnce();
     expect(screen.getByLabelText('模型名称')).toHaveValue('my-draft');
   });
+  it('replaces the sole saved model with a discovered model using PUT', async () => {
+    const model = { id: 'saved-model', provider_id: provider.id, model_name: 'old-model', enabled: true, capabilities: caps, tested_capabilities: {} };
+    let stored = model;
+    const fetcher = vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
+      if (url.endsWith('/discovery')) return success([{ model_name: 'replacement', capabilities: {} }]);
+      if (init?.method === 'PUT') { stored = { ...model, ...JSON.parse(String(init.body)) }; return success(stored); }
+      return success([{ ...provider, models: [stored] }]);
+    });
+    await openModels(fetcher);
+    await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'replacement' } });
+    expect(screen.getByLabelText('模型名称')).toHaveValue('replacement');
+    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    await waitFor(() => expect(fetcher.mock.calls.some(([url, init]) => url.endsWith('/models/saved-model') && init?.method === 'PUT')).toBe(true));
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
 });
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';

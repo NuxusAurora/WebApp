@@ -7,6 +7,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field, SecretStr
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.ai.contracts import AIError, Call, Capabilities, Message, RetryPolicy
 from app.ai.credentials import KeyVault, validate_endpoint
@@ -110,6 +111,8 @@ async def providers(db: DB, actor: Actor):
 @router.post("/providers", status_code=201)
 async def add_provider(body: ProviderInput, request: Request, db: DB, actor: Actor):
     endpoint = validate_endpoint(body.base_url, request.app.state.settings.ai_allowed_origins)
+    if await db.scalar(select(AIProvider.id).where(AIProvider.user_id == actor.id)):
+        raise AppError("AI_PROVIDER_EXISTS", "只能保存一个连接，请修改现有连接", 409)
     provider = AIProvider(
         user_id=actor.id,
         provider_name=body.provider_name.strip(),
@@ -123,7 +126,11 @@ async def add_provider(body: ProviderInput, request: Request, db: DB, actor: Act
         ),
     )
     db.add(provider)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise AppError("AI_PROVIDER_EXISTS", "只能保存一个连接，请修改现有连接", 409) from None
     return ok(public_provider(provider))
 
 
@@ -180,6 +187,8 @@ async def remove_provider(provider_id: UUID, db: DB, actor: Actor):
 @router.post("/providers/{provider_id}/models", status_code=201)
 async def add_model(provider_id: UUID, body: ModelInput, db: DB, actor: Actor):
     await owned_provider(db, actor.id, provider_id, lock=True)
+    if await db.scalar(select(AIModel.id).where(AIModel.provider_id == provider_id)):
+        raise AppError("AI_MODEL_EXISTS", "只能保存一个模型，请修改现有模型", 409)
     if not body.capabilities_confirmed and body.capabilities != Capabilities():
         raise AppError("AI_CONFIRM_CAPABILITIES", "请确认模型能力，或使用未知能力默认值")
     model = AIModel(
@@ -191,7 +200,11 @@ async def add_model(provider_id: UUID, body: ModelInput, db: DB, actor: Actor):
         enabled=body.enabled,
     )
     db.add(model)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise AppError("AI_MODEL_EXISTS", "只能保存一个模型，请修改现有模型", 409) from None
     return ok(public_model(model))
 
 

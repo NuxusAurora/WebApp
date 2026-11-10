@@ -103,7 +103,7 @@ export function Workspace({ testLoginEnabled = false, accountNotice = '', system
       <main id="main-content" className="workspace-main">
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
         {view === 'system' ? <div className="status-page"><div className="page-heading"><div><h1>连接状态</h1>
-          <p>查看工作台与基础服务的连接情况。</p></div></div><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} userId={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
+          <p>查看工作台与基础服务的连接情况。</p></div></div><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired} onBreadcrumbChange={setCourseCrumbs} />)}
       </main>

@@ -15,17 +15,13 @@ const defaults: Capabilities = { vision: false, streaming: false, structured_out
 const states: Record<string, string> = { SUCCEEDED: '成功', FAILED: '失败', CANCELLED: '已取消', RUNNING: '进行中' };
 const defaultApiBase = 'https://api.nuxusaurora.com/v1';
 
-export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab = 'connection', onTabChange, onBusyChange }: {
+export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection', onTabChange, onBusyChange }: {
   onDirtyChange: (dirty: boolean) => void; onSessionExpired: () => void;
-  userId?: string;
   tab?: 'connection' | 'models' | 'logs'; onTabChange?: (tab: 'connection') => void; onBusyChange?: (busy: boolean) => void;
 }) {
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [selected, setSelected] = useState('');
-  const [defaultProvider, setDefaultProvider] = useState('');
-  const selectionInitialized = useRef(false);
-  const defaultKey = 'learning.default-provider:' + userId;
   const [loading, setLoading] = useState(true);
+  const [configurationConflict, setConfigurationConflict] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -34,7 +30,7 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab =
   const controller = useRef<AbortController | null>(null);
   const active = useRef(true);
   const { notification, notify, dismiss } = useToast();
-  const provider = providers.find(item => item.id === selected);
+  const provider = providers[0];
   const markDirty = useCallback((value: boolean) => { setDirty(value); onDirtyChange(value); }, [onDirtyChange]);
 
   useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
@@ -59,12 +55,10 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab =
       api<{ allowed_origins: string[] }>('ai/options', { signal: abort.signal })])
       .then(([items, options]) => {
         if (!current) return;
-        setProviders(items); setOrigins(options.allowed_origins);
-        let stored = '';
-        try { stored = localStorage.getItem(defaultKey) ?? ''; } catch { /* Manual selection remains available. */ }
-        const preferred = items.find(item => item.id === stored && item.enabled);
-        setDefaultProvider(preferred?.id ?? '');
-        if (!selectionInitialized.current) { setSelected(preferred?.id ?? ''); selectionInitialized.current = true; }
+        if (items.length > 1 || items.some(item => item.models.length > 1)) {
+          setConfigurationConflict(true); throw new Error('存在多条旧配置，请先整理为一个连接和模型。');
+        }
+        setConfigurationConflict(false); setProviders(items); setOrigins(options.allowed_origins);
       })
       .catch(reason => { if (current) handleError(reason); })
       .finally(() => { if (current) setLoading(false); });
@@ -78,14 +72,6 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab =
     else setError(reason instanceof Error ? reason.message : '操作失败，请重试');
   }
   function leave() { return !dirty || window.confirm('模型配置尚未保存。放弃修改？'); }
-  function choose(value: string) { if (busy || !leave()) return; markDirty(false); setSelected(value); setError(''); }
-  function makeDefault() {
-    if (!provider?.enabled || busy || dirty) return;
-    try {
-      localStorage.setItem(defaultKey, provider.id);
-      setDefaultProvider(provider.id); setError(''); notify('默认连接已设置');
-    } catch { setError('无法保存默认连接，请检查浏览器存储权限。'); }
-  }
   async function run<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {
     if (busy) return;
     const abort = new AbortController(); controller.current = abort;
@@ -102,21 +88,15 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab =
   return <section className="ai-page" aria-labelledby="ai-title">
     <div className="page-heading"><h1 id="ai-title">模型设置</h1></div>
     <Toast notification={notification} onDismiss={dismiss} />
-    <div className="ai-toolbar form-stack">
-      <label>本地连接<select aria-label="本地连接" value={selected} disabled={busy || loading} onChange={event => choose(event.target.value)}>
-        <option value="">新建连接</option>{providers.map(item => <option key={item.id} value={item.id}>{item.provider_name}{item.id === defaultProvider ? '（默认）' : ''}{item.enabled ? '' : '（已停用）'}</option>)}
-      </select></label>
-    </div>
     {error ? <p className="notice error" role="alert">{error}<button className="text-button" disabled={busy} onClick={() => { if (leave()) { markDirty(false); setRevision(value => value + 1); } }}>重新读取</button></p> : null}
-    {loading ? <p role="status">正在读取模型配置…</p> : tab === 'logs' ? <CallHistory key={revision} onError={handleError} /> :
-      tab === 'connection' ? <ConnectionForm key={selected + ':' + revision} provider={provider} origins={origins} busy={busy}
-        isDefault={provider?.id === defaultProvider} canMakeDefault={!dirty} onMakeDefault={makeDefault}
+    {loading ? <p role="status">正在读取模型配置…</p> : tab === 'logs' ? <CallHistory key={revision} onError={handleError} /> : configurationConflict ? null :
+      tab === 'connection' ? <ConnectionForm key={(provider?.id ?? '') + ':' + revision} provider={provider} origins={origins} busy={busy}
         onDirty={markDirty} onSave={(data) => run(async signal => {
-          const saved = await api<Provider>(provider ? `ai/providers/${provider.id}` : 'ai/providers', {
+          await api<Provider>(provider ? `ai/providers/${provider.id}` : 'ai/providers', {
             method: provider ? 'PATCH' : 'POST', body: JSON.stringify(data), signal,
           });
           if (!active.current) return;
-          markDirty(false); setSelected(saved.id); setRevision(value => value + 1); notify('连接已保存');
+          markDirty(false); setRevision(value => value + 1); notify('连接已保存');
         })} onDeleteKey={() => run(async signal => {
           if (!provider || !window.confirm('删除已存密钥？后续请求将不携带密钥。')) return;
           await api(`ai/providers/${provider.id}/key`, { method: 'DELETE', signal });
@@ -126,7 +106,7 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab =
           if (!provider || !window.confirm(`删除连接“${provider.provider_name}”及其模型？调用记录仍会保留。`)) return;
           await api(`ai/providers/${provider.id}`, { method: 'DELETE', signal });
           if (!active.current) return;
-          markDirty(false); setSelected(''); setRevision(value => value + 1); notify('连接已删除');
+          markDirty(false); setRevision(value => value + 1); notify('连接已删除');
         })} /> : !provider ? <div className="ai-content ai-empty"><h2>先保存一个本地连接</h2><p className="muted">随后添加模型并测试连接。</p>
           <button className="button" onClick={() => onTabChange?.('connection')}>填写连接</button></div> :
         <ModelForm key={provider.id} provider={provider} busy={busy} onDirty={markDirty} onSessionExpired={onSessionExpired}
@@ -150,10 +130,9 @@ export function AISettings({ onDirtyChange, onSessionExpired, userId = '', tab =
   </section>;
 }
 
-function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey, onDelete, isDefault, canMakeDefault, onMakeDefault }: {
+function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey, onDelete }: {
   provider?: Provider; origins: string[]; busy: boolean; onDirty: (value: boolean) => void;
   onSave: (data: object) => Promise<void>; onDeleteKey: () => Promise<void>; onDelete: () => Promise<void>;
-  isDefault: boolean; canMakeDefault: boolean; onMakeDefault: () => void;
 }) {
   const form = useRef<HTMLFormElement>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -176,12 +155,9 @@ function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey,
       <p className="field-hint">{provider?.has_api_key ? '密钥已保存。更换接口地址时需重新输入，或先删除密钥。' : '未保存密钥，仅适用于无需验证的本地服务。'}</p>
       <label className="ai-check"><input name="enabled" type="checkbox" defaultChecked={provider?.enabled ?? true} disabled={busy} />启用连接</label>
       {provider ? <div className="ai-secondary-actions">
-        <button type="button" className="button" disabled={busy || !provider.enabled || !canMakeDefault || isDefault} onClick={onMakeDefault}>
-          {isDefault ? '当前默认连接' : '设为默认连接'}</button>
         <button type="button" className="button" disabled={busy || !provider.has_api_key} onClick={onDeleteKey}>删除密钥</button>
         <button type="button" className="text-button danger-text" disabled={busy} onClick={onDelete}>删除连接</button>
       </div> : null}
-      {provider ? <p className="field-hint">默认连接仅在此浏览器生效。</p> : null}
     </div>
     <div className="ai-actions"><button className="button primary" disabled={busy}>{busy ? '处理中…' : '保存连接'}</button></div>
   </form>;
@@ -193,7 +169,6 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
   onDelete: (model: Model) => Promise<void>; onTest: (model: Model, kind: string) => Promise<void>;
   onSessionExpired: () => void;
 }) {
-  const [selected, setSelected] = useState('');
   const [dirty, setDirty] = useState(false);
   const [catalog, setCatalog] = useState<DiscoveredModel[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -203,7 +178,7 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
   const [draft, setDraft] = useState({ model_name: '', capabilities: { ...defaults } });
   const expired = useRef(onSessionExpired);
   expired.current = onSessionExpired;
-  const model = provider.models.find(item => item.id === selected);
+  const model = provider.models[0];
   useEffect(() => {
     if (catalogSelection) return;
     setDraft({ model_name: model?.model_name ?? '', capabilities: { ...defaults, ...model?.capabilities } });
@@ -223,16 +198,10 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
       .finally(() => { if (current) setCatalogLoading(false); });
     return () => { current = false; abort.abort(); };
   }, [provider.id, provider.enabled, catalogRevision]);
-  useEffect(() => { if (selected && !model) setSelected(''); }, [model, selected]);
-  function select(value: string) {
-    if (dirty && !window.confirm('模型修改尚未保存。放弃修改？')) return;
-    setDirty(false); onDirty(false); setSelected(value); setCatalogSelection('');
-  }
   function applyDiscovered(name: string) {
     const item = catalog.find(item => item.model_name === name);
     if (!item || dirty && !window.confirm('替换当前模型填写内容？未保存的修改将被覆盖。')) return;
-    const existing = provider.models.find(model => model.model_name === name);
-    setSelected(existing?.id ?? '');
+    const existing = model?.model_name === name ? model : undefined;
     setCatalogSelection(name);
     setDraft({ model_name: name, capabilities: { ...defaults, ...existing?.capabilities, ...item.capabilities } });
     setDirty(true); onDirty(true);
@@ -243,18 +212,15 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
     const saved = await onSave(model, { model_name: values.get('model_name'), enabled: values.get('enabled') === 'on',
       capabilities: { ...draft.capabilities, vision: values.get('vision') === 'on', streaming: values.get('streaming') === 'on', structured_output: values.get('structured_output') === 'on',
         max_context_tokens: Number(values.get('context')) }, capabilities_confirmed: true });
-    if (saved) { setSelected(saved.id); setCatalogSelection(''); setDirty(false); }
+    if (saved) { setCatalogSelection(''); setDirty(false); }
   }
   useEffect(() => { setDirty(false); }, [provider]);
-  return <form key={selected + JSON.stringify(model)} className="ai-content" onSubmit={submit} onChange={event => {
-    if (['选择模型', '服务模型'].includes((event.target as HTMLElement).getAttribute('aria-label') ?? '')) return;
+  return <form key={JSON.stringify(model)} className="ai-content" onSubmit={submit} onChange={event => {
+    if (['服务模型'].includes((event.target as HTMLElement).getAttribute('aria-label') ?? '')) return;
     setDirty(true); onDirty(true);
   }}>
     <div className="ai-fields form-stack">
-      <div><h2>模型与能力</h2><p className="muted">从服务读取模型信息，选择后自动填入。</p></div>
-      <label>选择模型<select aria-label="选择模型" value={selected} onChange={event => select(event.target.value)} disabled={busy}>
-        <option value="">添加模型</option>{provider.models.map(item => <option key={item.id} value={item.id}>{item.model_name}</option>)}
-      </select></label>
+      <div><h2>模型与能力</h2><p className="muted">仅保存一个模型，可从服务列表选择替换。</p></div>
       <label>服务模型<select aria-label="服务模型" value={catalogSelection} disabled={busy || catalogLoading || Boolean(catalogError) || !catalog.length}
         onChange={event => applyDiscovered(event.target.value)}>
         <option value="">{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>

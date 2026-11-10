@@ -268,3 +268,7 @@ API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_re
 左侧模型设置 → 连接与密钥 / 模型与测试 / 调用记录。入口分别为 `/?view=ai`、`/?view=ai&tab=models`、`/?view=ai&tab=logs`，旧模型设置链接仍打开连接页。导航类型/URL在 `frontend/lib/workspace-navigation.ts`，层级在 `frontend/components/app-sidebar.tsx` 及 `sidebar.css`；`Workspace` 连接受控分类和未保存/忙状态保护，`AISettings` 管理表单和请求。前端 `npm run check`、`npm test`、`npm run build`；实际界面验收与限制见HANDOFF最新节。
 
 模型设置父项整行（文字/箭头/留白）用于展开或收起二级菜单，支持Enter/Space；它不切换页面。点击三个子项才导航，未保存保护继续生效。
+
+## 单模型配置（2026-11-09）
+
+模型设置不再选择本地连接或已保存模型：每账户一个连接，连接下一个模型。服务列表选择后保存会修改唯一模型。创建第二条返回409；禁用仍占用名额，删除后可重新创建，历史调用记录保留。数据库迁移为 `0006_single_model`，应用前确认旧重复配置已由用户指定保留项并整理；迁移发现重复会停止，不自动删除。实现位于 `backend/app/ai/{models,routes}.py`、`backend/migrations/versions/0006_single_model.py` 与 `frontend/components/ai-settings.tsx`。常规后端ruff/pytest、前端check/test/build；迁移与真实并发结论见HANDOFF最新节。

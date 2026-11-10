@@ -68,16 +68,12 @@ describe('desktop course workspace', () => {
     expect(screen.getByLabelText('连接名称')).toHaveValue('保留输入');
     vi.mocked(window.confirm).mockReturnValue(true);
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
-    fireEvent.click(screen.getByRole('button', { name: '填写连接' }));
-    expect(location.search).toBe('?view=ai');
-    fireEvent.change(screen.getByLabelText('本地连接'), { target: { value: 'provider' } });
-    fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     await screen.findByLabelText('模型名称');
-    expect(screen.getByLabelText('本地连接')).toHaveValue('provider');
+    expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '模型与测试' })).toHaveAttribute('aria-current', 'page');
     history.replaceState({ workspaceIndex: 0 }, '', '/?view=ai');
     act(() => window.dispatchEvent(new PopStateEvent('popstate')));
-    expect(screen.getByLabelText('本地连接')).toHaveValue('provider');
+    expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
     expect(screen.getByLabelText('连接名称')).toHaveValue('导航连接');
   });
   it('keeps the model form mounted until an in-flight save settles', async () => {
