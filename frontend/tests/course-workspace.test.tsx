@@ -53,7 +53,7 @@ describe('desktop course workspace', () => {
     });
     history.replaceState({}, '', '/?view=ai');
     render(<Workspace />);
-    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
+    await screen.findByLabelText('接口地址');
     expect(screen.queryByRole('group', { name: '模型设置分类' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'http://localhost:11434/v1' } });
     fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
@@ -76,27 +76,25 @@ describe('desktop course workspace', () => {
     expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
     expect(screen.getByLabelText('接口地址')).toHaveValue('http://localhost:1234/v1');
   });
-  it('keeps the model form mounted until an in-flight save settles', async () => {
+  it('keeps the connection page mounted until an in-flight selection settles', async () => {
     const original = vi.mocked(api).getMockImplementation()!;
-    let finishSave!: (value: unknown) => void;
+    let stored: object[] = [];
+    let finish!: () => void;
     vi.mocked(api).mockImplementation(async (path, options) => {
-      if (path === 'ai/options') return { allowed_origins: [] };
-      if (path === 'ai/providers') return options?.method === 'POST' ? new Promise(resolve => { finishSave = resolve; }) : [];
+      if (path === 'ai/providers') return options?.method === 'POST' ? new Promise(resolve => { finish = () => { const custom = { id: 'saved', provider_kind: 'custom', provider_name: '自定义连接', base_url: '', enabled: true, has_api_key: false, models: [] }; stored = [custom]; resolve(custom); }; }) : stored;
       return original(path, options);
     });
     history.replaceState({}, '', '/?view=ai');
     render(<Workspace />);
-    fireEvent.click(await screen.findByRole('button', { name: '自定义连接' }));
-    fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'http://localhost:1234/v1' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
+    fireEvent.click(await screen.findByRole('button', { name: '选择自定义连接' }));
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(location.search).toBe('?view=ai');
-    expect(screen.getByLabelText('接口地址')).toHaveValue('http://localhost:1234/v1');
     expect(window.confirm).not.toHaveBeenCalled();
-    await act(async () => { finishSave({ id: 'saved' }); });
-    await waitFor(() => expect(screen.getByRole('button', { name: '保存连接' })).toBeEnabled());
+    await act(async () => { finish(); });
+    await screen.findByRole('button', { name: '自定义连接已启用' });
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(location.search).toBe('?view=ai&tab=models');
+    expect(screen.getByRole('heading', { name: '先填写自定义连接' })).toBeInTheDocument();
   });
   it('navigates each course breadcrumb level and protects unsaved changes', async () => {
     await ready();

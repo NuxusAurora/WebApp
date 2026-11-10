@@ -103,3 +103,101 @@ def test_slot_type_validation_and_edit_collision_roll_back(account_app):
         == 200
     )
     assert len(client.get("/api/v1/ai/providers").json()["data"]) == 2
+
+
+def test_explicit_custom_selection_can_wait_for_configuration_without_network(account_app):
+    app, client = account_app
+    authenticate(client, app)
+    default = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "默认", "base_url": DEFAULT_URL, "api_key": "default-key"},
+    ).json()["data"]
+    response = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "自定义连接", "provider_kind": "custom", "base_url": ""},
+    )
+    assert response.status_code == 201
+    draft = response.json()["data"]
+    assert draft["enabled"] and draft["base_url"] == "" and not draft["has_api_key"]
+    providers = client.get("/api/v1/ai/providers").json()["data"]
+    assert [p["id"] for p in providers if p["enabled"]] == [draft["id"]]
+    assert (
+        client.get(f"/api/v1/ai/providers/{draft['id']}/discovery").json()["error"]["code"]
+        == "AI_CONFIG_INCOMPLETE"
+    )
+    assert (
+        client.post(
+            f"/api/v1/ai/providers/{draft['id']}/models", json={"model_name": "pending"}
+        ).json()["error"]["code"]
+        == "AI_CONFIG_INCOMPLETE"
+    )
+    assert client.get("/api/v1/ai/calls").json()["data"] == []
+    assert (
+        client.patch(
+            f"/api/v1/ai/providers/{draft['id']}", json={"base_url": "not-a-url"}
+        ).status_code
+        == 400
+    )
+    configured = client.patch(
+        f"/api/v1/ai/providers/{draft['id']}",
+        json={"base_url": "https://custom.example/v1", "api_key": "custom-key"},
+    )
+    assert configured.status_code == 200 and configured.json()["data"]["id"] == draft["id"]
+    before = client.get("/api/v1/ai/providers").json()["data"]
+    for selected in [default, draft]:
+        assert client.post(f"/api/v1/ai/providers/{selected['id']}/activate").status_code == 200
+    after = client.get("/api/v1/ai/providers").json()["data"]
+    assert [{k: v for k, v in p.items() if k != "enabled"} for p in before] == [
+        {k: v for k, v in p.items() if k != "enabled"} for p in after
+    ]
+
+
+def test_empty_endpoint_requires_explicit_custom_slot(account_app):
+    app, client = account_app
+    authenticate(client, app)
+    for extra in [{}, {"provider_kind": "default"}]:
+        assert (
+            client.post(
+                "/api/v1/ai/providers", json={"provider_name": "bad", "base_url": "", **extra}
+            ).status_code
+            == 400
+        )
+    assert client.get("/api/v1/ai/providers").json()["data"] == []
+
+
+def test_legacy_model_on_unconfigured_custom_slot_is_rejected_before_audit(account_app):
+    from uuid import uuid4
+
+    from app.ai.models import AIModel
+
+    app, client = account_app
+    authenticate(client, app)
+    draft = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "自定义", "provider_kind": "custom", "base_url": ""},
+    ).json()["data"]
+    model_id = uuid4()
+
+    async def legacy():
+        from uuid import UUID
+
+        async with app.state.resources.session() as db:
+            db.add(
+                AIModel(
+                    id=model_id,
+                    provider_id=UUID(draft["id"]),
+                    model_name="legacy",
+                    capabilities={},
+                    capability_source="unknown",
+                    tested_capabilities={},
+                    enabled=True,
+                )
+            )
+            await db.commit()
+
+    asyncio.run(legacy())
+    response = client.post(f"/api/v1/ai/models/{model_id}/test", json={})
+    assert (
+        response.status_code == 400 and response.json()["error"]["code"] == "AI_CONFIG_INCOMPLETE"
+    )
+    assert client.get("/api/v1/ai/calls").json()["data"] == []

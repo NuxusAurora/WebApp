@@ -35,7 +35,7 @@ class ProviderInput(Input):
     provider_kind: Literal["default", "custom"] | None = None
     provider_name: str = Field(min_length=1, max_length=80, pattern=r"\S")
     protocol: Literal["openai"] = "openai"
-    base_url: str = Field(min_length=1, max_length=500)
+    base_url: str = Field(max_length=500)
     api_key: SecretStr = Field(default=SecretStr(""), max_length=4096)
     enabled: bool = True
 
@@ -115,7 +115,12 @@ async def providers(db: DB, actor: Actor):
 
 @router.post("/providers", status_code=201)
 async def add_provider(body: ProviderInput, request: Request, db: DB, actor: Actor):
-    endpoint = validate_endpoint(body.base_url, request.app.state.settings.ai_allowed_origins)
+    # Only an explicitly selected custom slot may await its endpoint configuration.
+    endpoint = (
+        ""
+        if body.provider_kind == "custom" and body.base_url == ""
+        else validate_endpoint(body.base_url, request.app.state.settings.ai_allowed_origins)
+    )
     kind = "default" if required_model_name(endpoint) else "custom"
     if body.provider_kind and body.provider_kind != kind:
         raise AppError("AI_PROVIDER_KIND", "连接类型与接口地址不符")
@@ -230,6 +235,8 @@ async def remove_provider(provider_id: UUID, db: DB, actor: Actor):
 @router.post("/providers/{provider_id}/models", status_code=201)
 async def add_model(provider_id: UUID, body: ModelInput, db: DB, actor: Actor):
     provider = await owned_provider(db, actor.id, provider_id, lock=True)
+    if not provider.base_url:
+        raise AppError("AI_CONFIG_INCOMPLETE", "请先填写并保存自定义连接地址")
     validate_model_name(provider.base_url, body.model_name)
     if await db.scalar(select(AIModel.id).where(AIModel.provider_id == provider_id)):
         raise AppError("AI_MODEL_EXISTS", "只能保存一个模型，请修改现有模型", 409)

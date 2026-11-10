@@ -88,6 +88,8 @@ async def discover_models(request, db, actor_id, provider_id):
     provider = await owned_provider(db, actor_id, provider_id)
     if not provider.enabled:
         raise AppError("AI_CONFIG_DISABLED", "请先启用连接")
+    if not provider.base_url:
+        raise AppError("AI_CONFIG_INCOMPLETE", "请先填写并保存自定义连接地址")
     endpoint = validate_endpoint(provider.base_url, request.app.state.settings.ai_allowed_origins)
     required = required_model_name(endpoint)
     key = (
@@ -108,6 +110,8 @@ async def prepare(request, db, actor_id: UUID, provider_id: UUID, model_id: UUID
         raise AppError("NOT_FOUND", "模型配置不存在", 404)
     if not provider.enabled or not model.enabled:
         raise AppError("AI_CONFIG_DISABLED", "请先启用供应商和模型")
+    if not provider.base_url:
+        raise AppError("AI_CONFIG_INCOMPLETE", "请先填写并保存自定义连接地址")
     endpoint = validate_endpoint(provider.base_url, request.app.state.settings.ai_allowed_origins)
     validate_model_name(endpoint, model.model_name)
     key = (
