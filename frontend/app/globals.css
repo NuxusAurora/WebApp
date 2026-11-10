@@ -646,6 +646,9 @@ html, body { height: 100%; overflow: hidden; }
 .curriculum-uncertainties { margin-bottom: 20px; font-size: 12px; line-height: 1.7; }
 .curriculum-uncertainties li { padding: 4px 0; overflow-wrap: anywhere; }
 /* Course library: one list surface, then a separate full-width detail view. */
+.workspace-main.workspace-main-courses { max-width: none; margin: 0; padding: 0; background: var(--surface); }
+.workspace-main-courses .course-library > .course-index,
+.workspace-main-courses .course-library .detail-panel { border: 0; border-radius: 0; }
 .course-library > .course-index { flex: 1; width: 100%; }
 .course-library .library-toolbar { padding: 20px; margin: 0; gap: 16px; border-bottom: 1px solid var(--line-soft); }
 .course-library .search-field { width: min(360px, 100%); }
