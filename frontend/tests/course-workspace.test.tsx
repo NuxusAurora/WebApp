@@ -97,8 +97,7 @@ describe('subject course groups', () => {
     await expandSubject();
     const title = screen.getByRole('button', { name: '进入线性代数' });
     expect(title).toHaveTextContent(/^线性代数$/);
-    expect(title.closest('.course-row')).toHaveTextContent('理解极限');
-    expect(title.closest('.course-row')).not.toHaveTextContent('高等数学（上册）');
+    expect(title.closest('.course-row')).toHaveTextContent('高等数学（上册）');
     expect(screen.queryByText('进入', { exact: true })).not.toBeInTheDocument();
     expect(document.querySelector('.subject-toggle svg:not(:last-child), .subject-courses svg')).toBeNull();
     fireEvent.click(title);
@@ -188,7 +187,7 @@ describe('desktop course workspace', () => {
     fireEvent.click(await screen.findByRole('button', { name: '新建课程' }));
     fireEvent.change(screen.getByLabelText(/课程名称/), { target: { value: '数值分析' } });
     fireEvent.change(screen.getByLabelText('学科'), { target: { value: '数学' } });
-    fireEvent.change(screen.getByLabelText('教材'), { target: { value: '数值分析教材' } });
+    expect(screen.queryByLabelText('教材')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('学习目标'), { target: { value: '大师之境' } });
     vi.mocked(api).mockRejectedValueOnce(new Error('保存失败，请重试'));
     fireEvent.submit(screen.getByRole('button', { name: '保存课程' }).closest('form')!);
@@ -200,7 +199,7 @@ describe('desktop course workspace', () => {
     await screen.findByRole('heading', { name: '数值分析' });
     const writes = vi.mocked(api).mock.calls.filter(([path, init]) => path === 'courses' && init?.method === 'POST');
     expect(writes).toHaveLength(2);
-    expect(JSON.parse(writes[1][1]!.body as string)).toEqual({ title: '数值分析', subject: '数学', textbook: '数值分析教材', learning_goal: '大师之境' });
+    expect(JSON.parse(writes[1][1]!.body as string)).toEqual({ title: '数值分析', subject: '数学', textbook: '', learning_goal: '大师之境' });
   });
   it('keeps curriculum edits protected when the current tab is clicked again', async () => {
     vi.mocked(api).mockImplementation(async path => {

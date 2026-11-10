@@ -62,7 +62,7 @@ select option { background: var(--surface); color: var(--text-primary); }
 .course-editor .form-stack { display: grid; gap: var(--space-6); }
 .course-form-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
 .course-editor .editor-fields { display: grid; min-width: 0; overflow: visible; padding: 0; gap: var(--space-6); }
-.course-editor .field-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.course-editor .field-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
 .course-editor .editor-actions {
   display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); margin: 0;
   padding-top: var(--space-5); border-top: 1px solid var(--border);

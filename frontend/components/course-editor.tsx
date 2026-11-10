@@ -23,6 +23,7 @@ export function CourseEditor({ course, busy, onSave, onCancel, onDirty }: {
     event.preventDefault();
     if (busy) return;
     const fields = Object.fromEntries(new FormData(event.currentTarget));
+    if (!course) fields.textbook = '';
     if (legacyGoal && fields.learning_goal === '') delete fields.learning_goal;
     onSave(fields);
   }
@@ -44,17 +45,15 @@ export function CourseEditor({ course, busy, onSave, onCancel, onDirty }: {
       <div className="field-pair">
         <FormField id="course-subject" label="学科"><Input id="course-subject" name="subject" defaultValue={course?.subject} maxLength={200}
           placeholder="例如：数学" autoComplete="off" /></FormField>
-        <FormField id="course-textbook" label="教材"><Input id="course-textbook" name="textbook" defaultValue={course?.textbook} maxLength={300}
-          placeholder="教材名称" autoComplete="off" /></FormField>
+        <FormField id="learning-goal" label="学习目标"
+          description={goal ? learningGoalDescription(goal) : '选择新目标后，才会替换原有自定义目标。'}>
+          <Select id="learning-goal" name="learning_goal" value={goal} onChange={event => setGoal(event.target.value)}
+            aria-describedby="learning-goal-description">
+            {legacyGoal ? <option value="">保留原有目标</option> : null}
+            {learningGoals.map(option => <option key={option.id} value={option.label}>{option.label}</option>)}
+          </Select>
+        </FormField>
       </div>
-      <FormField id="learning-goal" label="学习目标"
-        description={goal ? learningGoalDescription(goal) : '选择新目标后，才会替换原有自定义目标。'}>
-        <Select id="learning-goal" name="learning_goal" value={goal} onChange={event => setGoal(event.target.value)}
-          aria-describedby="learning-goal-description">
-          {legacyGoal ? <option value="">保留原有目标</option> : null}
-          {learningGoals.map(option => <option key={option.id} value={option.label}>{option.label}</option>)}
-        </Select>
-      </FormField>
         {legacyGoal ? <details className="legacy-goal"><summary>原有自定义目标</summary><p>{course!.learning_goal}</p></details> : null}
       {course ? <FormField id="course-status" label="课程状态"><Select id="course-status" name="status" defaultValue={course.status}>
         <option value="active">学习中</option><option value="archived">已归档</option>
