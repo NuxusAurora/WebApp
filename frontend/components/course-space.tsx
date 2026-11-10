@@ -250,9 +250,9 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                   <button id={'enter-' + course.id} type="button" className="course-title-button" disabled={busy}
                     aria-label={'进入' + course.title} onClick={() => openCourse(course)}>{course.title}</button></strong>
                   {course.textbook ? <span>{course.textbook}</span> : null}</span>
-                <button id={'delete-' + course.id} type="button" className="text-button danger-quiet course-delete" disabled={busy}
+                <button id={'delete-' + course.id} type="button" className="icon-button danger-quiet course-delete" disabled={busy}
                   aria-label={'删除课程：' + course.title} onClick={() => { setError(''); setDeleteTarget(course); }}>
-                  <Icon name="trash" size={16} />删除课程</button>
+                  <Icon name="trash" size={16} /></button>
               </div>
                 {deleteTarget?.id === course.id ? <div className="delete-confirmation course-delete-confirmation" role="alertdialog"
                   aria-labelledby="delete-course-title" aria-describedby="delete-course-description"
