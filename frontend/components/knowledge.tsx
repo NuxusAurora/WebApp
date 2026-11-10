@@ -42,7 +42,7 @@ function ReviewItem({ text, index, onApprove }: { text: string; index: number; o
   return <article className="knowledge-review-item">
     <div className="knowledge-review-title"><strong>核对项 {index + 1}</strong><span className="knowledge-review-status">待核对</span></div>
     <p className="knowledge-review-text">{text}</p>
-    <div className="knowledge-review-action"><button type="button" className="button knowledge-approve" onClick={onApprove}>批准</button></div>
+    <div className="knowledge-review-action"><button type="button" className="button knowledge-approve" onClick={onApprove}>知道了</button></div>
   </article>;
 }
 

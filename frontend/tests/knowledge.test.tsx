@@ -43,11 +43,11 @@ describe('section knowledge draft workflow', () => {
     expect(text.textContent).toBe(opinions[0]);
     fireEvent.click(text);
     expect(review.querySelector('details, [aria-expanded]')).toBeNull();
-    expect(within(review).getAllByRole('button', { name: '批准' })).toHaveLength(2);
+    expect(within(review).getAllByRole('button', { name: '知道了' })).toHaveLength(2);
     expect(text.textContent).toBe(opinions[0]);
     expect(fetcher.mock.calls.some(([, init]) => init?.method)).toBe(false);
     expect(within(review).queryByText('收起完整意见')).not.toBeInTheDocument();
-    fireEvent.click(within(review).getAllByRole('button', { name: '批准' })[0]);
+    fireEvent.click(within(review).getAllByRole('button', { name: '知道了' })[0]);
     expect(within(review).getByText('1 项待核对')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
     await screen.findByText('草稿已保存');
