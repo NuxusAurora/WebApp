@@ -100,7 +100,7 @@ describe('local model settings', () => {
     const model = { id: '22222222-2222-2222-2222-222222222222', provider_id: provider.id, model_name: 'local-model', enabled: true, capabilities: caps, capability_source: 'user_confirmed', tested_capabilities: {} };
     const fetcher = vi.fn((url: string, init?: RequestInit) => {
       if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
-      if (url.endsWith('/discovery')) return success([]);
+      if (url.endsWith('/discovery')) return success([{ model_name: model.model_name, capabilities: {} }]);
       if (init?.method === 'POST' && url.endsWith('/models')) { models = [model]; return success(model); }
       if (init?.method === 'PUT') return success(model);
       return success([{ ...provider, models }]);
@@ -109,7 +109,8 @@ describe('local model settings', () => {
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     await screen.findByLabelText('接口地址');
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
-    fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: model.model_name } });
+    await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: model.model_name } });
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(screen.getByRole('button', { name: '测试普通回复' })).toBeEnabled());
     expect(screen.queryByLabelText('选择模型')).not.toBeInTheDocument();
@@ -151,7 +152,7 @@ describe('provider model discovery', () => {
     await openModels(fetcher);
     await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
     fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'server-model' } });
-    expect(screen.getByLabelText('模型名称')).toHaveValue('server-model');
+    expect(screen.getByLabelText('服务模型')).toHaveValue('server-model');
     expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(32768);
     expect(screen.getByLabelText('支持流式输出')).toBeChecked();
     expect(screen.getByLabelText('支持原生 JSON Schema')).not.toBeChecked();
@@ -186,7 +187,7 @@ describe('provider model discovery', () => {
     await openModels(fetcher);
     await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
     fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'same-model' } });
-    expect(screen.getByLabelText('模型名称')).toHaveValue(model.model_name);
+    expect(screen.getByLabelText('服务模型')).toHaveValue(model.model_name);
     expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(16384);
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
@@ -195,20 +196,34 @@ describe('provider model discovery', () => {
     expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
 
-  it('falls back to manual input when listing fails and lets the user retry', async () => {
+  it('blocks an empty model when listing fails and lets the user retry', async () => {
     let fail = true;
     const fetcher = vi.fn((url: string) => {
-      if (url.endsWith('ai/options')) return success({ allowed_origins: [] });
       if (url.endsWith('/discovery')) return fail ? Promise.resolve(Response.json({ success: false, error: { message: '服务未提供模型列表' } }, { status: 502 })) : success([]);
       return success([provider]);
     });
     await openModels(fetcher);
     await screen.findByRole('alert');
-    fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: 'manual-model' } });
+    expect(screen.queryByLabelText('模型名称')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存模型' })).toBeDisabled();
     fail = false;
     fireEvent.click(screen.getByRole('button', { name: '刷新模型列表' }));
-    await screen.findByText('服务暂无可用模型，可手动填写。');
-    expect(screen.getByLabelText('模型名称')).toHaveValue('manual-model');
+    await screen.findByText('服务暂无可用模型，请刷新重试。');
+    expect(screen.getByRole('button', { name: '保存模型' })).toBeDisabled();
+    expect(fetcher.mock.calls.some(([, init]: [string, RequestInit?]) => init?.method)).toBe(false);
+  });
+
+  it('keeps the saved model selected when the service list omits it', async () => {
+    const model = { id: 'saved', provider_id: provider.id, model_name: 'saved-model', enabled: true, capabilities: caps, tested_capabilities: {} };
+    const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith('/discovery') ? success([]) : init?.method === 'PUT' ? success(model) : success([{ ...provider, models: [model] }]));
+    await openModels(fetcher);
+    await screen.findByText('服务暂无可用模型，请刷新重试。');
+    expect(screen.getByLabelText('服务模型')).toHaveValue('saved-model');
+    fireEvent.change(screen.getByLabelText('上下文长度（Token）'), { target: { value: '8192' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
+    await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true));
+    const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT')!;
+    expect(JSON.parse(String(mutation[1]?.body))).toMatchObject({ model_name: 'saved-model', capabilities: { max_context_tokens: 8192 } });
   });
 
   it('protects a modified draft when choosing a discovered model', async () => {
@@ -220,10 +235,11 @@ describe('provider model discovery', () => {
     });
     await openModels(fetcher);
     await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
-    fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: 'my-draft' } });
+    fireEvent.change(screen.getByLabelText('上下文长度（Token）'), { target: { value: '8192' } });
     fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'remote' } });
     expect(window.confirm).toHaveBeenCalledOnce();
-    expect(screen.getByLabelText('模型名称')).toHaveValue('my-draft');
+    expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(8192);
+    expect(screen.getByLabelText('服务模型')).toHaveValue('');
   });
   it('replaces the sole saved model with a discovered model using PUT', async () => {
     const model = { id: 'saved-model', provider_id: provider.id, model_name: 'old-model', enabled: true, capabilities: caps, tested_capabilities: {} };
@@ -237,7 +253,7 @@ describe('provider model discovery', () => {
     await openModels(fetcher);
     await waitFor(() => expect(screen.getByLabelText('服务模型')).toBeEnabled());
     fireEvent.change(screen.getByLabelText('服务模型'), { target: { value: 'replacement' } });
-    expect(screen.getByLabelText('模型名称')).toHaveValue('replacement');
+    expect(screen.getByLabelText('服务模型')).toHaveValue('replacement');
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([url, init]) => url.endsWith('/models/saved-model') && init?.method === 'PUT')).toBe(true));
     expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
@@ -251,7 +267,7 @@ describe('provider model discovery', () => {
     expect(screen.getByLabelText('服务模型')).toHaveValue('Aurora-Zyron');
     expect(screen.getByLabelText('服务模型')).toBeDisabled();
     expect(Array.from((screen.getByLabelText('服务模型') as HTMLSelectElement).options).map(item => item.value)).toEqual(['Aurora-Zyron']);
-    expect(screen.getByLabelText('模型名称')).toHaveAttribute('readonly');
+    expect(screen.queryByLabelText('模型名称')).not.toBeInTheDocument();
     expect(screen.getByLabelText('上下文长度（Token）')).toHaveValue(500000);
     expect(screen.queryByRole('button', { name: '刷新模型列表' })).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/discovery'))).toBe(false);

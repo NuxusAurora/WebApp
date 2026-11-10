@@ -280,3 +280,5 @@ API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_re
 ## 默认连接模型限制（2026-11-10）
 
 使用默认接口 `https://api.nuxusaurora.com/v1` 时，只能保存/调用Aurora-Zyron；模型列表固定单项、名称只读，当前上下文仍500000。自定义接口继续支持其他模型。后端策略 `backend/app/ai/policy.py` 通过provider.required_model_name传给模型表单；API创建/编辑、修改连接地址、发现和调用复用策略。切回默认地址前需先把唯一模型改为Aurora-Zyron，不合规旧记录调用会拒绝而不自动改写。验证见 `backend/tests/test_default_model_policy.py` 与 `frontend/tests/ai-settings.test.tsx`。
+
+模型设置不再单独填写模型名称，由“服务模型”选择直接保存。新建需成功读取并选择服务模型，失败/空列表可刷新重试；已保存模型继续回显并可保存其他能力设置。默认连接仍固定Aurora-Zyron。

@@ -160,6 +160,8 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
   expired.current = onSessionExpired;
   const model = provider.models[0];
   const requiredModel = provider.required_model_name;
+  const modelNames = Array.from(new Set([...catalog.map(item => item.model_name),
+    ...(model ? [model.model_name] : []), ...(draft.model_name ? [draft.model_name] : [])]));
   useEffect(() => {
     if (catalogSelection) return;
     setDraft({ model_name: requiredModel ?? model?.model_name ?? '', capabilities: { ...defaults, ...model?.capabilities } });
@@ -183,16 +185,17 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
   function applyDiscovered(name: string) {
     if (requiredModel) return;
     const item = catalog.find(item => item.model_name === name);
-    if (!item || dirty && !window.confirm('替换当前模型填写内容？未保存的修改将被覆盖。')) return;
     const existing = model?.model_name === name ? model : undefined;
+    if ((!item && !existing) || dirty && !window.confirm('替换当前模型填写内容？未保存的修改将被覆盖。')) return;
     setCatalogSelection(name);
-    setDraft({ model_name: name, capabilities: { ...defaults, ...existing?.capabilities, ...item.capabilities } });
+    setDraft({ model_name: name, capabilities: { ...defaults, ...existing?.capabilities, ...item?.capabilities } });
     setDirty(true); onDirty(true);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
-    const saved = await onSave(model, { model_name: values.get('model_name'), enabled: values.get('enabled') === 'on',
+    if (!draft.model_name) return;
+    const saved = await onSave(model, { model_name: draft.model_name, enabled: values.get('enabled') === 'on',
       capabilities: { ...draft.capabilities, vision: values.get('vision') === 'on', streaming: values.get('streaming') === 'on', structured_output: values.get('structured_output') === 'on',
         max_context_tokens: Number(values.get('context')) }, capabilities_confirmed: true });
     if (saved) { setCatalogSelection(''); setDirty(false); }
@@ -204,18 +207,16 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
   }}>
     <div className="ai-fields form-stack">
       <div><h2>模型与能力</h2><p className="muted">{requiredModel ? `默认连接仅支持 ${requiredModel}。` : '仅保存一个模型，可从服务列表选择替换。'}</p></div>
-      <label>服务模型<select aria-label="服务模型" value={requiredModel ?? catalogSelection} disabled={Boolean(requiredModel) || busy || catalogLoading || Boolean(catalogError) || !catalog.length}
+      <label>服务模型<select aria-label="服务模型" value={requiredModel ?? draft.model_name} required disabled={Boolean(requiredModel) || busy || catalogLoading || Boolean(catalogError) || !modelNames.length}
         onChange={event => applyDiscovered(event.target.value)}>
-        {requiredModel ? <option value={requiredModel}>{requiredModel}</option> : <><option value="">{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>
-          {catalog.map(item => <option key={item.model_name} value={item.model_name}>{item.model_name}</option>)}</>}
+        {requiredModel ? <option value={requiredModel}>{requiredModel}</option> : <><option value="" disabled>{catalogLoading ? '正在读取…' : '选择服务返回的模型'}</option>
+          {modelNames.map(name => <option key={name} value={name}>{name}</option>)}</>}
       </select></label>
       {!requiredModel ? <div className="ai-secondary-actions"><button className="button" type="button" disabled={busy || catalogLoading || !provider.enabled}
         onClick={() => setCatalogRevision(value => value + 1)}>刷新模型列表</button>
         {catalogLoading ? <span className="field-hint" role="status">正在读取模型列表…</span> : null}</div> : null}
-      {!requiredModel && (catalogError ? <p className="notice error" role="alert">{catalogError}，可手动填写。</p> :
-        !catalogLoading && !catalog.length ? <p className="field-hint" role="status">服务暂无可用模型，可手动填写。</p> : null)}
-      <label>模型名称<input name="model_name" value={draft.model_name} onChange={event => setDraft(value => ({ ...value, model_name: event.target.value }))} maxLength={160} required
-        pattern="[a-zA-Z0-9][a-zA-Z0-9._:/\-]*" placeholder="本地服务返回的模型 ID" readOnly={Boolean(requiredModel)} disabled={busy} /></label>
+      {!requiredModel && (catalogError ? <p className="notice error" role="alert">{catalogError}，请重试。</p> :
+        !catalogLoading && !catalog.length ? <p className="field-hint" role="status">服务暂无可用模型，请刷新重试。</p> : null)}
       <label>上下文长度（Token）<input name="context" type="number" min={256} max={2000000} value={Number.isFinite(draft.capabilities.max_context_tokens) ? draft.capabilities.max_context_tokens : ''}
         onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, max_context_tokens: event.target.valueAsNumber } }))} required disabled={busy} /></label>
       <p className="field-hint">服务未返回的字段可手动填写；上下文默认 4096，能力可在保存后测试确认。</p>
@@ -237,7 +238,7 @@ function ModelForm({ provider, busy, onDirty, onSave, onDelete, onTest, onSessio
         <button type="button" className="text-button danger-text" disabled={busy} onClick={() => onDelete(model)}>删除模型</button>
       </section> : null}
     </div>
-    <div className="ai-actions"><button className="button primary" disabled={busy}>{busy ? '处理中…' : '保存模型'}</button></div>
+    <div className="ai-actions"><button className="button primary" disabled={busy || !draft.model_name}>{busy ? '处理中…' : '保存模型'}</button></div>
   </form>;
 }
 
