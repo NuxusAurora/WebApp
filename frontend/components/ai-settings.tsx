@@ -89,8 +89,7 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
     if (active.current && !signal.aborted) setProviders(items);
   }
 
-  return <section className="ai-page" aria-labelledby="ai-title">
-    <div className="page-heading"><h1 id="ai-title">模型设置</h1></div>
+  return <section className="ai-page" aria-label={tab === 'models' ? '模型与测试' : tab === 'logs' ? '调用记录' : '连接与密钥'}>
     <Toast notification={notification} onDismiss={dismiss} />
     {error ? <p className="notice error" role="alert">{error}<button className="text-button" disabled={busy} onClick={() => { if (leave()) { markDirty(false); setRevision(value => value + 1); } }}>重新读取</button></p> : null}
     {loading ? <p role="status">正在读取模型配置…</p> : tab === 'logs' ? <CallHistory key={revision} onError={handleError} /> : configurationConflict ? null :
