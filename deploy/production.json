@@ -1,21 +1,21 @@
 {
-  "revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
-  "image_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
-  "configuration_source_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
+  "revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
+  "image_source_revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
+  "configuration_source_revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:8e8b56b",
-      "id": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c"
+      "source": "webapp-release-backend:3d924db",
+      "id": "sha256:3c8d2174eb4e54bc3c84a083020c0fd1af6ffe68d03c577514ef930140f48dee"
     },
     "frontend": {
-      "source": "webapp-release-frontend:d4b46a5",
-      "id": "sha256:3af3c3331d55115e1a8ead8ea71fcc388fd1b5aca9e8528fb67ec099f14f368f"
+      "source": "webapp-release-frontend:3d924db",
+      "id": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738"
     }
   },
   "runtime_images": {
-    "frontend": "sha256:3af3c3331d55115e1a8ead8ea71fcc388fd1b5aca9e8528fb67ec099f14f368f",
-    "backend": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
-    "worker": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
+    "frontend": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
+    "backend": "sha256:3c8d2174eb4e54bc3c84a083020c0fd1af6ffe68d03c577514ef930140f48dee",
+    "worker": "sha256:3c8d2174eb4e54bc3c84a083020c0fd1af6ffe68d03c577514ef930140f48dee",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -34,37 +34,35 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": true,
-  "data_preservation": "only one default model context field changed; other model fields/test results and provider/credentials preserved; no course writes or model calls",
+  "data_preservation": "all business table counts and sorted row hashes unchanged across stop/backup/cutover; no migrations",
   "business_counts": {
     "users": 1,
-    "courses": 1,
+    "courses": 2,
     "uploads": 0,
     "chapters": 0,
     "sections": 0,
+    "workflow_runs": 0,
     "structure_versions": 0,
+    "structure_events": 0,
     "ai_providers": 2,
     "ai_models": 1,
-    "ai_call_logs": 0,
+    "ai_call_logs": 2,
     "knowledge_points": 0
   },
-  "backup_before_upgrade": "frontend environment/metadata removed after acceptance; no data-service restart",
-  "released_at_utc": "2026-11-10T14:25:55.236740+00:00",
+  "backup_before_upgrade": "database/storage/environment backed up after app writers stopped; all business hashes preserved; backup removed after acceptance",
+  "released_at_utc": "2026-11-10T14:35:30.521869+00:00",
   "validation": {
-    "frontend_tests": 61,
-    "backend_tests": 117,
-    "deployment_tests": 10,
-    "build_type_format": "passed",
-    "pixel_limit": "disabled in running backend; 4001x4000 PNG normalized at unchanged dimensions",
+    "backend_focused_tests": 38,
+    "frontend_focused_tests": 23,
+    "type_format_build": "passed for source revision; runtime production build passed",
+    "runtime_image_formats": "PNG/JPG/WebP/BMP/GIF/TIFF/AVIF normalized successfully",
+    "nginx_template_matches_runtime": true,
+    "business_hashes_preserved": true,
+    "visual": "no new browser visual acceptance; no layout changes",
     "https_health_ready": "200",
-    "nginx_upload_boundary": "exact 50MiB reaches API authentication (401 JSON); 50MiB+1 rejected (413)",
-    "qa_data": "no user/course/image data written; no real model call",
-    "visual": "unchanged layout; frontend boundary/error message covered by tests; no new browser visual acceptance",
-    "frontend_label_regressions": 37,
-    "frontend_type_and_build": "passed for d4b46a5",
-    "frontend_visual": "1280x720/390x844 dark production browser: breadcrumb has no personal-space prefix or leading chevron; course list/detail and model-settings hierarchy/navigation retained; no horizontal overflow. Saved default Aurora-Zyron context input reads500000. No course writes or model calls; light mode/real mobile hardware not newly tested.",
-    "frontend_tests_evidence": "61 course-workspace and ai-settings regressions; TypeScript and production build passed",
-    "deletion_regressions": "mock API: exact target, cancel/focus, error retry, busy gating, filter/collapse cleanup",
-    "live_delete": "not executed; real browser only opened/cancelled; mock API verifies confirmed deletion target and failure behavior"
+    "served_frontend_formats": "public JS includes JPG/JPEG and PNG/WebP/BMP/GIF/TIFF/AVIF accept list",
+    "http_upload": "JPG and AVIF via public HTTPS frontend returned 201; private RGB PNG bytes/dimensions verified",
+    "qa_data": "temporary QA course/images deleted; session logged out; no model call; original business row hashes unchanged"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -73,11 +71,12 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 70291301,
+  "cleanup_logical_bytes": 478002347,
   "obsolete_image_tags_removed": [
-    "webapp-release-frontend:bd8e618"
+    "webapp-release-backend:8e8b56b",
+    "webapp-release-frontend:d4b46a5"
   ],
-  "cleanup": "task packages, rollback environment/metadata and scripts removed; running images, source snapshots, user data and credentials retained",
+  "cleanup": "task transfer packages, image archives, rollback backup and scripts removed after acceptance; source snapshot/running dependencies/user data retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
   "nginx_template_render_matches_runtime": true,
   "nginx_upload_limit": "50 MiB",
@@ -108,8 +107,9 @@
   "real_provider_vision_probe_verified": true,
   "frontend_source_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
   "service_source_revisions": {
-    "frontend": "d4b46a5a164631388c1e84c713faada979ef3b16",
-    "backend": "8e8b56bb9512c4617a2275976a3df886b778d5b2"
+    "frontend": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
+    "backend": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
+    "worker": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4"
   },
   "latest_release_scope": "frontend breadcrumb personal-space prefix removed; saved default Aurora-Zyron context corrected to 500000",
   "course_detail_labels": [
@@ -117,14 +117,14 @@
     "上传教材目录图片",
     "目录与小节"
   ],
-  "image_source_revision_scope": "backend/worker baseline; frontend source is recorded in service_source_revisions",
+  "image_source_revision_scope": "frontend/backend/worker all built from identical verified revision",
   "course_list": {
     "delete_entry": "trash icon only at row right; 44x44px; accessible name and confirmation retained",
     "subject_font_px": 18,
     "course_font_px": 13,
     "subject_highlight": "single current subject via aria-current; persistent across focus changes and independent of disclosure"
   },
-  "source_snapshot_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
+  "source_snapshot_revision": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
   "knowledge_style": {
     "shared_course_detail_shell": true,
     "theme": "shared tokens; no tab-level palette override",
@@ -144,5 +144,14 @@
     "not_after_utc": "2027-02-07T03:49:49Z"
   },
   "default_model_context_tokens": 500000,
-  "workspace_breadcrumb": "starts with actual page/course hierarchy; personal-space prefix and its separator removed"
+  "workspace_breadcrumb": "starts with actual page/course hierarchy; personal-space prefix and its separator removed",
+  "image_formats": [
+    "JPG/JPEG",
+    "PNG",
+    "WebP",
+    "BMP",
+    "GIF (single frame)",
+    "TIFF (single page)",
+    "AVIF (static)"
+  ]
 }
