@@ -138,18 +138,16 @@ function ConnectionForm({ provider, busy, onDirty, onSave, onDeleteKey, onDelete
     const values = new FormData(event.currentTarget);
     const key = String(values.get('api_key') ?? '');
     await onSave({ ...(!provider ? { provider_name: '默认连接' } : {}), base_url: values.get('base_url'),
-      enabled: values.get('enabled') === 'on', ...(!provider || key ? { api_key: key } : {}) });
+      enabled: true, ...(!provider || key ? { api_key: key } : {}) });
   }
   return <form ref={form} className="ai-content" onSubmit={submit} onChange={() => onDirty(true)}>
     <div className="ai-fields form-stack">
       <div><h2>{provider ? '连接与密钥' : '添加本地连接'}</h2><p className="muted">使用 OpenAI 兼容接口。密钥加密保存，可留空。</p></div>
       <label>接口地址<input name="base_url" type="url" defaultValue={provider?.base_url ?? defaultApiBase} maxLength={500} required
-        placeholder="http://host.docker.internal:1234/v1" aria-describedby="ai-address-note" disabled={busy} /></label>
-      <p id="ai-address-note" className="field-hint">地址需包含 /v1。应用在 Docker 中运行时，用 host.docker.internal 连接宿主机。</p>
+        placeholder="http://host.docker.internal:1234/v1" disabled={busy} /></label>
       <label>API Key（可选）<input name="api_key" type="password" maxLength={4096} autoComplete="new-password" disabled={busy}
         placeholder={provider?.has_api_key ? '已保存；留空保留原密钥' : '本地服务无需密钥时留空'} /></label>
       <p className="field-hint">{provider?.has_api_key ? '密钥已保存。更换接口地址时需重新输入，或先删除密钥。' : '未保存密钥，仅适用于无需验证的本地服务。'}</p>
-      <label className="ai-check"><input name="enabled" type="checkbox" defaultChecked={provider?.enabled ?? true} disabled={busy} />启用连接</label>
       {provider ? <div className="ai-secondary-actions">
         <button type="button" className="button" disabled={busy || !provider.has_api_key} onClick={onDeleteKey}>删除密钥</button>
         <button type="button" className="text-button danger-text" disabled={busy} onClick={onDelete}>删除连接</button>

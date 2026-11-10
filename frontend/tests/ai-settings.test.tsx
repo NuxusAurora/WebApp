@@ -35,12 +35,15 @@ describe('local model settings', () => {
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     expect(await screen.findByLabelText('接口地址')).toHaveValue(provider.base_url);
     expect(screen.queryByLabelText('连接名称')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('启用连接')).not.toBeInTheDocument();
+    expect(screen.queryByText(/地址需包含 \/v1/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /默认连接/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
     expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
     expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).not.toHaveProperty('provider_name');
+    expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).toHaveProperty('enabled', true);
     expect(localStorage.getItem('learning.default-provider:')).toBeNull();
   });
 
@@ -66,7 +69,7 @@ describe('local model settings', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     await waitFor(() => expect(screen.getByLabelText('API Key（可选）')).toHaveValue(''));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'POST');
-    expect(JSON.parse(String(mutation?.[1]?.body))).toMatchObject({ provider_name: '默认连接', api_key: 'private-local-key' });
+    expect(JSON.parse(String(mutation?.[1]?.body))).toMatchObject({ provider_name: '默认连接', enabled: true, api_key: 'private-local-key' });
     expect(localStorage.getItem('api_key')).toBeNull();
   });
 

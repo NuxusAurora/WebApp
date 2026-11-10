@@ -274,3 +274,5 @@ API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_re
 模型设置不再选择本地连接或已保存模型：每账户一个连接，连接下一个模型。服务列表选择后保存会修改唯一模型。创建第二条返回409；禁用仍占用名额，删除后可重新创建，历史调用记录保留。数据库迁移为 `0006_single_model`，应用前确认旧重复配置已由用户指定保留项并整理；迁移发现重复会停止，不自动删除。实现位于 `backend/app/ai/{models,routes}.py`、`backend/migrations/versions/0006_single_model.py` 与 `frontend/components/ai-settings.tsx`。常规后端ruff/pytest、前端check/test/build；迁移与真实并发结论见HANDOFF最新节。
 
 连接名称不再需要输入：新建时由表单提供固定内部名称，编辑时保留已有名称；配置API及历史日志兼容。
+
+连接表单不再显示“启用连接”，保存时自动启用；接口地址下方/v1及Docker说明已移除，地址与密钥的原校验继续生效。
