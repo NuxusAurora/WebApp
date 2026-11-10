@@ -6,22 +6,22 @@
     "root": "/opt/learning-workbench",
     "project": "learning-cloud"
   },
-  "source_snapshot_revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
-  "revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
+  "source_snapshot_revision": "f81febee9281160039a3b481bf5ad5729533a57f",
+  "revision": "f81febee9281160039a3b481bf5ad5729533a57f",
   "image_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
-  "configuration_source_revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
+  "configuration_source_revision": "f81febee9281160039a3b481bf5ad5729533a57f",
   "images": {
     "backend": {
       "source": "webapp-release-backend:8e8b56b",
       "id": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c"
     },
     "frontend": {
-      "source": "webapp-release-frontend:2c7d62c",
-      "id": "sha256:c23038902d0a26df68f31e08e6d83dd6c93c0c14aa50cb93858436b503586c56"
+      "source": "webapp-release-frontend:f81febe",
+      "id": "sha256:4d10f210f767a05d4daf83fd3a9e27cf956695858067e9299d0614df0a3beb6e"
     }
   },
   "runtime_images": {
-    "frontend": "sha256:c23038902d0a26df68f31e08e6d83dd6c93c0c14aa50cb93858436b503586c56",
+    "frontend": "sha256:4d10f210f767a05d4daf83fd3a9e27cf956695858067e9299d0614df0a3beb6e",
     "backend": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "worker": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
@@ -42,7 +42,7 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": true,
-  "data_preservation": "frontend text-only update; no business data writes or schema changes",
+  "data_preservation": "frontend UI update; no real DELETE or business data writes during verification",
   "business_counts": {
     "users": 1,
     "courses": 1,
@@ -55,10 +55,10 @@
     "ai_call_logs": 0,
     "knowledge_points": 0
   },
-  "backup_before_upgrade": "frontend rollback environment/metadata backup completed; removed after acceptance; data services unchanged",
-  "released_at_utc": "2026-11-10T13:22:44.261027+00:00",
+  "backup_before_upgrade": "frontend rollback environment/metadata saved; removed after acceptance; backend/data services unchanged",
+  "released_at_utc": "2026-11-10T13:39:34.534935+00:00",
   "validation": {
-    "frontend_tests": 128,
+    "frontend_tests": 131,
     "backend_tests": 117,
     "deployment_tests": 10,
     "build_type_format": "passed",
@@ -68,9 +68,11 @@
     "qa_data": "no user/course/image data written; no real model call",
     "visual": "unchanged layout; frontend boundary/error message covered by tests; no new browser visual acceptance",
     "frontend_label_regressions": 37,
-    "frontend_type_and_build": "passed for 2c7d62c",
-    "frontend_visual": "1280x720 dark browser: uploaded-directory tab, directory-and-sections tab and creation badge all visible; read-only course opened, no data writes",
-    "frontend_tests_evidence": "37 affected regressions passed for 2c7d62c; prior 128-suite evidence belongs to 8e8b56b"
+    "frontend_type_and_build": "passed for f81febe",
+    "frontend_visual": "1280x720 and 390x844 dark browsers: right-side row deletion; subject 18px/course 13px; no horizontal overflow; open/cancel confirmation and focus return passed",
+    "frontend_tests_evidence": "131 current frontend tests including 40 course-workspace regressions passed",
+    "deletion_regressions": "mock API: exact target, cancel/focus, error retry, busy gating, filter/collapse cleanup",
+    "live_delete": "not executed; real browser only opened/cancelled; mock API verifies confirmed deletion target and failure behavior"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -79,9 +81,9 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 70282150,
+  "cleanup_logical_bytes": 70287504,
   "obsolete_image_tags_removed": [
-    "webapp-release-frontend:8e8b56b"
+    "webapp-release-frontend:2c7d62c"
   ],
   "cleanup": "task upload archives, temporary backups and scripts removed; current source, runtime images, persistent data and secrets retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
@@ -103,18 +105,23 @@
     }
   ],
   "real_provider_vision_probe_verified": true,
-  "frontend_source_revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
+  "frontend_source_revision": "f81febee9281160039a3b481bf5ad5729533a57f",
   "service_source_revisions": {
-    "frontend": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
+    "frontend": "f81febee9281160039a3b481bf5ad5729533a57f",
     "backend": "8e8b56bb9512c4617a2275976a3df886b778d5b2"
   },
-  "latest_release_scope": "frontend display text only; no backend/database/storage/worker/proxy changes",
+  "latest_release_scope": "frontend course-list delete action and type hierarchy; backend/data/proxy unchanged",
   "course_detail_labels": [
     "创建课程中",
     "上传教材目录图片",
     "目录与小节"
   ],
   "image_source_revision_scope": "backend/worker baseline; frontend source is recorded in service_source_revisions",
+  "course_list": {
+    "delete_entry": "right side of each course row; explicit confirmation required",
+    "subject_font_px": 18,
+    "course_font_px": 13
+  },
   "certificate": {
     "name": "learning-workbench-cn",
     "renewal": "webroot with targeted nginx deploy hook",
