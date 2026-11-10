@@ -271,7 +271,6 @@ function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessi
         !catalogLoading && !catalog.length ? <p className="field-hint" role="status">服务暂无可用模型，请刷新重试。</p> : null)}
       <label>上下文长度（Token）<input name="context" type="number" min={256} max={2000000} value={Number.isFinite(draft.capabilities.max_context_tokens) ? draft.capabilities.max_context_tokens : ''}
         onChange={event => setDraft(value => ({ ...value, capabilities: { ...value.capabilities, max_context_tokens: event.target.valueAsNumber } }))} required disabled={busy} /></label>
-      <p className="field-hint">服务未返回的字段可手动填写；上下文默认 4096，能力可在保存后测试确认。</p>
       <fieldset className="ai-capabilities"><legend>模型能力</legend>
         {capabilityProbes.map(([kind, label]) => {
           const result = model?.tested_capabilities[kind];
@@ -279,7 +278,6 @@ function ModelForm({ provider, busy, probing, onDirty, onSave, onDelete, onSessi
           return <div key={kind} className="ai-capability-row"><span>{label}</span><span role="status" aria-label={label + '：' + state}>{state}</span></div>;
         })}
       </fieldset>
-      <p className="field-hint">保存后自动测试，使用固定样例，不发送课程资料。</p>
       {model ? <button type="button" className="text-button danger-text" disabled={busy} onClick={() => onDelete(model)}>删除模型</button> : null}
     </div>
     <div className="ai-actions"><button className="button primary" disabled={busy || !draft.model_name}>{probing ? '自动测试中…' : busy ? '处理中…' : '保存'}</button></div>
