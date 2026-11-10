@@ -6,23 +6,23 @@
     "root": "/opt/learning-workbench",
     "project": "learning-cloud"
   },
-  "source_snapshot_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
-  "revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
+  "source_snapshot_revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
+  "revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
   "image_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
-  "configuration_source_revision": "8e8b56bb9512c4617a2275976a3df886b778d5b2",
+  "configuration_source_revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
   "images": {
     "backend": {
       "source": "webapp-release-backend:8e8b56b",
       "id": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c"
     },
     "frontend": {
-      "source": "webapp-release-frontend:8e8b56b",
-      "id": "sha256:b123119731d323601a0f4a99dfdb3474e7eaeffb26c997c76180db42f15a4aa8"
+      "source": "webapp-release-frontend:2c7d62c",
+      "id": "sha256:c23038902d0a26df68f31e08e6d83dd6c93c0c14aa50cb93858436b503586c56"
     }
   },
   "runtime_images": {
+    "frontend": "sha256:c23038902d0a26df68f31e08e6d83dd6c93c0c14aa50cb93858436b503586c56",
     "backend": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
-    "frontend": "sha256:b123119731d323601a0f4a99dfdb3474e7eaeffb26c997c76180db42f15a4aa8",
     "worker": "sha256:2ca4035e16c807ce39ff48eb585bc2f74bbd98f4b7846fbd22cef54e49be7f4c",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
@@ -32,8 +32,8 @@
   "schema_revision": "0007_connection_slots",
   "test_login": "always available; no environment gates",
   "service_health": {
-    "learning-cloud-backend-1": "healthy",
     "learning-cloud-frontend-1": "healthy",
+    "learning-cloud-backend-1": "healthy",
     "learning-cloud-worker-1": "healthy",
     "learning-cloud-postgres-1": "healthy",
     "learning-cloud-redis-1": "healthy",
@@ -42,7 +42,7 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": true,
-  "data_preservation": "business row counts and digests unchanged; no migration",
+  "data_preservation": "frontend text-only update; no business data writes or schema changes",
   "business_counts": {
     "users": 1,
     "courses": 1,
@@ -55,8 +55,8 @@
     "ai_call_logs": 0,
     "knowledge_points": 0
   },
-  "backup_before_upgrade": "consistent data/config backup completed; temporary copy removed after acceptance",
-  "released_at_utc": "2026-11-10T12:51:46.454434+00:00",
+  "backup_before_upgrade": "frontend rollback environment/metadata backup completed; removed after acceptance; data services unchanged",
+  "released_at_utc": "2026-11-10T13:22:44.261027+00:00",
   "validation": {
     "frontend_tests": 128,
     "backend_tests": 117,
@@ -66,7 +66,11 @@
     "https_health_ready": "200",
     "nginx_upload_boundary": "exact 50MiB reaches API authentication (401 JSON); 50MiB+1 rejected (413)",
     "qa_data": "no user/course/image data written; no real model call",
-    "visual": "unchanged layout; frontend boundary/error message covered by tests; no new browser visual acceptance"
+    "visual": "unchanged layout; frontend boundary/error message covered by tests; no new browser visual acceptance",
+    "frontend_label_regressions": 37,
+    "frontend_type_and_build": "passed for 2c7d62c",
+    "frontend_visual": "1280x720 dark browser: uploaded-directory tab, directory-and-sections tab and creation badge all visible; read-only course opened, no data writes",
+    "frontend_tests_evidence": "37 affected regressions passed for 2c7d62c; prior 128-suite evidence belongs to 8e8b56b"
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -75,10 +79,9 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 225441130,
+  "cleanup_logical_bytes": 70282150,
   "obsolete_image_tags_removed": [
-    "webapp-release-backend:b265cff",
-    "webapp-release-frontend:b265cff"
+    "webapp-release-frontend:8e8b56b"
   ],
   "cleanup": "task upload archives, temporary backups and scripts removed; current source, runtime images, persistent data and secrets retained",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
@@ -86,26 +89,36 @@
   "nginx_upload_limit": "50 MiB",
   "nginx_proxy_timeout_seconds": 185,
   "image_pixel_limit": null,
-  "certificate": {
-    "name": "learning-workbench-cn",
-    "renewal": "webroot with targeted nginx deploy hook",
-    "renewal_dry_run": "passed",
-    "not_after_utc": "2027-02-07T03:49:49Z"
-  },
   "operational_repairs": [
     {
       "date": "2026-11-10",
       "kind": "legacy default model configuration",
       "model_before": "gpt-6.1-sol",
       "model_after": "Aurora-Zyron",
-      "catalog": "Authenticated provider catalog contains Aurora-Zyron",
-      "vision": "passed with built-in probe image",
-      "provider_and_model_ids": "unchanged",
-      "credentials": "retained; not read or rewritten",
+      "method": "existing authenticated model API; same provider/model IDs and credentials",
       "context_tokens": 4096,
-      "user_course_images": "not read, modified or sent to provider",
-      "model_generation": "one fixed built-in vision probe; normal audit record retained"
+      "verification": "authenticated model catalog and built-in vision probe passed",
+      "data_scope": "no course/image data read or sent; one normal capability audit record retained",
+      "scope": "cloud default test account; application source/images unchanged"
     }
   ],
-  "real_provider_vision_probe_verified": true
+  "real_provider_vision_probe_verified": true,
+  "frontend_source_revision": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
+  "service_source_revisions": {
+    "frontend": "2c7d62c22bd2207487cccd50adcbdd332a5037ed",
+    "backend": "8e8b56bb9512c4617a2275976a3df886b778d5b2"
+  },
+  "latest_release_scope": "frontend display text only; no backend/database/storage/worker/proxy changes",
+  "course_detail_labels": [
+    "创建课程中",
+    "上传教材目录图片",
+    "目录与小节"
+  ],
+  "image_source_revision_scope": "backend/worker baseline; frontend source is recorded in service_source_revisions",
+  "certificate": {
+    "name": "learning-workbench-cn",
+    "renewal": "webroot with targeted nginx deploy hook",
+    "renewal_dry_run": "passed",
+    "not_after_utc": "2027-02-07T03:49:49Z"
+  }
 }
