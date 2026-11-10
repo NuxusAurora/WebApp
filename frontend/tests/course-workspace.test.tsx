@@ -53,19 +53,19 @@ describe('desktop course workspace', () => {
     });
     history.replaceState({}, '', '/?view=ai');
     render(<Workspace />);
-    await screen.findByLabelText('连接名称');
+    await screen.findByLabelText('接口地址');
     expect(screen.queryByRole('group', { name: '模型设置分类' })).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('连接名称'), { target: { value: '保留输入' } });
+    fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: 'http://localhost:11434/v1' } });
     fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
     expect(screen.getByRole('button', { name: '模型设置' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('link', { name: '模型与测试' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('连接名称')).toHaveValue('保留输入');
+    expect(screen.getByLabelText('接口地址')).toHaveValue('http://localhost:11434/v1');
     expect(window.confirm).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '模型设置' }));
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(window.confirm).toHaveBeenCalledOnce();
     expect(location.search).toBe('?view=ai');
-    expect(screen.getByLabelText('连接名称')).toHaveValue('保留输入');
+    expect(screen.getByLabelText('接口地址')).toHaveValue('http://localhost:11434/v1');
     vi.mocked(window.confirm).mockReturnValue(true);
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     await screen.findByLabelText('模型名称');
@@ -74,7 +74,7 @@ describe('desktop course workspace', () => {
     history.replaceState({ workspaceIndex: 0 }, '', '/?view=ai');
     act(() => window.dispatchEvent(new PopStateEvent('popstate')));
     expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('连接名称')).toHaveValue('导航连接');
+    expect(screen.getByLabelText('接口地址')).toHaveValue('http://localhost:1234/v1');
   });
   it('keeps the model form mounted until an in-flight save settles', async () => {
     const original = vi.mocked(api).getMockImplementation()!;
@@ -86,11 +86,11 @@ describe('desktop course workspace', () => {
     });
     history.replaceState({}, '', '/?view=ai');
     render(<Workspace />);
-    fireEvent.change(await screen.findByLabelText('连接名称'), { target: { value: '保存中' } });
+    fireEvent.change(await screen.findByLabelText('接口地址'), { target: { value: 'http://localhost:1234/v1' } });
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(location.search).toBe('?view=ai');
-    expect(screen.getByLabelText('连接名称')).toHaveValue('保存中');
+    expect(screen.getByLabelText('接口地址')).toHaveValue('http://localhost:1234/v1');
     expect(window.confirm).not.toHaveBeenCalled();
     await act(async () => { finishSave({ id: 'saved' }); });
     await waitFor(() => expect(screen.getByRole('button', { name: '保存连接' })).toBeEnabled());

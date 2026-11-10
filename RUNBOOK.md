@@ -237,7 +237,7 @@ API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirme
 
 入口：登录后“模型设置”，依次填写“连接与密钥 → 模型与测试”。密钥可留空；已有密钥在编辑时留空保留，可单独删除。更换地址必须重新输入或先删除密钥，防止把旧密钥发送给新地址。密钥以 Fernet 认证加密保存，读取只返回 has_api_key。保留现有 ENCRYPTION_KEY；轮换应用加密主密钥需要独立重新加密迁移，本阶段不提供自动迁移。
 
-- 默认允许 localhost、127.0.0.1、host.docker.internal 的 1234/11434 端口。Docker 内 localhost 指容器自身，宿主机服务通常填写 `http://host.docker.internal:1234/v1` 或 `:11434/v1`。实际模型需自行运行并允许容器访问，应用不下载或启动模型。其他端口在既有 `.env` 添加 `AI_ALLOWED_ORIGINS`：逗号分隔的精确源（scheme://host:port，不含 /v1），然后重启后端，保留原凭据。仅允许可信本地服务；禁止重定向和环境代理。
+- 服务地址默认无限制（`AI_ALLOWED_ORIGINS=*`），支持有效HTTP/HTTPS接口地址及自定义端口，不再显示地址白名单。Docker 内localhost仍指容器自身，宿主机服务可用host.docker.internal；应用不下载或启动模型。保留URL格式检查、禁止重定向/环境代理及更换地址时的密钥重输要求。高级部署仍可用逗号分隔的精确源替代*进行限制。
 - 迁移 `0003_ai_gateway` 接在 0002 后，增加 ai_providers/ai_models/ai_call_logs。`node scripts/phase0.mjs up` 升级现有数据库。降级到 0002 删除 AI 配置/日志，只在明确可丢弃的隔离库执行。
 - `GET /api/v1/ai/options`：允许地址；`GET/POST /ai/providers`；`PATCH/DELETE /ai/providers/{id}`；`DELETE /ai/providers/{id}/key`；`POST /ai/providers/{id}/models`；`PUT/DELETE /ai/models/{id}`。沿用会话、同源写请求校验及所有者隔离。
 - `POST /ai/models/{id}/test`，正文 `{"kind":"chat"}`、stream 或 structured。仅发送固定测试内容，使用本地算力；探测与用户确认分开。改地址/密钥/模型/能力清除旧结果；网络期间变更的配置不能被旧探测标记通过。视觉/工具能力不按名称猜测；本阶段只接收文本。
@@ -272,3 +272,5 @@ API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_re
 ## 单模型配置（2026-11-09）
 
 模型设置不再选择本地连接或已保存模型：每账户一个连接，连接下一个模型。服务列表选择后保存会修改唯一模型。创建第二条返回409；禁用仍占用名额，删除后可重新创建，历史调用记录保留。数据库迁移为 `0006_single_model`，应用前确认旧重复配置已由用户指定保留项并整理；迁移发现重复会停止，不自动删除。实现位于 `backend/app/ai/{models,routes}.py`、`backend/migrations/versions/0006_single_model.py` 与 `frontend/components/ai-settings.tsx`。常规后端ruff/pytest、前端check/test/build；迁移与真实并发结论见HANDOFF最新节。
+
+连接名称不再需要输入：新建时由表单提供固定内部名称，编辑时保留已有名称；配置API及历史日志兼容。

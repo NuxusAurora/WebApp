@@ -252,14 +252,23 @@ def test_endpoint_vault_restrictions_and_authentication(configured):
     with pytest.raises(AppError, match="模型密钥不可用"):
         vault.decrypt(encrypted[:-2] + "AA")
     for endpoint in [
-        "http://localhost:9999/v1",
-        "https://evil.invalid/v1",
         "http://x@localhost:1234/v1",
         ENDPOINT + "?key=x",
         ENDPOINT + "/../private",
+        "file:///tmp/model",
+        "https://example.com:invalid/v1",
     ]:
         with pytest.raises(AppError):
             validate_endpoint(endpoint, configured.ai_allowed_origins)
+    for endpoint in [
+        "http://localhost:9999/v1",
+        "https://example.com/v1",
+        "https://example.com:8443/api/v1/",
+    ]:
+        assert validate_endpoint(endpoint, "*") == endpoint.rstrip("/")
+    assert configured.ai_allowed_origins == "*"
+    with pytest.raises(AppError):
+        validate_endpoint("https://example.com/v1", "http://localhost:1234")
 
 
 def setup_api(app, client):
@@ -368,6 +377,30 @@ def test_single_configuration_limit_including_disabled_and_replacement(account_a
         ).status_code
         == 201
     )
+
+
+def test_unrestricted_endpoint_save_and_invocation(account_app):
+    app, client = account_app
+    provider, model = setup_api(app, client)
+    endpoint = "https://models.example.invalid:8443/api/v1"
+    response = client.patch(
+        f"/api/v1/ai/providers/{provider['id']}",
+        json={"base_url": endpoint, "api_key": "replacement-key"},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["base_url"] == endpoint
+    assert response.json()["data"]["provider_name"] == provider["provider_name"]
+    requests = []
+
+    def handler(request):
+        requests.append(str(request.url))
+        return completion()
+
+    wire = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.state.ai_gateway = Gateway({"openai": OpenAIProvider(wire)})
+    assert client.post(f"/api/v1/ai/models/{model['id']}/test", json={}).status_code == 200
+    assert requests == [endpoint + "/chat/completions"]
+    asyncio.run(wire.aclose())
 
 
 def test_api_calls_probes_and_audit_are_sanitized(account_app):

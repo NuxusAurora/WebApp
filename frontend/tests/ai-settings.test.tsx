@@ -33,12 +33,14 @@ describe('local model settings', () => {
     const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : init?.method === 'PATCH' ? success(provider) : success([provider]));
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    expect(await screen.findByLabelText('连接名称')).toHaveValue(provider.provider_name);
+    expect(await screen.findByLabelText('接口地址')).toHaveValue(provider.base_url);
+    expect(screen.queryByLabelText('连接名称')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('本地连接')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /默认连接/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     await waitFor(() => expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
     expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+    expect(JSON.parse(String(fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body))).not.toHaveProperty('provider_name');
     expect(localStorage.getItem('learning.default-provider:')).toBeNull();
   });
 
@@ -46,7 +48,7 @@ describe('local model settings', () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/options') ? success({ allowed_origins: [] }) : success([provider, { ...provider, id: 'other' }])));
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
     expect(await screen.findByRole('alert')).toHaveTextContent('存在多条旧配置');
-    expect(screen.queryByLabelText('连接名称')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('接口地址')).not.toBeInTheDocument();
   });
 
   it('clears saved credentials and never receives a key from configuration reads', async () => {
@@ -58,13 +60,13 @@ describe('local model settings', () => {
     });
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('连接名称'), { target: { value: '本地连接' } });
+    await screen.findByLabelText('接口地址');
     fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: provider.base_url } });
     fireEvent.change(screen.getByLabelText('API Key（可选）'), { target: { value: 'private-local-key' } });
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     await waitFor(() => expect(screen.getByLabelText('API Key（可选）')).toHaveValue(''));
     const mutation = fetcher.mock.calls.find(([, init]) => init?.method === 'POST');
-    expect(JSON.parse(String(mutation?.[1]?.body)).api_key).toBe('private-local-key');
+    expect(JSON.parse(String(mutation?.[1]?.body))).toMatchObject({ provider_name: '默认连接', api_key: 'private-local-key' });
     expect(localStorage.getItem('api_key')).toBeNull();
   });
 
@@ -76,15 +78,15 @@ describe('local model settings', () => {
     }));
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('连接名称'), { target: { value: '未保存连接' } });
+    await screen.findByLabelText('接口地址');
     fireEvent.change(screen.getByLabelText('接口地址'), { target: { value: provider.base_url } });
     fireEvent.click(screen.getByRole('button', { name: '保存连接' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('地址未获允许');
     await waitFor(() => expect(screen.getByRole('button', { name: '保存连接' })).toBeEnabled());
-    expect(screen.getByLabelText('连接名称')).toHaveValue('未保存连接');
+    expect(screen.getByLabelText('接口地址')).toHaveValue(provider.base_url);
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     expect(window.confirm).toHaveBeenCalled();
-    expect(screen.getByLabelText('连接名称')).toHaveValue('未保存连接');
+    expect(screen.getByLabelText('接口地址')).toHaveValue(provider.base_url);
   });
 
   it('selects a newly saved model so repeat saves update it, and separates test results', async () => {
@@ -99,7 +101,7 @@ describe('local model settings', () => {
     });
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('连接名称');
+    await screen.findByLabelText('接口地址');
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     fireEvent.change(screen.getByLabelText('模型名称'), { target: { value: model.model_name } });
     fireEvent.click(screen.getByRole('button', { name: '保存模型' }));
@@ -129,7 +131,7 @@ describe('provider model discovery', () => {
   async function openModels(fetcher: ReturnType<typeof vi.fn>) {
     vi.stubGlobal('fetch', fetcher);
     render(<AISettings onDirtyChange={vi.fn()} onSessionExpired={vi.fn()} />);
-    await screen.findByLabelText('连接名称');
+    await screen.findByLabelText('接口地址');
     fireEvent.click(screen.getByRole('link', { name: '模型与测试' }));
     await screen.findByLabelText('服务模型');
   }

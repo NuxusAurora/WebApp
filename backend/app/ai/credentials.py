@@ -21,7 +21,7 @@ class KeyVault:
 
 
 def validate_endpoint(value: str, allowed_origins: str) -> str:
-    """Only administrator-selected origins; no redirects or arbitrary proxy destinations."""
+    """Validate a base URL; '*' allows any HTTP(S) origin without redirects."""
     try:
         url = urlsplit(value)
         origin = f"{url.scheme}://{url.netloc}"
@@ -29,8 +29,9 @@ def validate_endpoint(value: str, allowed_origins: str) -> str:
         valid = (
             url.scheme in {"https", "http"}
             and bool(url.hostname)
+            and (url.port is None or 1 <= url.port <= 65535)
             and not (url.username or url.password or url.query or url.fragment)
-            and origin in allowed
+            and ("*" in allowed or origin in allowed)
             and all(
                 part.isascii() and part.replace("-", "").replace("_", "").isalnum()
                 for part in url.path.split("/")
@@ -41,5 +42,5 @@ def validate_endpoint(value: str, allowed_origins: str) -> str:
     except ValueError:
         valid = False
     if not valid:
-        raise AppError("AI_ENDPOINT_NOT_ALLOWED", "服务地址未获允许，请检查服务端地址白名单")
+        raise AppError("AI_ENDPOINT_NOT_ALLOWED", "接口地址无效，请填写有效的 HTTP/HTTPS 接口地址")
     return value.rstrip("/")

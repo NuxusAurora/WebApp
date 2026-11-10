@@ -21,7 +21,7 @@ export function productionEnv(template, app, storage, email) {
     MAIL_FROM:email};
   for(const [key,value] of Object.entries(settings))env=env.replace(new RegExp('^'+key+'=.*$','m'),key+'='+value);
   return env+'\nAPP_DOMAIN='+app+'\nSTORAGE_DOMAIN='+storage+'\nACME_EMAIL='+email+
-    '\nSTORAGE_DOWNLOAD_ORIGIN=https://'+app+'\nAI_ALLOWED_ORIGINS=https://api.nuxusaurora.com\n';
+    '\nSTORAGE_DOWNLOAD_ORIGIN=https://'+app+'\nAI_ALLOWED_ORIGINS=*\n';
 }
 
 export function productionContext(envFile,{ingress='caddy'}={}) {

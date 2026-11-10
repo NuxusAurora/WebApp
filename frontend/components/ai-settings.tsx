@@ -26,7 +26,6 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [origins, setOrigins] = useState<string[]>([]);
   const controller = useRef<AbortController | null>(null);
   const active = useRef(true);
   const { notification, notify, dismiss } = useToast();
@@ -51,14 +50,13 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
     const abort = new AbortController();
     let current = true;
     setLoading(true); setError('');
-    Promise.all([api<Provider[]>('ai/providers', { signal: abort.signal }),
-      api<{ allowed_origins: string[] }>('ai/options', { signal: abort.signal })])
-      .then(([items, options]) => {
+    api<Provider[]>('ai/providers', { signal: abort.signal })
+      .then(items => {
         if (!current) return;
         if (items.length > 1 || items.some(item => item.models.length > 1)) {
           setConfigurationConflict(true); throw new Error('存在多条旧配置，请先整理为一个连接和模型。');
         }
-        setConfigurationConflict(false); setProviders(items); setOrigins(options.allowed_origins);
+        setConfigurationConflict(false); setProviders(items);
       })
       .catch(reason => { if (current) handleError(reason); })
       .finally(() => { if (current) setLoading(false); });
@@ -90,7 +88,7 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
     <Toast notification={notification} onDismiss={dismiss} />
     {error ? <p className="notice error" role="alert">{error}<button className="text-button" disabled={busy} onClick={() => { if (leave()) { markDirty(false); setRevision(value => value + 1); } }}>重新读取</button></p> : null}
     {loading ? <p role="status">正在读取模型配置…</p> : tab === 'logs' ? <CallHistory key={revision} onError={handleError} /> : configurationConflict ? null :
-      tab === 'connection' ? <ConnectionForm key={(provider?.id ?? '') + ':' + revision} provider={provider} origins={origins} busy={busy}
+      tab === 'connection' ? <ConnectionForm key={(provider?.id ?? '') + ':' + revision} provider={provider} busy={busy}
         onDirty={markDirty} onSave={(data) => run(async signal => {
           await api<Provider>(provider ? `ai/providers/${provider.id}` : 'ai/providers', {
             method: provider ? 'PATCH' : 'POST', body: JSON.stringify(data), signal,
@@ -103,7 +101,7 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
           if (!active.current) return;
           markDirty(false); setRevision(value => value + 1); notify('密钥已删除');
         })} onDelete={() => run(async signal => {
-          if (!provider || !window.confirm(`删除连接“${provider.provider_name}”及其模型？调用记录仍会保留。`)) return;
+          if (!provider || !window.confirm('删除连接及其模型？调用记录仍会保留。')) return;
           await api(`ai/providers/${provider.id}`, { method: 'DELETE', signal });
           if (!active.current) return;
           markDirty(false); setRevision(value => value + 1); notify('连接已删除');
@@ -130,8 +128,8 @@ export function AISettings({ onDirtyChange, onSessionExpired, tab = 'connection'
   </section>;
 }
 
-function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey, onDelete }: {
-  provider?: Provider; origins: string[]; busy: boolean; onDirty: (value: boolean) => void;
+function ConnectionForm({ provider, busy, onDirty, onSave, onDeleteKey, onDelete }: {
+  provider?: Provider; busy: boolean; onDirty: (value: boolean) => void;
   onSave: (data: object) => Promise<void>; onDeleteKey: () => Promise<void>; onDelete: () => Promise<void>;
 }) {
   const form = useRef<HTMLFormElement>(null);
@@ -139,17 +137,15 @@ function ConnectionForm({ provider, origins, busy, onDirty, onSave, onDeleteKey,
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const key = String(values.get('api_key') ?? '');
-    await onSave({ provider_name: values.get('provider_name'), base_url: values.get('base_url'),
+    await onSave({ ...(!provider ? { provider_name: '默认连接' } : {}), base_url: values.get('base_url'),
       enabled: values.get('enabled') === 'on', ...(!provider || key ? { api_key: key } : {}) });
   }
   return <form ref={form} className="ai-content" onSubmit={submit} onChange={() => onDirty(true)}>
     <div className="ai-fields form-stack">
       <div><h2>{provider ? '连接与密钥' : '添加本地连接'}</h2><p className="muted">使用 OpenAI 兼容接口。密钥加密保存，可留空。</p></div>
-      <label>连接名称<input name="provider_name" defaultValue={provider?.provider_name ?? ''} maxLength={80} required placeholder="例如：本机模型" disabled={busy} /></label>
       <label>接口地址<input name="base_url" type="url" defaultValue={provider?.base_url ?? defaultApiBase} maxLength={500} required
         placeholder="http://host.docker.internal:1234/v1" aria-describedby="ai-address-note" disabled={busy} /></label>
       <p id="ai-address-note" className="field-hint">地址需包含 /v1。应用在 Docker 中运行时，用 host.docker.internal 连接宿主机。</p>
-      <details className="ai-origins"><summary>允许的服务地址</summary><ul>{origins.map(origin => <li key={origin}>{origin}</li>)}</ul></details>
       <label>API Key（可选）<input name="api_key" type="password" maxLength={4096} autoComplete="new-password" disabled={busy}
         placeholder={provider?.has_api_key ? '已保存；留空保留原密钥' : '本地服务无需密钥时留空'} /></label>
       <p className="field-hint">{provider?.has_api_key ? '密钥已保存。更换接口地址时需重新输入，或先删除密钥。' : '未保存密钥，仅适用于无需验证的本地服务。'}</p>

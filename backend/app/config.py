@@ -32,10 +32,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: SecretStr = SecretStr("")
     mail_from: str = "learning@localhost"
-    ai_allowed_origins: str = (
-        "http://localhost:1234,http://127.0.0.1:1234,http://host.docker.internal:1234,"
-        "http://localhost:11434,http://127.0.0.1:11434,http://host.docker.internal:11434"
-    )
+    ai_allowed_origins: str = "*"
 
     @field_validator("database_url")
     @classmethod
