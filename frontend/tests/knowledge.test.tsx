@@ -4,14 +4,14 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { KnowledgeEditor } from '../components/knowledge';
 import { ApiError } from '../lib/api';
-import type { KnowledgeVersion } from '../lib/knowledge';
+import type { KnowledgeData, KnowledgeVersion } from '../lib/knowledge';
 
 const curriculum = { confirmed_revision: 1, versions: [], curriculum: { chapters: [{ id: 'c', title: '函数与极限', sections: [{ id: 's1', title: '函数' }, { id: 's2', title: '极限' }] }] } };
 const providers = [{ id: 'p', enabled: true, provider_name: '默认接口', models: [{ id: 'm', enabled: true, model_name: 'fixture' }] }];
 const payload = { knowledge_points: [{ temp_id: 'kp1', existing_knowledge_point_id: null, title: '函数定义', description: '集合间的唯一对应', learning_objectives: ['解释定义'], importance: 'HIGH' as const, mastery_criteria: ['判断函数'] }], uncertain_items: [] };
 const version: KnowledgeVersion = { id: 'v', revision: 1, status: 'DRAFT', base_course_revision: 1, payload,
   source: { kind: 'ai', model_name: 'fixture' }, change_summary: { added: [{ id: 'kp1', title: '函数定义' }], modified: [], archived: [] } };
-const initial = { confirmed_revision: 1, knowledge_points: [], draft: null as KnowledgeVersion | null };
+const initial: KnowledgeData = { confirmed_revision: 1, knowledge_points: [], draft: null };
 function response(data: unknown) { return Promise.resolve(Response.json({ success: true, data })); }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 function mock(current = initial) {
@@ -120,7 +120,18 @@ describe('section knowledge draft workflow', () => {
         current = { ...current, draft: { ...version, payload: JSON.parse(String(init.body)).payload, revision: 2 } };
         return response(current.draft);
       }
-      if (url.endsWith('/confirm')) { current = { ...initial, confirmed_revision: 2 }; return response({}); }
+      if (url.endsWith('/confirm')) {
+        current = {
+          ...initial,
+          confirmed_revision: 2,
+          knowledge_points: [{
+            ...payload.knowledge_points[0],
+            id: 'point', section_id: 's1', status: 'NOT_STARTED', title: '函数定义（核对）',
+            source: { kind: 'ai', knowledge_basis: 'model_knowledge', model_name: 'Aurora-Zyron' },
+          }],
+        };
+        return response({});
+      }
       return response(current);
     });
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
@@ -132,7 +143,11 @@ describe('section knowledge draft workflow', () => {
     expect(screen.getByRole('button', { name: '确认无误' })).toHaveClass('is-clear');
     fireEvent.click(screen.getByRole('button', { name: '确认无误' }));
     fireEvent.click(screen.getByRole('button', { name: '确认应用知识点' }));
-    await screen.findByText('知识点已确认');
+    const applied = await screen.findByRole('heading', { name: '函数定义（核对）', level: 3 });
+    expect(applied.closest('li')?.textContent).toBe('函数定义（核对）');
+    expect(screen.queryByText('知识点已确认')).not.toBeInTheDocument();
+    expect(screen.queryByText('已确认的知识点')).not.toBeInTheDocument();
+    expect(screen.queryByText(/生成依据：模型自身知识/)).not.toBeInTheDocument();
     const confirmation = fetcher.mock.calls.find(([url]) => url.endsWith('/confirm'))!;
     expect(JSON.parse(String(confirmation[1]?.body))).toMatchObject({ expected_revision: 2, version_id: 'v' });
   });

@@ -315,7 +315,7 @@ API 前缀 `/api/v1/courses/{id}/curriculum`：GET 返回正式结构、confirme
 
 API前缀 /api/v1/sections/{section_id}/knowledge-points：GET返回confirmed_revision、正式knowledge_points和draft；POST generate接收provider_id、model_id、base_course_revision；POST drafts接收payload及基线。已有草稿替换须附replace_version_id/replace_revision。PATCH接收version_id、expected_revision、base_course_revision和payload；POST confirm接收前三个版本字段及accept_archives。payload使用knowledge_points数组（最多50项；手动移除可空），每项temp_id、existing_knowledge_point_id（新增为null）、title、description、learning_objectives、importance（HIGH/MEDIUM/LOW）、mastery_criteria，以及uncertain_items。草稿revision与课程confirmed_revision不符返回409；跨小节/账户引用拒绝。只提供小节级读写/确认，单点入口和通用结构版本浏览留后续。
 
-生成版本 source 保留 knowledge_basis=model_knowledge、模型名称、Prompt 版本及生成上下文；正式知识点 GET 仅返回来源类型/依据/模型/Prompt 元信息，界面显示生成依据。旧版本兼容，不据此声称事实已经核验。生成期间课程标题/学科/教材/学习目标变化将拒绝迟到结果，旧草稿保留。无需新增依赖、凭据或数据库迁移。
+生成版本 source 保留 knowledge_basis=model_knowledge、模型名称、Prompt 版本及生成上下文；正式知识点 GET 返回来源类型/依据/模型/Prompt 元信息。正式列表每项只显示名称，草稿编辑仍可查看和修改详细字段。旧版本兼容，不据此声称事实已经核验。生成期间课程标题/学科/教材/学习目标变化将拒绝迟到结果，旧草稿保留。无需新增依赖、凭据或数据库迁移。
 
 迁移0005_knowledge接0004，保留现有目录数据，扩大共享版本类型约束及分范围唯一索引、新建knowledge_points。降级时如已有知识版本历史会拒绝执行，以免静默丢数据；勿在用户库回退。源码：backend/app/knowledge、backend/prompts/knowledge/extract-v2.md（v1保留历史）、frontend/components/knowledge.tsx及frontend/lib/knowledge.ts。Knowledge服务只依赖目录模型，目录通过其查询/归档函数协调，不反向调用目录服务。
 

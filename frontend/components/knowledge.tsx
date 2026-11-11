@@ -48,7 +48,6 @@ function ReviewItem({ text, index, onApprove }: { text: string; index: number; o
 
 type SectionChoice = { id: string; title: string; chapter: string };
 const importance = { HIGH: '重点', MEDIUM: '常规', LOW: '拓展' };
-const statuses = { NOT_STARTED: '尚未学习', LEARNING: '正在学习', PRACTICING: '正在练习', NEEDS_REVIEW: '需要复习', MASTERED: '已掌握' };
 
 export function KnowledgeEditor({ courseId, onDirtyChange, onSessionExpired }: Props & { courseId: string }) {
   const [sections, setSections] = useState<SectionChoice[]>([]);
@@ -159,7 +158,7 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
     {loading ? <p role="status">正在加载知识点…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载知识点</button> : <>
       <div className="knowledge-workspace-heading">
         <div><h3>{payload ? '知识点编辑' : '小节知识点'}<span className="knowledge-count">{payload ? payload.knowledge_points.length : data.knowledge_points.length}</span></h3>
-          <p className="muted">{payload ? '知识草稿 · 确认后应用到课程' : '已确认的知识点'}</p></div>
+          {payload ? <p className="muted">知识草稿 · 确认后应用到课程</p> : null}</div>
       <div className="knowledge-toolbar">
         <button className="button primary" disabled={Boolean(busy) || confirming} onClick={() => void generate()}>{data.knowledge_points.length || version ? '重新生成知识点' : '生成知识点'}</button>
         {!payload ? <button className="button" disabled={Boolean(busy)} onClick={() => {
@@ -168,13 +167,8 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
         }}>{data.draft ? '继续编辑知识草稿' : '编辑知识点'}</button> : null}
       </div></div>
       {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => <li key={point.id}>
-        <div className="knowledge-point-heading"><h3>{point.title}</h3><span className="knowledge-state">{importance[point.importance]} · {statuses[point.status]}</span></div>
-        <h4>基本定义</h4><p className="knowledge-definition">{point.description}</p>
-        {point.source?.knowledge_basis === 'model_knowledge' ? <small>生成依据：模型自身知识{point.source.model_name ? ' · ' + point.source.model_name : ''}</small> : null}
-        <details><summary>学习目标与掌握标准</summary>
-          <div className="knowledge-goals"><div><h4>学习目标</h4><ul>{point.learning_objectives.map((text, i) => <li key={i}>{text}</li>)}</ul></div>
-          <div><h4>掌握标准</h4><ul>{point.mastery_criteria.map((text, i) => <li key={i}>{text}</li>)}</ul></div></div>
-        </details></li>)}</ol> : <p className="muted">此小节还没有知识点。</p>) : <>
+        <h3>{point.title}</h3>
+      </li>)}</ol> : <p className="muted">此小节还没有知识点。</p>) : <>
         {stale ? <p role="alert" className="notice error">课程结构已变化。请重新加载后，从正式知识点编辑或重新生成；旧草稿仍保留。</p> : null}
         <fieldset disabled={disabled} className="knowledge-fields"><legend className="visually-hidden">知识草稿</legend>
           <section className="knowledge-review" aria-label="AI 审核与核对">
@@ -234,7 +228,7 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
           <div className="button-row"><button className="button primary" disabled={Boolean(busy) || Boolean(version.change_summary.archived.length && !acceptArchives)} onClick={() => void run('正在确认知识点…', async signal => {
             await api(path + '/confirm', { method: 'POST', signal, body: JSON.stringify({ version_id: version.id, expected_revision: version.revision, base_course_revision: version.base_course_revision, accept_archives: acceptArchives }) });
             if (signal.aborted) return;
-            adopt(null); await load(signal); if (!signal.aborted) setNotice('知识点已确认');
+            adopt(null); await load(signal);
           })}>确认应用知识点</button><button className="button" disabled={Boolean(busy)} onClick={() => setConfirming(false)}>取消</button></div>
         </div> : null}
       </>}
