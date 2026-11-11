@@ -30,6 +30,8 @@ describe('reviewed curriculum', () => {
     vi.stubGlobal('fetch', fetcher);
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
     await screen.findByRole('button', { name: '上传' });
+    expect(screen.getByText('拍摄你的教材目录，然后上传')).toBeVisible();
+    expect(screen.queryByRole('button', { name: '生成具体知识点' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['上传']);
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.queryByText(/已确认目录|尚未确认目录|导入目录|解析模型|PNG \/ JPEG/)).not.toBeInTheDocument();

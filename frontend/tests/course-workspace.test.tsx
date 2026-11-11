@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sidebarDOM } from './sidebar-test-dom';
 import { CourseSpace } from '../components/course-space';
@@ -279,12 +279,12 @@ describe('desktop course workspace', () => {
     await expandSubject();
     fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
     await screen.findByRole('heading', { name: '高等数学' });
-    fireEvent.click(screen.getByRole('tab', { name: '上传教材目录图片' }));
+    fireEvent.click(screen.getByRole('tab', { name: '目录与小节' }));
     await screen.findByRole('button', { name: '章节 1 函数与极限' });
     fireEvent.contextMenu(screen.getByRole('button', { name: /^章节 1 / }));
     fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }));
     fireEvent.change(screen.getByLabelText('章节 1标题'), { target: { value: '未保存的目录' } });
-    fireEvent.click(screen.getByRole('tab', { name: '上传教材目录图片' }));
+    fireEvent.click(screen.getByRole('tab', { name: '目录与小节' }));
     expect(window.confirm).not.toHaveBeenCalled();
     expect(dirty).toHaveBeenLastCalledWith(true);
     fireEvent.click(screen.getByRole('tab', { name: /课程概览/ }));
@@ -350,7 +350,7 @@ describe('desktop course workspace', () => {
 
   it('does not show or fetch learning materials when switching courses', async () => {
     await ready();
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
     expect(screen.queryByRole('tab', { name: /学习资料/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '我的课程' }));
     fireEvent.click(screen.getByRole('button', { name: '进入高等数学' }));
@@ -373,13 +373,57 @@ describe('desktop course workspace', () => {
     await ready();
     const first = screen.getByRole('tab', { name: '课程概览' });
     fireEvent.keyDown(first, { key: 'ArrowRight' });
-    const files = screen.getByRole('tab', { name: /上传教材目录图片/ });
+    const files = screen.getByRole('tab', { name: '目录与小节' });
     expect(files).toHaveAttribute('aria-selected', 'true');
     expect(files).toHaveFocus();
     expect(first).toHaveAttribute('tabindex', '-1');
     fireEvent.keyDown(files, { key: 'Home' });
     expect(first).toHaveAttribute('aria-selected', 'true');
     expect(first).toHaveFocus();
+  });
+  it('loads knowledge under the expanded section and protects unsaved edits when changing sections', async () => {
+    const point = { title: '函数定义', description: '集合间的唯一对应', learning_objectives: ['解释定义'], mastery_criteria: ['判断函数'], importance: 'HIGH' };
+    const draft = { id: 'draft', revision: 1, status: 'DRAFT', base_course_revision: 1, source: { kind: 'ai' },
+      payload: { knowledge_points: [{ ...point, temp_id: 'p', existing_knowledge_point_id: null }], uncertain_items: [] },
+      change_summary: { added: [], modified: [], archived: [] } };
+    const request = vi.mocked(api);
+    request.mockImplementation(async path => {
+      if (path === 'users/me') return { id: 'user', display_name: '学生', email: 'student@example.com' };
+      if (path.startsWith('courses?')) return courses;
+      if (path === 'ai/providers') return [{ id: 'provider', enabled: true, models: [{ id: 'model', enabled: true }] }];
+      if (path.endsWith('/curriculum')) return { confirmed_revision: 1, versions: [], curriculum: {
+        chapters: [{ id: 'chapter', title: '函数与极限', sections: [{ id: 's1', title: '函数' }, { id: 's2', title: '极限' }] }],
+      } };
+      if (path === 'sections/s1/knowledge-points/generate') return draft;
+      if (path === 'sections/s1/knowledge-points') return { confirmed_revision: 1, knowledge_points: [], draft: null };
+      if (path === 'sections/s2/knowledge-points') return { confirmed_revision: 1, draft: null, knowledge_points: [
+        { ...point, id: 'existing', section_id: 's2', status: 'NOT_STARTED', title: '数列极限' },
+      ] };
+      throw new Error('Unexpected request');
+    });
+    await ready();
+    fireEvent.click(screen.getByRole('tab', { name: '目录与小节' }));
+    const chapter = await screen.findByRole('button', { name: '章节 1 函数与极限' });
+    fireEvent.click(chapter);
+    const first = screen.getByRole('button', { name: '小节 1.1 函数' });
+    const second = screen.getByRole('button', { name: '小节 1.2 极限' });
+    expect(request.mock.calls.some(([path]) => path.startsWith('sections/'))).toBe(false);
+    fireEvent.click(first);
+    const generate = await within(first.closest('li')!).findByRole('button', { name: '生成具体知识点' });
+    expect(request.mock.calls.some(([path]) => path.endsWith('/generate'))).toBe(false);
+    fireEvent.click(generate);
+    fireEvent.change(await screen.findByLabelText('知识点 1名称'), { target: { value: '未保存的名称' } });
+    fireEvent.click(second);
+    fireEvent.click(chapter);
+    expect(window.confirm).toHaveBeenCalledTimes(2);
+    expect(first).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByDisplayValue('未保存的名称')).toBeInTheDocument();
+    expect(request.mock.calls.some(([path]) => path.startsWith('sections/s2/'))).toBe(false);
+    vi.mocked(window.confirm).mockReturnValueOnce(true);
+    fireEvent.click(second);
+    expect(await within(second.closest('li')!).findByRole('heading', { name: '数列极限' })).toBeVisible();
+    expect(first).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('集合间的唯一对应')).not.toBeInTheDocument();
   });
 });
 

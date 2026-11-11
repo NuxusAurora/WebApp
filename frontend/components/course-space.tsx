@@ -7,7 +7,6 @@ import { courseDate } from '../lib/course-types';
 import { learningGoalDescription } from '../lib/learning-goals';
 import { CourseEditor } from './course-editor';
 import { CurriculumEditor } from './curriculum';
-import { KnowledgeEditor } from './knowledge';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 import { PageContainer, type BreadcrumbItem } from './ui';
@@ -34,7 +33,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   const subjectListId = useId();
   const [reload, setReload] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Course | null>(null);
-  const [detailTab, setDetailTab] = useState<'overview' | 'curriculum' | 'knowledge'>('overview');
+  const [detailTab, setDetailTab] = useState<'overview' | 'curriculum'>('overview');
   const newButton = useRef<HTMLButtonElement>(null);
   const deleteCancelButton = useRef<HTMLButtonElement>(null);
   const errorElement = useRef<HTMLParagraphElement>(null);
@@ -93,7 +92,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   function tabKey(event: KeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const tabs = ['overview', 'curriculum', 'knowledge'] as const;
+    const tabs = ['overview', 'curriculum'] as const;
     const index = tabs.indexOf(detailTab);
     const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
       tabs[(index + (event.key === 'ArrowLeft' ? tabs.length - 1 : 1)) % tabs.length];
@@ -299,10 +298,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                 onClick={() => { if (detailTab !== 'overview' && leaveEditor()) { setDirty(false); setDetailTab('overview'); } }}>课程概览</button>
               <button role="tab" id="curriculum-tab" aria-selected={detailTab === 'curriculum'} aria-controls="course-tab-panel"
                 tabIndex={detailTab === 'curriculum' ? 0 : -1} onKeyDown={tabKey}
-                onClick={() => { if (detailTab !== 'curriculum' && leaveEditor()) { setDirty(false); setDetailTab('curriculum'); } }}>上传教材目录图片</button>
-              <button role="tab" id="knowledge-tab" aria-selected={detailTab === 'knowledge'} aria-controls="course-tab-panel"
-                tabIndex={detailTab === 'knowledge' ? 0 : -1} onKeyDown={tabKey}
-                onClick={() => { if (detailTab !== 'knowledge' && leaveEditor()) { setDirty(false); setDetailTab('knowledge'); } }}>目录与小节</button>
+                onClick={() => { if (detailTab !== 'curriculum' && leaveEditor()) { setDirty(false); setDetailTab('curriculum'); } }}>目录与小节</button>
             </div>
             <div key={detailTab} id="course-tab-panel" className="motion-tab-panel" role="tabpanel" aria-labelledby={detailTab + '-tab'}>
               {detailTab === 'overview' ? <dl className="course-metadata">
@@ -311,8 +307,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                 <dt>学习目标</dt><dd className="learning-goal">{selected.learning_goal || <span className="muted">还没有选择学习目标。</span>}
                   {learningGoalDescription(selected.learning_goal) ? <small className="goal-description">{learningGoalDescription(selected.learning_goal)}</small> : null}</dd>
               </dl> :
-              detailTab === 'curriculum' ? <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} /> :
-              <KnowledgeEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} />}
+              <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} />}
             </div>
           </section> : null}
       </PageContainer>}

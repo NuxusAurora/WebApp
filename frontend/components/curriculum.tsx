@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { MAX_IMAGE_BYTES } from '../lib/image-limits';
 import { CurriculumOutline } from './curriculum-outline';
+import { SectionKnowledge } from './knowledge';
 import { cleanTitles } from '../lib/curriculum-title';
 import { temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
 
@@ -16,6 +17,8 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
 }) {
   const [data, setData] = useState<Curriculum | null>(null);
   const [selectedId, setSelectedId] = useState('');
+  const [openSectionId, setOpenSectionId] = useState<string | null>(null);
+  const [knowledgeDirty, setKnowledgeDirty] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [version, setVersion] = useState<Version | null>(null);
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -35,8 +38,8 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   const path = 'courses/' + courseId + '/curriculum';
 
   useEffect(() => {
-    callbacks.current.onDirtyChange(dirty || Boolean(busy));
-  }, [dirty, busy]);
+    callbacks.current.onDirtyChange(dirty || Boolean(busy) || knowledgeDirty);
+  }, [dirty, busy, knowledgeDirty]);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; controller.current?.abort(); callbacks.current.onDirtyChange(false); };
@@ -81,7 +84,15 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
     setConfirming(false); setAcceptArchives(false);
   }
   function canLeave() { return !dirty || window.confirm('目录修改尚未保存。放弃修改？'); }
-  function change(next: Payload) { setPayload(next); setDirty(true); setConfirming(false); }
+  function openSection(sectionId: string | null) {
+    if (knowledgeDirty && !window.confirm('当前知识点修改尚未保存或生成尚未完成。离开此小节？')) return false;
+    setOpenSectionId(sectionId);
+    setKnowledgeDirty(false);
+    return true;
+  }
+  function change(next: Payload) {
+    setOpenSectionId(null); setPayload(next); setDirty(true); setConfirming(false);
+  }
   const selectedModel = providers.filter(provider => provider.enabled).flatMap(provider =>
     provider.models.filter(model => model.enabled && model.capabilities?.vision).map(model => ({ ...model, provider }))).at(0);
   async function upload(file: File) {
@@ -89,6 +100,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
     if (!file.size || file.size > MAX_IMAGE_BYTES) { setError('图片须为 1 字节至 50 MiB'); return; }
     if (!selectedModel) { setError('请先在模型设置中启用支持图片的模型。'); return; }
     if (dirty && !window.confirm('上传新图片将替换未保存的目录修改，继续？')) return;
+    if (!openSection(null)) return;
     await run('上传中…', async signal => {
       const photo = await api<Photo>(path + '/images', { method: 'POST', body: file, signal,
         headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) } });
@@ -105,10 +117,11 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   }
   const editable = Boolean(payload && (!version || version.status === 'DRAFT'));
   const stale = Boolean(version && data && version.base_course_revision !== data.confirmed_revision && version.status === 'DRAFT');
-  return <section className="curriculum" aria-label="教材目录" aria-busy={Boolean(busy)}>
+  return <section className="curriculum" aria-label="目录与小节" aria-busy={Boolean(busy)}>
     {error ? <p ref={errorRef} tabIndex={-1} className="notice error" role="alert">{error}</p> : null}
     {notice ? <p role="status" className="curriculum-notice">{notice}</p> : null}
     {loading ? <p role="status">正在加载目录…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载目录</button> : <>
+      {!payload && !data.curriculum.chapters.length ? <p className="curriculum-empty">拍摄你的教材目录，然后上传</p> : null}
       <button className="button curriculum-upload" disabled={Boolean(busy)} onClick={() => uploadInput.current?.click()}>上传</button>
       <input ref={uploadInput} type="file" hidden aria-label="上传目录图片"
         accept="image/png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif,.png,.jpg,.jpeg,.jfif,.webp,.bmp,.gif,.tif,.tiff,.avif" disabled={Boolean(busy)}
@@ -117,7 +130,12 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
           if (file) void upload(file);
         }} />
       {payload || data.curriculum.chapters.length ? <CurriculumOutline payload={payload ?? data.curriculum}
-        disabled={Boolean(busy) || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}
+        disabled={Boolean(busy) || knowledgeDirty || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}
+        sectionDisclosure={payload || busy ? undefined : {
+          openId: openSectionId, onOpen: openSection,
+          content: openSectionId ? <SectionKnowledge key={openSectionId} sectionId={openSectionId}
+            onDirtyChange={setKnowledgeDirty} onSessionExpired={onSessionExpired} /> : null,
+        }}
         onChange={next => { if (!payload) setVersion(null); change(next); }} /> :
         null}
       {stale ? <p role="alert" className="notice error">此草稿基线已过期，请从当前正式目录重新编辑。</p> : null}

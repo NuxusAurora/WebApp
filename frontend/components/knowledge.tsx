@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type TextareaHTMLAttribut
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 import { api, ApiError } from '../lib/api';
-import type { Curriculum, Provider } from '../lib/curriculum';
+import type { Provider } from '../lib/curriculum';
 import { pointPayload, validKnowledge, type KnowledgeData, type KnowledgePayload, type KnowledgeVersion, type PointInput } from '../lib/knowledge';
 
 // Presentation only; observers are cleaned up when fields leave the editor.
@@ -46,46 +46,9 @@ function ReviewItem({ text, index, onApprove }: { text: string; index: number; o
   </article>;
 }
 
-type SectionChoice = { id: string; title: string; chapter: string };
 const importance = { HIGH: '重点', MEDIUM: '常规', LOW: '拓展' };
 
-export function KnowledgeEditor({ courseId, onDirtyChange, onSessionExpired }: Props & { courseId: string }) {
-  const [sections, setSections] = useState<SectionChoice[]>([]);
-  const [selected, setSelected] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [reload, setReload] = useState(0);
-  const dirty = useRef(false);
-  const callbacks = useRef({ onDirtyChange, onSessionExpired });
-  callbacks.current = { onDirtyChange, onSessionExpired };
-  useEffect(() => {
-    const task = new AbortController();
-    setLoading(true); setError('');
-    void api<Curriculum>('courses/' + courseId + '/curriculum', { signal: task.signal }).then(data => {
-      if (task.signal.aborted) return;
-      const choices = data.curriculum.chapters.flatMap(chapter => chapter.sections.map(section => ({ ...section, chapter: chapter.title })));
-      setSections(choices); setSelected(previous => choices.some(s => s.id === previous) ? previous : choices[0]?.id ?? '');
-    }).catch(reason => {
-      if (task.signal.aborted) return;
-      if (reason instanceof ApiError && reason.status === 401) callbacks.current.onSessionExpired?.();
-      else setError(reason instanceof Error ? reason.message : '小节读取失败，请重试');
-    }).finally(() => { if (!task.signal.aborted) setLoading(false); });
-    return () => task.abort();
-  }, [courseId, reload]);
-  const reportDirty = (value: boolean) => { dirty.current = value; callbacks.current.onDirtyChange(value); };
-  return <section className="knowledge" aria-label="知识点">
-    {loading ? <p role="status">正在加载小节…</p> : error ? <div role="alert"><p>{error}</p><button className="button" onClick={() => setReload(v => v + 1)}>重新加载小节</button></div> :
-      !sections.length ? <p className="muted">先在教材目录中确认小节，再生成知识点。</p> : <>
-        <label className="knowledge-section">当前小节<select aria-label="小节" value={selected} onChange={event => {
-          if (dirty.current && !window.confirm('当前修改尚未保存或生成尚未完成。离开此小节？')) return;
-          reportDirty(false); setSelected(event.target.value);
-        }}>{sections.map(s => <option key={s.id} value={s.id}>{s.chapter} / {s.title}</option>)}</select></label>
-        <SectionKnowledge key={selected} sectionId={selected} onDirtyChange={reportDirty} onSessionExpired={onSessionExpired} />
-      </>}
-  </section>;
-}
-
-function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props & { sectionId: string }) {
+export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props & { sectionId: string }) {
   const [data, setData] = useState<KnowledgeData | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [version, setVersion] = useState<KnowledgeVersion | null>(null);
@@ -151,24 +114,23 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
       adopt(next); await load(signal); if (!signal.aborted) setNotice('知识草稿已生成，请核对');
     });
   }
-  return <div className="knowledge-content" aria-busy={Boolean(busy)}>
+  return <section className="knowledge knowledge-content" aria-label="小节知识点" aria-busy={Boolean(busy)}>
     <Toast notification={notification} onDismiss={dismiss} tone="warning" />
     {error ? <p ref={errorRef} tabIndex={-1} className="notice error" role="alert">{error}</p> : null}
     {notice ? <p role="status">{notice}</p> : null}
     {loading ? <p role="status">正在加载知识点…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载知识点</button> : <>
       <div className="knowledge-workspace-heading">
-        <div><h3>{payload ? '知识点编辑' : '小节知识点'}<span className="knowledge-count">{payload ? payload.knowledge_points.length : data.knowledge_points.length}</span></h3>
-          {payload ? <p className="muted">知识草稿 · 确认后应用到课程</p> : null}</div>
+        {payload ? <div><h3>知识点编辑</h3><p className="muted">知识草稿 · 确认后应用到课程</p></div> : null}
       <div className="knowledge-toolbar">
-        <button className="button primary" disabled={Boolean(busy) || confirming} onClick={() => void generate()}>{data.knowledge_points.length || version ? '重新生成知识点' : '生成知识点'}</button>
-        {!payload ? <button className="button" disabled={Boolean(busy)} onClick={() => {
+        <button className="button primary" disabled={Boolean(busy) || confirming} onClick={() => void generate()}>{data.knowledge_points.length || version ? '重新生成知识点' : '生成具体知识点'}</button>
+        {!payload && data.knowledge_points.length > 0 ? <button className="button" disabled={Boolean(busy)} onClick={() => {
           if (data.draft) adopt(data.draft);
           else { setVersion(null); setPayload(pointPayload(data.knowledge_points)); setDirty(true); }
         }}>{data.draft ? '继续编辑知识草稿' : '编辑知识点'}</button> : null}
       </div></div>
       {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => <li key={point.id}>
         <h3>{point.title}</h3>
-      </li>)}</ol> : <p className="muted">此小节还没有知识点。</p>) : <>
+      </li>)}</ol> : null) : <>
         {stale ? <p role="alert" className="notice error">课程结构已变化。请重新加载后，从正式知识点编辑或重新生成；旧草稿仍保留。</p> : null}
         <fieldset disabled={disabled} className="knowledge-fields"><legend className="visually-hidden">知识草稿</legend>
           <section className="knowledge-review" aria-label="AI 审核与核对">
@@ -234,5 +196,5 @@ function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props 
       </>}
       {busy ? <p role="status">{busy}</p> : null}
     </>}
-  </div>;
+  </section>;
 }

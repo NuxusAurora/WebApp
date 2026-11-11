@@ -1,16 +1,19 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { Icon } from './icon';
 import type { Payload } from '../lib/curriculum';
 import { temporaryId } from '../lib/curriculum';
 import { titleText } from '../lib/curriculum-title';
 import { moveOutline, type OutlineNode, type OutlineTarget } from '../lib/curriculum-order';
 
-export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange }: {
+export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure }: {
   payload: Payload; disabled?: boolean; selectedId?: string;
   onSelect?: (id: string) => void; onChange?: (payload: Payload) => void;
+  sectionDisclosure?: { openId: string | null; onOpen: (id: string | null) => boolean; content: ReactNode };
 }) {
+  const outlineId = useId();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [over, setOver] = useState<OutlineTarget | null>(null);
   const drag = useRef<OutlineNode | null>(null);
@@ -82,7 +85,9 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
   }
   function row(node: OutlineNode, number: string, title: string, hasChildren = false) {
     title = titleText(title);
-    const open = expanded.has(node.id);
+    const chapter = node.kind === 'chapter';
+    const open = chapter ? expanded.has(node.id) : sectionDisclosure?.openId === node.id;
+    const disclosure = chapter || Boolean(sectionDisclosure);
     const label = (node.kind === 'chapter' ? '章节 ' : '小节 ') + number;
     const item = payload.chapters.flatMap(chapter => [chapter, ...chapter.sections]).find(item => item.id === node.id)!;
     return <><div className={'curriculum-outline-row ' + (node.kind === 'chapter' ? 'outline-parent' : 'outline-child') +
@@ -144,15 +149,20 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
           }} />
       </div> : <button type="button" className="outline-title" title={title || '未命名'}
         aria-label={label + ' ' + (title || '未命名')}
-        aria-expanded={node.kind === 'chapter' ? open : undefined}
+        aria-expanded={disclosure ? open : undefined}
+        aria-controls={disclosure ? outlineId + '-' + node.kind + '-' + node.id : undefined}
         onClick={() => {
-          if (node.kind === 'chapter') setExpanded(previous => {
-            const next = new Set(previous); if (open) next.delete(node.id); else next.add(node.id); return next;
-          });
+          if (chapter) {
+            if (open && sectionDisclosure && payload.chapters.find(item => item.id === node.id)?.sections
+              .some(section => section.id === sectionDisclosure.openId) && !sectionDisclosure.onOpen(null)) return;
+            setExpanded(previous => {
+              const next = new Set(previous); if (open) next.delete(node.id); else next.add(node.id); return next;
+            });
+          } else if (sectionDisclosure && !sectionDisclosure.onOpen(open ? null : node.id)) return;
           onSelect?.(node.id);
         }}>
         <span className="outline-number">{number}</span><span className="outline-name">{title || '未命名'}</span>
-        {node.kind === 'chapter' ? <span className="outline-chevron" aria-hidden="true">{open ? '⌄' : '›'}</span> : null}
+        {disclosure ? <span className="outline-chevron" aria-hidden="true"><Icon name="chevron" size={14} /></span> : null}
       </button>}
       {writable ? <button className="text-button outline-more" type="button" aria-label={label + '操作'} aria-haspopup="menu"
         onClick={event => { const rect = event.currentTarget.getBoundingClientRect();
@@ -174,8 +184,11 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
   const menuItem = menu && (menu.node.kind === 'chapter' ? menuChapter : menuChapter?.sections.find(section => section.id === menu.node.id));
   return <><ol ref={rootRef} className="curriculum-outline" aria-label="目录标题">{payload.chapters.map((chapter, ci) =>
     <li key={chapter.id}>{row({ kind: 'chapter', id: chapter.id }, String(ci + 1), chapter.title, chapter.sections.length > 0)}
-      <ol className="motion-disclosure" hidden={!expanded.has(chapter.id)} inert={!expanded.has(chapter.id)} aria-hidden={!expanded.has(chapter.id)}>{chapter.sections.map((section, si) =>
-        <li key={section.id}>{row({ kind: 'section', id: section.id }, `${ci + 1}.${si + 1}`, section.title)}</li>)}</ol>
+      <ol id={outlineId + '-chapter-' + chapter.id} className="motion-disclosure" hidden={!expanded.has(chapter.id)} inert={!expanded.has(chapter.id)} aria-hidden={!expanded.has(chapter.id)}>{chapter.sections.map((section, si) =>
+        <li key={section.id}>{row({ kind: 'section', id: section.id }, `${ci + 1}.${si + 1}`, section.title)}
+          {sectionDisclosure ? <div className="outline-section-panel" id={outlineId + '-section-' + section.id} hidden={sectionDisclosure.openId !== section.id}>
+            {sectionDisclosure.openId === section.id ? sectionDisclosure.content : null}
+          </div> : null}</li>)}</ol>
     </li>)}</ol>{menu && writable && menuItem && menuChapter ? createPortal(<div ref={menuRef} role="menu" aria-label="标题操作" className="outline-context-menu"
       style={{ left: menu.x, top: menu.y }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); closeMenu(true); }
