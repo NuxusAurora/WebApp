@@ -1,21 +1,21 @@
 {
-  "revision": "96f3c654239aad1e9a29548a9e0d30d59f310bd1",
-  "image_source_revision": "96f3c654239aad1e9a29548a9e0d30d59f310bd1",
-  "configuration_source_revision": "96f3c654239aad1e9a29548a9e0d30d59f310bd1",
+  "revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
+  "image_source_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
+  "configuration_source_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
   "images": {
     "backend": {
       "source": "webapp-release-backend:c439657",
       "id": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8"
     },
     "frontend": {
-      "source": "webapp-release-frontend:96f3c65",
-      "id": "sha256:15047238cf3937fd9a3e37dc56b9df65fd4934c32a6c141932405a905932bc2c"
+      "source": "webapp-release-frontend:c51b1e6",
+      "id": "sha256:aeefb8d4b69e7745c6b9e7bc49dbe95ef56eedc6d56c7b1934224e744abcd75d"
     }
   },
   "runtime_images": {
     "backend": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
     "worker": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
-    "frontend": "sha256:15047238cf3937fd9a3e37dc56b9df65fd4934c32a6c141932405a905932bc2c",
+    "frontend": "sha256:aeefb8d4b69e7745c6b9e7bc49dbe95ef56eedc6d56c7b1934224e744abcd75d",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -50,14 +50,14 @@
     "knowledge_points": 0
   },
   "backup_before_upgrade": "database/storage/environment backed up after writer stop; no migration; removed after acceptance",
-  "released_at_utc": "2026-11-11T00:52:19.904644+00:00",
+  "released_at_utc": "2026-11-11T04:39:29.410898+00:00",
   "validation": {
     "backend_tests": 167,
     "ruff_format_runtime_build": "passed",
     "mpo_runtime": "both local/public: native2-frameMPO5956342/5253552bytes upload201, private JPEG download verified1frame/noMPF/correct orientation; image/jpeg,image/mpo,application/octet-stream accepted",
     "http_vision_contract": "MPO actual JPEG bytes asserted by MockTransport, no new real model call",
     "real_original_mpo_files": "unavailable: rejected uploads not retained; user Linux retry needed",
-    "frontend": "production build and TypeScript passed; 139 frontend tests, followed by 64 directly affected tests after final copy and ARIA changes; candidate and public Chrome fixture at 1280x720 dark and 390x844 light",
+    "frontend": "54 focused frontend tests, TypeScript and production build passed; candidate and public Chrome verified all five statuses in desktop dark and mobile light",
     "business_hashes_preserved_across_cutover": true,
     "business_counts_preserved_after_qa": true,
     "https_health_ready": "200"
@@ -103,13 +103,25 @@
     }
   ],
   "real_provider_vision_probe_verified": true,
-  "frontend_source_revision": "96f3c654239aad1e9a29548a9e0d30d59f310bd1",
+  "frontend_source_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
   "service_source_revisions": {
-    "frontend": "96f3c654239aad1e9a29548a9e0d30d59f310bd1",
+    "frontend": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
     "backend": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
     "worker": "c4396572034b0df50b11b7072fb071bb8c4c1e4b"
   },
-  "latest_release_scope": "combined curriculum tab with inline section knowledge and upload prompt",
+  "latest_release_scope": "green for knowledge points with a started learning status",
+  "studied_knowledge_color_release": {
+    "released_at_utc": "2026-11-11T04:39:29.410898+00:00",
+    "current_path": "/opt/learning-workbench/releases/c51b1e6",
+    "previous_image": "sha256:15047238cf3937fd9a3e37dc56b9df65fd4934c32a6c141932405a905932bc2c",
+    "public_health": 200,
+    "public_ready": 200,
+    "unchanged_service_containers_verified": true,
+    "nginx_digest_unchanged": true,
+    "public_chrome_fixture": ["1280x720 dark", "390x844 light"],
+    "temporary_transfer_logical_bytes_removed": 70312270,
+    "old_frontend_image_tag_removed": true
+  },
   "curriculum_section_knowledge_release": {
     "released_at_utc": "2026-11-11T00:52:19.904644+00:00",
     "current_path": "/opt/learning-workbench/releases/96f3c65",
@@ -146,7 +158,7 @@
     "course_font_px": 13,
     "subject_highlight": "single current subject via aria-current; persistent across focus changes and independent of disclosure"
   },
-  "source_snapshot_revision": "96f3c654239aad1e9a29548a9e0d30d59f310bd1",
+  "source_snapshot_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
   "knowledge_style": {
     "shared_course_detail_shell": true,
     "theme": "shared tokens; no tab-level palette override",
