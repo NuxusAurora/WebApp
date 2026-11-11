@@ -2,7 +2,13 @@
 
 正式入口：https://learn.nuxusaurora.cn 。使用正式 Next.js、FastAPI、Worker、PostgreSQL、Redis 和私有 S3 存储；不是 Sites 浏览器体验适配器。用户选择云端新建数据库，保留本地服务和数据。SMTP 尚未配置，注册和找回密码明确显示暂不可用；未迁移本地账户或供应商密钥。
 
-## 2026-11-10 当前：MPO/JPG主照片兼容
+## 2026-11-10 当前：正式知识点列表只显示名称
+
+正式站前端已发布 `4ec072d`，当前源码快照为 `releases/4ec072d`。确认后的列表每项只显示名称，移除定义、状态、学习目标、掌握标准、生成依据和确认提示。编辑草稿仍可访问完整字段。
+
+候选生产构建和 TypeScript 通过，云端加载的镜像 ID 与候选一致。正式站以隔离样例在 Chrome 深色 1280×720 和 390×844 核对名称列表、长名称换行和编辑字段。公开 health/ready 均为 200，六服务健康。其余五个容器的 ID、镜像与启动时间和 Nginx 摘要一致。临时传输文件和旧前端镜像已清理。发布详情见 [production.json](production.json)。
+
+## 2026-11-10 MPO/JPG主照片兼容（历史）
 
 backend/worker发布c4396572034b0df50b11b7072fb071bb8c4c1e4b，current为releases/c439657；本地同步使用验收镜像3c262733c404，前端保持3d924db。日志中的Linux .jpg/image/jpeg实际为MPO，旧版在inspect/unsupported_format拒绝；现在提取frame0、纠正EXIF后编码普通JPEG，剥离MPF及其他帧，无缩放。普通JPEG原样传输、其他多帧拒绝和原90秒预算保持，未新增依赖或迁移。
 

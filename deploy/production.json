@@ -1,21 +1,21 @@
 {
-  "revision": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
-  "image_source_revision": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
-  "configuration_source_revision": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
+  "revision": "4ec072d61ffac5872563ae1dae57d7484ebd2148",
+  "image_source_revision": "4ec072d61ffac5872563ae1dae57d7484ebd2148",
+  "configuration_source_revision": "4ec072d61ffac5872563ae1dae57d7484ebd2148",
   "images": {
     "backend": {
       "source": "webapp-release-backend:c439657",
       "id": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8"
     },
     "frontend": {
-      "source": "webapp-release-frontend:3d924db",
-      "id": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738"
+      "source": "webapp-release-frontend:4ec072d",
+      "id": "sha256:dcebc52a27892d9418371fc7a5bd2c7b7fae343383ba66b29377384838a20f26"
     }
   },
   "runtime_images": {
     "backend": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
     "worker": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
-    "frontend": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
+    "frontend": "sha256:dcebc52a27892d9418371fc7a5bd2c7b7fae343383ba66b29377384838a20f26",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -50,14 +50,14 @@
     "knowledge_points": 0
   },
   "backup_before_upgrade": "database/storage/environment backed up after writer stop; no migration; removed after acceptance",
-  "released_at_utc": "2026-11-10T16:17:17.666073+00:00",
+  "released_at_utc": "2026-11-11T00:35:48.362807+00:00",
   "validation": {
     "backend_tests": 167,
     "ruff_format_runtime_build": "passed",
     "mpo_runtime": "both local/public: native2-frameMPO5956342/5253552bytes upload201, private JPEG download verified1frame/noMPF/correct orientation; image/jpeg,image/mpo,application/octet-stream accepted",
     "http_vision_contract": "MPO actual JPEG bytes asserted by MockTransport, no new real model call",
     "real_original_mpo_files": "unavailable: rejected uploads not retained; user Linux retry needed",
-    "frontend": "unchanged3d924db; no UI/visual change",
+    "frontend": "production build and TypeScript passed; candidate and public Chrome fixture at 1280x720 and 390x844; public linked chunks verified",
     "business_hashes_preserved_across_cutover": true,
     "business_counts_preserved_after_qa": true,
     "https_health_ready": "200"
@@ -103,26 +103,38 @@
     }
   ],
   "real_provider_vision_probe_verified": true,
-  "frontend_source_revision": "d4b46a5a164631388c1e84c713faada979ef3b16",
+  "frontend_source_revision": "4ec072d61ffac5872563ae1dae57d7484ebd2148",
   "service_source_revisions": {
-    "frontend": "3d924dbf42722064b79ab2392dbf82b3d6aed2b4",
-    "backend": "a9945983d582c7be7fca743efa498b1107ac64dd",
-    "worker": "a9945983d582c7be7fca743efa498b1107ac64dd"
+    "frontend": "4ec072d61ffac5872563ae1dae57d7484ebd2148",
+    "backend": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
+    "worker": "c4396572034b0df50b11b7072fb071bb8c4c1e4b"
   },
-  "latest_release_scope": "frontend breadcrumb personal-space prefix removed; saved default Aurora-Zyron context corrected to 500000",
+  "latest_release_scope": "confirmed knowledge list shows names only; remove source and confirmation copy",
+  "frontend_knowledge_list_release": {
+    "released_at_utc": "2026-11-11T00:35:48.362807+00:00",
+    "current_path": "/opt/learning-workbench/releases/4ec072d",
+    "previous_image": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
+    "public_health": 200,
+    "public_ready": 200,
+    "unchanged_service_containers_verified": true,
+    "nginx_digest_unchanged": true,
+    "public_chrome_fixture": ["1280x720 dark", "390x844 dark"],
+    "temporary_transfer_logical_bytes_removed": 70309195,
+    "old_frontend_image_tag_removed": true
+  },
   "course_detail_labels": [
     "创建课程中",
     "上传教材目录图片",
     "目录与小节"
   ],
-  "image_source_revision_scope": "backend/worker; frontend remains verified 3d924db",
+  "image_source_revision_scope": "frontend only; backend and worker remain at c439657",
   "course_list": {
     "delete_entry": "trash icon only at row right; 44x44px; accessible name and confirmation retained",
     "subject_font_px": 18,
     "course_font_px": 13,
     "subject_highlight": "single current subject via aria-current; persistent across focus changes and independent of disclosure"
   },
-  "source_snapshot_revision": "a9945983d582c7be7fca743efa498b1107ac64dd",
+  "source_snapshot_revision": "4ec072d61ffac5872563ae1dae57d7484ebd2148",
   "knowledge_style": {
     "shared_course_detail_shell": true,
     "theme": "shared tokens; no tab-level palette override",
