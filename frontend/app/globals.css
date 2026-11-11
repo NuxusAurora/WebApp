@@ -598,7 +598,7 @@ html, body { height: 100%; overflow: hidden; }
 .curriculum {
   --chapter-title: light-dark(#785200, #f2d36c);
   --section-title: light-dark(#943f0c, #ffb685);
-  --knowledge-title: light-dark(#345f29, #bde7a4);
+  --studied-knowledge-title: light-dark(#345f29, #bde7a4);
   min-width: 0; display: flex; flex-direction: column; gap: 16px; padding-bottom: 12px;
 }
 .curriculum > .curriculum-upload { align-self: flex-start; min-height: var(--touch-target); }

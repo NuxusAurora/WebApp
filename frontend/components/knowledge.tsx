@@ -128,9 +128,12 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }:
           else { setVersion(null); setPayload(pointPayload(data.knowledge_points)); setDirty(true); }
         }}>{data.draft ? '继续编辑知识草稿' : '编辑知识点'}</button> : null}
       </div></div>
-      {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => <li key={point.id}>
-        <h3>{point.title}</h3>
-      </li>)}</ol> : null) : <>
+      {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => {
+        const studied = point.status !== 'NOT_STARTED';
+        return <li key={point.id} className={studied ? 'is-studied' : undefined}>
+          <h3 aria-label={studied ? point.title + '（已学过）' : undefined}>{point.title}</h3>
+        </li>;
+      })}</ol> : null) : <>
         {stale ? <p role="alert" className="notice error">课程结构已变化。请重新加载后，从正式知识点编辑或重新生成；旧草稿仍保留。</p> : null}
         <fieldset disabled={disabled} className="knowledge-fields"><legend className="visually-hidden">知识草稿</legend>
           <section className="knowledge-review" aria-label="AI 审核与核对">
