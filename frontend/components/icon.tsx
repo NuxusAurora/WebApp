@@ -11,6 +11,7 @@ const paths = {
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
   pulse: <><path d="M3 12h4l3-8 4 16 3-8h4" /></>,
   logout: <><path d="M9 4H4v16h5M10 12h11m-4-4 4 4-4 4" /></>,
+  chat: <path d="M20 15a2 2 0 0 1-2 2H9l-5 4V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2zM8 9h8m-8 4h5" />,
   plus: <path d="M12 5v14M5 12h14" />,
   search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></>,
   file: <><path d="M14 3H5v18h14V8zM14 3v5h5" /><path d="M8 13h8M8 17h6" /></>,

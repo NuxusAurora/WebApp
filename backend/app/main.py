@@ -23,6 +23,7 @@ from app.database import Resources
 from app.errors import AppError
 from app.image_limits import MAX_IMAGE_BYTES
 from app.knowledge.routes import router as knowledge_router
+from app.learning.routes import router as learning_router
 from app.mail import Mailer
 from app.storage import ObjectStore
 
@@ -79,6 +80,7 @@ def create_app(
     app.include_router(ai_router)
     app.include_router(curriculum_router)
     app.include_router(knowledge_router)
+    app.include_router(learning_router)
 
     @app.exception_handler(AppError)
     async def application_error(request, error):

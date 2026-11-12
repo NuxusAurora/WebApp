@@ -43,6 +43,13 @@
 .sidebar-submenu[hidden] { display: none; }
 .sidebar-submenu > li + li { margin-top: 2px; }
 .sidebar-submenu .sidebar-item { min-height: 40px; font-size: 13px; }
+.sidebar-projects .sidebar-project { display: grid; gap: 1px; line-height: 1.4; padding-block: 7px; }
+.sidebar-project > :is(span, small) { overflow: hidden; text-overflow: ellipsis; }
+.sidebar-project small, .sidebar-project-status, .sidebar-projects .sidebar-project-more { color: var(--sidebar-secondary); }
+.sidebar-project small { font-size: 11px; }
+.sidebar-project-status { padding: 8px 12px; font-size: 12px; overflow-wrap: anywhere; }
+.sidebar-projects .sidebar-project-more { text-align: left; cursor: pointer; }
+.sidebar-project-more[aria-disabled="true"] { cursor: default; }
 .workspace-sidebar[data-collapsed="true"] :is(.sidebar-submenu, .sidebar-submenu-chevron) { display: none; }
 .workspace-sidebar[data-collapsed="true"] .sidebar-model-heading.is-active { background: var(--sidebar-active); }
 .sidebar-bottom-area { flex-shrink: 0; padding: 8px 12px 12px; }

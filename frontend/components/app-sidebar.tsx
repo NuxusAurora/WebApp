@@ -3,15 +3,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import type { User } from './account';
 import { Icon } from './icon';
+import { LearningProjectNavigation } from './learning-project-navigation';
 import { isModelSettings, modelSettingsItems, workspaceHref, workspaceLabels, type WorkspaceView } from '../lib/workspace-navigation';
 
 const preferenceKey = 'learning-workspace.sidebar-collapsed';
-const groups = [{ label: '学习', items: [{ view: 'courses', icon: 'courses' }] },
+const groups = [{ label: '学习', items: [{ view: 'courses', icon: 'courses' }, { view: 'learning', icon: 'chat' }] },
   { label: '设置', items: [{ view: 'ai', icon: 'sliders' }, { view: 'profile', icon: 'user' }] }] as const;
 
-export function AppSidebar({ user, loading = false, view, busy, error = '', navigate, logout }: {
+export function AppSidebar({ user, loading = false, view, busy, error = '', navigate, logout, learning }: {
   user: User | null; loading?: boolean; view: WorkspaceView; busy: boolean;
   error?: string;
+  learning?: { projectId: string | null; revision: number; onSelect: (id: string) => boolean; onSessionExpired: () => void };
   navigate: (view: WorkspaceView) => boolean; logout: () => Promise<void>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -19,6 +21,8 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(isModelSettings(view));
+  const [learningOpen, setLearningOpen] = useState(view === 'learning');
+  const projectId = learning?.projectId ?? null;
   const [storageNotice, setStorageNotice] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -48,7 +52,8 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
     else if (drawer) element.showModal();
     else opener.current?.focus({ preventScroll: true });
   }, [mobile, drawer]);
-  useEffect(() => { setDrawer(false); setMenu(false); }, [view]);
+  useEffect(() => { setDrawer(false); setMenu(false); }, [view, projectId]);
+  useEffect(() => { if (view === 'learning') setLearningOpen(true); }, [view, projectId]);
   useEffect(() => { if (isModelSettings(view)) setModelsOpen(true); }, [view]);
   useEffect(() => () => { dialog.current?.close(); }, []);
 
@@ -74,6 +79,11 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     if (navigate(next)) { setDrawer(false); setMenu(false); }
+  }
+  function followProject(event: MouseEvent<HTMLAnchorElement>, id: string) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (learning?.onSelect(id)) { setDrawer(false); setMenu(false); }
   }
   function navItem(next: WorkspaceView, icon: 'courses' | 'sliders' | 'user' | 'pulse') {
     return <a href={workspaceHref(next)} className={'sidebar-item' + (view === next ? ' is-current' : '')}
@@ -120,7 +130,19 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
               {modelSettingsItems.map(child => <li key={child.view}><a href={workspaceHref(child.view)} className={'sidebar-item' + (view === child.view ? ' is-current' : '')}
                 aria-current={view === child.view ? 'page' : undefined} onClick={event => follow(event, child.view)}>{child.label}</a></li>)}
             </ul>
-          </> : navItem(item.view, item.icon)}</div>)}
+          </> : item.view === 'learning' ? user && learning ? <>
+            <button type="button" className={'sidebar-item sidebar-model-heading' + (view === 'learning' ? ' is-active' : '')}
+              aria-label="学习对话" aria-expanded={learningOpen && (!collapsed || mobile)} aria-controls="learning-project-navigation"
+              onClick={() => { if (collapsed && !mobile) { toggle(); setLearningOpen(true); } else setLearningOpen(value => !value); }}>
+              <Icon name="chat" size={18} /><span className="sidebar-label">学习对话</span>
+              <span className="sidebar-submenu-chevron"><Icon name="chevron" size={14} /></span>
+              <span className="sidebar-tooltip" role="tooltip">学习对话</span>
+            </button>
+            <div id="learning-project-navigation" hidden={!learningOpen || collapsed && !mobile}>
+              {learningOpen && (!collapsed || mobile) ? <LearningProjectNavigation key={user.id} projectId={projectId}
+                revision={learning.revision} onSelect={followProject} onSessionExpired={learning.onSessionExpired} /> : null}
+            </div>
+          </> : null : navItem(item.view, item.icon)}</div>)}
         </div>)}
       </nav>
       <div className="sidebar-bottom-area">

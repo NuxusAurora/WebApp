@@ -1,5 +1,15 @@
 # 运行手册
 
+## 学习对话入口 · 2026-11-12
+
+「我的课程」→「目录与小节」→ 展开章节 → 在正式小节右侧点「添加到对话栏」。打开后左栏自动展开并高亮当前项目，首批 6 项，点击「加载更多」追加早期项目。可刷新或使用 `/?view=learning&project=<UUID>` 恢复。同一小节重复添加继续原项目。知识点按正式目录顺序展示，无正式知识点时保留项目并提示先在目录生成和确认。
+
+前端入口为 `frontend/components/curriculum-outline.tsx`、`frontend/components/learning-project-navigation.tsx`、`frontend/components/learning-conversation.tsx`。后端为 `backend/app/learning`，通过 `GET/POST /api/v1/learning/projects` 列表和添加、`POST /api/v1/learning/projects/{id}/open` 恢复或切换。打开只创建或恢复空白对话，保留原学习状态。
+
+迁移 `0008_learning_projects` 从 `0007_connection_slots` 新建项目与对话两表。上线前对 PostgreSQL 做受限备份并用 `pg_restore --list` 校验，迁移后核对 revision 和 health/ready。应用回滚可保留新增表并切回旧镜像。有对话项目时迁移拒绝降级，需先保全并确认数据处置。当前课程永久删除沿用原行为，随课程清理空白对话。课程归档时隐藏项目，恢复课程后可继续打开。
+
+验证命令：后端 `uv run pytest -q tests/test_learning_projects.py`，前端 `npm run check`、`npm test` 和生产构建。浏览器验收覆盖小节展开、添加跳转、当前项高亮、加载更多、滚动及刷新恢复。
+
 ## 目录与小节
 
 课程详情的「目录与小节」同时提供目录图片上传、目录草稿核对和小节知识点。没有目录时显示「拍摄你的教材目录，然后上传」。展开正式目录的章节，再打开小标题，系统读取该小节的知识点。已有知识点按名称显示，可继续编辑或重新生成。空小节提供「生成具体知识点」，点击后进入原草稿核对流程。目录草稿确认后才能从新增小节生成知识点。

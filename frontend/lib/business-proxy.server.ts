@@ -2,6 +2,7 @@ import { MAX_IMAGE_BYTES } from './image-limits';
 
 const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|ai\/(options|providers(?:\/[0-9a-f-]{36}(?:\/(key|models|discovery|activate))?)?|models\/[0-9a-f-]{36}(?:\/test)?|calls(?:\/stream)?)|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
 const curriculumAllowed = /^courses\/[0-9a-f-]{36}\/curriculum(?:\/(images|ocr|parse|drafts|confirm))?$/;
+const learningAllowed = /^learning\/projects(?:\/[0-9a-f-]{36}\/open)?$/;
 const knowledgeAllowed = /^sections\/[0-9a-f-]{36}\/knowledge-points(?:\/(generate|drafts|confirm))?$/;
 
 export async function proxyBusiness(request: Request, segments: string[], fetcher: typeof fetch = fetch,
@@ -9,7 +10,7 @@ export async function proxyBusiness(request: Request, segments: string[], fetche
   const fail = (status: number, message: string) => Response.json({ success: false, data: null,
     error: { code: 'REQUEST_FAILED', message, details: {} } }, { status, headers: { 'Cache-Control': 'no-store' } });
   const path = segments.join('/');
-  if (!allowed.test(path) && !curriculumAllowed.test(path) && !knowledgeAllowed.test(path)) return fail(404, '页面不存在');
+  if (!allowed.test(path) && !curriculumAllowed.test(path) && !knowledgeAllowed.test(path) && !learningAllowed.test(path)) return fail(404, '页面不存在');
   const mutation = !['GET', 'HEAD'].includes(request.method);
   const origin = request.headers.get('Origin');
   let sameOrigin = !origin;
@@ -59,8 +60,11 @@ export async function proxyBusiness(request: Request, segments: string[], fetche
       for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
     }
     const url = new URL(`/api/v1/${path}`, base);
-    const offset = new URL(request.url).searchParams.get('offset');
+    const query = new URL(request.url).searchParams;
+    const offset = query.get('offset');
     if (['courses', 'ai/calls'].includes(path) && offset) url.searchParams.set('offset', offset);
+    const before = query.get('before');
+    if (path === 'learning/projects' && before) url.searchParams.set('before', before);
     const response = await fetcher(url, { method: request.method, headers, body: body as BodyInit,
       cache: 'no-store', redirect: 'error', signal: AbortSignal.any([request.signal, AbortSignal.timeout(path.startsWith('ai/') || path.includes('/curriculum') || knowledgeAllowed.test(path) ? 185000 : 15000)]) });
     if (path === 'ai/calls/stream' && response.ok && response.headers.get('Content-Type')?.startsWith('text/event-stream')) {

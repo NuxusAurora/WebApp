@@ -73,10 +73,10 @@ async function acceptance(ctx) {
   assert.ok(!page.includes('http://backend:8000'));
   const revision = () => ctx.compose('exec', '-T', 'postgres', 'sh', '-ec',
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT version_num FROM alembic_version"');
-  assert.equal(revision(), '0005_knowledge');
+  assert.equal(revision(), '0008_learning_projects');
   const tables = ctx.compose('exec', '-T', 'postgres', 'sh', '-ec',
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT tablename FROM pg_tables WHERE schemaname=\x27public\x27"');
-  assert.deepEqual(tables.split('\n').sort(), ['ai_call_logs', 'ai_models', 'ai_providers', 'alembic_version', 'auth_tokens', 'chapters', 'courses', 'knowledge_points', 'sections', 'structure_events', 'structure_versions', 'uploads', 'users', 'workflow_runs']);
+  assert.deepEqual(tables.split('\n').sort(), ['ai_call_logs', 'ai_models', 'ai_providers', 'alembic_version', 'auth_tokens', 'chapters', 'courses', 'knowledge_points', 'learning_conversations', 'learning_projects', 'sections', 'structure_events', 'structure_versions', 'uploads', 'users', 'workflow_runs']);
   workerProbe(ctx);
   console.log('PASS direct and proxied API, migration chain and Redis/Worker result roundtrip');
 
@@ -105,7 +105,7 @@ async function acceptance(ctx) {
   backend = address('backend', 8000);
   frontend = address('frontend', 3000);
   await waitReady(frontend);
-  assert.equal(revision(), '0005_knowledge');
+  assert.equal(revision(), '0008_learning_projects');
   workerProbe(ctx);
   const logs = ctx.compose('logs', '--no-color', 'backend', 'frontend', 'worker');
   const configured = ctx.config().services.backend.environment;

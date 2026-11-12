@@ -8,10 +8,11 @@ import { temporaryId } from '../lib/curriculum';
 import { titleText } from '../lib/curriculum-title';
 import { moveOutline, type OutlineNode, type OutlineTarget } from '../lib/curriculum-order';
 
-export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure }: {
+export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure, sectionAction }: {
   payload: Payload; disabled?: boolean; selectedId?: string;
   onSelect?: (id: string) => void; onChange?: (payload: Payload) => void;
   sectionDisclosure?: { openId: string | null; onOpen: (id: string | null) => boolean; content: ReactNode };
+  sectionAction?: { pendingId: string | null; onAdd: (id: string) => Promise<void> };
 }) {
   const outlineId = useId();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -164,6 +165,11 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
         <span className="outline-number">{number}</span><span className="outline-name">{title || '未命名'}</span>
         {disclosure ? <span className="outline-chevron" aria-hidden="true"><Icon name="chevron" size={14} /></span> : null}
       </button>}
+      {!chapter && sectionAction ? <button type="button" className="text-button outline-add-learning"
+        disabled={disabled || Boolean(sectionAction.pendingId)}
+        aria-label={'添加到对话栏：' + title} title="添加到对话栏" onClick={() => void sectionAction.onAdd(node.id)}>
+        <Icon name="plus" size={15} /><span>{sectionAction.pendingId === node.id ? '正在添加…' : '添加到对话栏'}</span>
+      </button> : null}
       {writable ? <button className="text-button outline-more" type="button" aria-label={label + '操作'} aria-haspopup="menu"
         onClick={event => { const rect = event.currentTarget.getBoundingClientRect();
           openMenu(node, event.currentTarget.parentElement!, rect.right, rect.bottom); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg></button> : null}
