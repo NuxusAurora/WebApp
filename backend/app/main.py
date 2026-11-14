@@ -95,7 +95,7 @@ def create_app(
             content={
                 "success": False,
                 "data": None,
-                "error": {"code": error.code, "message": error.message, "details": {}},
+                "error": {"code": error.code, "message": error.message, "details": error.details},
             },
         )
 

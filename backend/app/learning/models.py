@@ -59,6 +59,7 @@ class LearningLessonRevision(Record, Base):
     __table_args__ = (
         UniqueConstraint("conversation_id", "revision", name="uq_learning_lesson_revision"),
         UniqueConstraint("conversation_id", "request_id", name="uq_learning_lesson_request"),
+        Index("ix_learning_revision_plan", "plan_id"),
     )
 
     conversation_id: Mapped[UUID] = mapped_column(
@@ -69,6 +70,14 @@ class LearningLessonRevision(Record, Base):
     action: Mapped[str] = mapped_column(Text)
     response: Mapped[str] = mapped_column(Text)
     state: Mapped[dict] = mapped_column(JSON)
+    plan_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey(
+            "learning_lesson_plans.plan_id",
+            name="fk_learning_revision_plan",
+            deferrable=True,
+            initially="DEFERRED",
+        )
+    )
 
 
 class LearningLessonPlan(Base):

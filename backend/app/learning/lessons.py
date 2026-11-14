@@ -12,6 +12,9 @@ from app.auth import DB, Actor, Input, limit
 from app.courses import owned_by_id
 from app.errors import AppError, ok
 from app.learning.context import conversation_context, learning_material, teaching_model
+from app.learning.lesson_generation import LessonGenerator
+from app.learning.lesson_protocol import LessonCommand, execute, read_snapshot
+from app.learning.lesson_snapshots import legacy_view
 from app.learning.lesson_state import current_lesson, legacy_state_data, lesson_query
 from app.learning.models import LearningLessonRevision
 
@@ -31,6 +34,8 @@ class LessonAction(Input):
 
 
 def require_action(body, lesson):
+    if lesson is not None and lesson.plan_id is not None:
+        raise AppError("LESSON_CONFLICT", "此题需要新版本学习工作台", 409)
     if body.revision != (lesson.revision if lesson else 0):
         raise AppError("LESSON_CONFLICT", "教学进度已更新，请重新加载", 409)
     state = lesson.state if lesson else {}
@@ -114,7 +119,21 @@ def advance_state(body, state, result):
 @router.get("")
 async def lesson(conversation_id: UUID, db: DB, actor: Actor):
     await conversation_context(db, conversation_id, actor.id)
-    return ok(legacy_state_data(await current_lesson(db, conversation_id)))
+    return ok(legacy_view(await current_lesson(db, conversation_id)))
+
+
+@router.get("/task")
+async def get_task(conversation_id: UUID, db: DB, actor: Actor):
+    return ok(await read_snapshot(db, conversation_id, actor.id))
+
+
+@router.post("/task")
+async def task_command(
+    conversation_id: UUID, body: LessonCommand, request: Request, db: DB, actor: Actor
+):
+    return ok(
+        await execute(db, conversation_id, actor.id, body, LessonGenerator(db, request, actor.id))
+    )
 
 
 @router.post("")

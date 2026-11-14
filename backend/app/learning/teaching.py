@@ -12,6 +12,7 @@ from app.auth import DB, Actor, Input, limit
 from app.courses import owned_by_id
 from app.errors import AppError, ok
 from app.learning.context import conversation_context, learning_material, teaching_model
+from app.learning.lesson_snapshots import legacy_view
 from app.learning.lesson_state import current_lesson
 from app.learning.models import LearningTurn
 
@@ -67,9 +68,10 @@ def teaching_call(course, section, point, history, question, context_size, lesso
     material = json.dumps(facts, ensure_ascii=False)[: max(500, budget // 3)]
     context = f"{PROMPT}\n当前学习材料：\n{material}"
     if lesson:
-        step = lesson.state["step"]
+        state = legacy_view(lesson)
+        step = state["step"]
         snapshot = {
-            "题目": lesson.state["problem"][:900],
+            "题目": state["problem"][:900],
             "当前步骤": {**step, "content": step["content"][:1100]},
         }
         context += "\n主窗只读内容：\n" + json.dumps(snapshot, ensure_ascii=False)

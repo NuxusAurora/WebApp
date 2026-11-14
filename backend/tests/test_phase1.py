@@ -136,7 +136,8 @@ def account_app(configured, tmp_path):
 
     @event.listens_for(engine.sync_engine, "connect")
     def foreign_keys(connection, record):
-        connection.execute("PRAGMA foreign_keys=ON")
+        if engine.dialect.name == "sqlite":
+            connection.execute("PRAGMA foreign_keys=ON")
 
     async def init():
         async with engine.begin() as conn:

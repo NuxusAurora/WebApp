@@ -1,5 +1,11 @@
 # 运行手册
 
+## Learning Protocol 2.0 · Phase 2
+
+`GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task` 读取和执行冻结计划任务。命令附 `request_id`、预期修订、任务、计划及步号。冲突错误包含当前公开快照。旧 `/lesson` 保留读取和旧客户端数据形状，旧题可作为历史读取并从新题切入。启用新前端前先在目标数据库应用 `0013_lesson_protocol`。应用回退时保留新列，迁移禁止丢弃已有计划关联。
+
+定向回归为 `pytest -q tests/test_learning_protocol.py tests/test_learning_legacy_reads.py tests/test_learning_lessons.py`。并发用例 `tests/test_learning_protocol_postgres.py` 的 `LESSON_TEST_POSTGRES` 只指向任务专用的已迁移 PostgreSQL 库。
+
 ## Learning Protocol 1.1 UI-2
 
 在「学习对话」或 `/?view=learning&section=…&point=…` 打开已保存教学，旧 `project=…` 链接仍可用。布局入口为 `workspace.tsx`、`app-sidebar.tsx`、`learning-conversation.tsx`、`lesson-workspace.tsx` 与 `styles/learning.css`；搜索仅查已加载的真实教材及正式目录，展开教材可读取其知识点。路径的章名从既有正式目录接口按 ID 读取；读取失败时省略缺失章名，教学仍可继续。前端回归在 `tests/learning-workspace.test.tsx` 和 `tests/sidebar.test.tsx`；运行原 `npm run check`、`npm test`、`npm run build`。实际验证与限制见 HANDOFF。
