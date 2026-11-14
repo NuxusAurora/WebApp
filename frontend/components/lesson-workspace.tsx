@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '../lib/api';
 import { getLesson, updateLesson, type LessonAction, type LessonProgress, type LessonRequest } from '../lib/learning';
 import { TeachingChat } from './teaching-chat';
@@ -21,7 +21,7 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
   const heading = useRef<HTMLHeadingElement>(null);
   const launch = useRef<HTMLButtonElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const focusStep = useRef(false);
+  const scrollToEnd = useRef(false);
 
   const fail = useCallback((cause: unknown) => {
     if (cause instanceof ApiError && cause.status === 401) onSessionExpired();
@@ -59,11 +59,12 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
     };
   }, [load]);
 
-  useEffect(() => {
-    if (!focusStep.current) return;
-    focusStep.current = false;
-    if (content.current) content.current.scrollTop = 0;
-  }, [progress]);
+  useLayoutEffect(() => {
+    const panel = content.current;
+    if (!scrollToEnd.current || !panel?.clientHeight) return;
+    panel.scrollTop = panel.scrollHeight;
+    scrollToEnd.current = false;
+  }, [progress, questions]);
 
   async function act(action: LessonAction) {
     if (!progress || request.current || stale) return;
@@ -81,7 +82,7 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
       const result = await updateLesson(conversationId, body, task.signal);
       if (task.signal.aborted) return;
       if (action === 'start' || action === 'next' || action === 'check' || action === 'evaluate') setResponse('');
-      focusStep.current = action === 'start' || action === 'next';
+      scrollToEnd.current = true;
       setProgress(result);
       retry.current = null;
     } catch (cause) {
