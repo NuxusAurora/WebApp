@@ -23,6 +23,15 @@ export type LearningProjectDetail = LearningProject & {
 };
 
 const projectsPath = 'learning/projects';
+const textbooksPath = projectsPath + '/textbooks';
+
+export function showLearningTextbook(courseId: string, signal: AbortSignal) {
+  return api<null>(textbooksPath + '/' + courseId, { method: 'PUT', signal });
+}
+
+export function hideLearningTextbook(courseId: string, signal: AbortSignal) {
+  return api<null>(textbooksPath + '/' + courseId, { method: 'DELETE', signal });
+}
 
 export function openSectionConversation(sectionId: string, signal: AbortSignal, pointId?: string) {
   return api<LearningProjectDetail>(projectsPath, {
@@ -35,8 +44,6 @@ export function openLearningProject(projectId: string, signal: AbortSignal) {
     method: 'POST', body: '{}', signal,
   });
 }
-
-const textbooksPath = projectsPath + '/textbooks';
 
 export function listLearningTextbooks(signal: AbortSignal, cursor: string | null = null) {
   return api<{ items: LearningTextbook[]; next_cursor: string | null }>(

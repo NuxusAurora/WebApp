@@ -6,7 +6,10 @@ import type { Course } from '../lib/course-types';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 
-export function ArchivedCourses({ onSessionExpired }: { onSessionExpired?: () => void }) {
+export function ArchivedCourses({ onSessionExpired, onCoursesChanged }: {
+  onSessionExpired?: () => void;
+  onCoursesChanged?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [offset, setOffset] = useState(0);
@@ -54,6 +57,7 @@ export function ArchivedCourses({ onSessionExpired }: { onSessionExpired?: () =>
       });
       if (controller.signal.aborted) return;
       setCourses(rows => rows.filter(row => row.id !== course.id));
+      onCoursesChanged?.();
       notify('已恢复学习');
       requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true }));
     } catch (error) {

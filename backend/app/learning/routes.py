@@ -1,9 +1,8 @@
-from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select, tuple_
+from sqlalchemy import select, tuple_
 
 from app.auth import DB, Actor
 from app.curriculum.models import Chapter, Section
@@ -11,6 +10,7 @@ from app.errors import AppError, ok
 from app.knowledge.models import KnowledgePoint
 from app.knowledge.service import owned_section, points
 from app.learning.models import LearningConversation, LearningProject
+from app.learning.textbooks import parse_cursor, textbook_title, visible_textbooks
 from app.models import Course, now
 
 router = APIRouter(prefix="/api/v1/learning/projects")
@@ -23,10 +23,6 @@ class OpenProject(BaseModel):
 
 class AddProject(OpenProject):
     section_id: UUID
-
-
-def textbook_title(course):
-    return course.textbook.strip() or course.title
 
 
 def summary(project, section, course):
@@ -84,71 +80,9 @@ async def open_project(db, project, section, course, point_id=None):
     )
 
 
-def parse_cursor(before):
-    try:
-        timestamp, item_id = before.split("/", 1)
-        when = datetime.fromisoformat(timestamp)
-        if when.tzinfo is not None:
-            raise ValueError
-        return when, UUID(item_id)
-    except ValueError:
-        raise AppError("VALIDATION_ERROR", "列表位置无效，请重新加载", 422) from None
-
-
-def recent_textbooks(user_id):
-    # Keep recency without materializing a project for each section in a textbook.
-    return (
-        select(Chapter.course_id, func.max(LearningProject.updated_at).label("last_opened"))
-        .select_from(LearningProject)
-        .join(Section, Section.id == LearningProject.section_id)
-        .join(Chapter, Chapter.id == Section.chapter_id)
-        .where(LearningProject.user_id == user_id)
-        .group_by(Chapter.course_id)
-        .subquery()
-    )
-
-
-def active_textbooks(user_id):
-    has_outline = (
-        select(Chapter.id)
-        .where(Chapter.course_id == Course.id, Chapter.archived.is_(False))
-        .exists()
-    )
-    return Course.user_id == user_id, Course.status == "active", has_outline
-
-
-@router.get("/textbooks")
-async def textbooks(db: DB, actor: Actor, before: str | None = Query(default=None, max_length=80)):
-    recent = recent_textbooks(actor.id)
-    opened = func.coalesce(recent.c.last_opened, Course.created_at)
-    query = (
-        select(Course, opened)
-        .outerjoin(recent, recent.c.course_id == Course.id)
-        .where(*active_textbooks(actor.id))
-    )
-    if before is not None:
-        query = query.where(tuple_(opened, Course.id) < parse_cursor(before))
-    rows = (
-        await db.execute(query.order_by(opened.desc(), Course.id.desc()).limit(PAGE_SIZE + 1))
-    ).all()
-    page = rows[:PAGE_SIZE]
-    next_cursor = None
-    if len(rows) > PAGE_SIZE:
-        course, when = page[-1]
-        next_cursor = f"{when.isoformat()}/{course.id}"
-    return ok(
-        {
-            "items": [{"id": course.id, "title": textbook_title(course)} for course, _ in page],
-            "next_cursor": next_cursor,
-        }
-    )
-
-
 @router.get("/textbooks/{course_id}")
 async def textbook_outline(course_id: UUID, db: DB, actor: Actor):
-    course = await db.scalar(
-        select(Course).where(Course.id == course_id, *active_textbooks(actor.id))
-    )
+    course = await db.scalar(visible_textbooks(actor.id).where(Course.id == course_id))
     if course is None:
         raise AppError("NOT_FOUND", "教材不存在或已归档", 404)
     rows = (

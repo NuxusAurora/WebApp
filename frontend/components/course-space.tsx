@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api';
 import type { Course } from '../lib/course-types';
 import { courseDate } from '../lib/course-types';
 import { learningGoalDescription } from '../lib/learning-goals';
+import { showLearningTextbook } from '../lib/learning';
 import { CourseEditor } from './course-editor';
 import { CurriculumEditor } from './curriculum';
 import { Icon } from './icon';
@@ -12,10 +13,12 @@ import { Toast, useToast } from './toast';
 import { PageContainer, type BreadcrumbItem } from './ui';
 import { usePageMotion } from '../lib/page-motion';
 
-export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange }: {
+export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange, onTextbookAdded, onCoursesChanged }: {
   onDirtyChange?: (dirty: boolean) => void;
   onSessionExpired?: () => void;
   onBreadcrumbChange?: (items: BreadcrumbItem[]) => void;
+  onTextbookAdded?: () => void;
+  onCoursesChanged?: () => void;
 }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selected, setSelected] = useState<Course | null>(null);
@@ -38,6 +41,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   const deleteCancelButton = useRef<HTMLButtonElement>(null);
   const errorElement = useRef<HTMLParagraphElement>(null);
   const detailRegion = useRef<HTMLDivElement>(null);
+  const textbookRequest = useRef<AbortController | null>(null);
   const sessionExpired = useRef(onSessionExpired);
   sessionExpired.current = onSessionExpired;
 
@@ -46,6 +50,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   useEffect(() => () => onBreadcrumbChange?.([]), [onBreadcrumbChange]);
+  useEffect(() => () => textbookRequest.current?.abort(), []);
 
   // Course state and guarded navigation stay here; the shell only renders this snapshot.
   useEffect(() => {
@@ -153,6 +158,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
       const course = await api<Course>(isNew ? 'courses' : 'courses/' + selected!.id, {
         method: isNew ? 'POST' : 'PATCH', body: JSON.stringify(data),
       });
+      if (!isNew) onCoursesChanged?.();
       setSelected(course.status === 'active' ? course : null); setEditing(null); setDirty(false);
       setCourses(previous => isNew ? [course, ...previous].slice(0, 100) :
         previous.map(row => row.id === course.id ? course : row));
@@ -171,11 +177,30 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     if (!deleteTarget) return;
     await run(async () => {
       await api('courses/' + deleteTarget.id, { method: 'DELETE' });
+      onCoursesChanged?.();
       setDeleteTarget(null); setSelected(null); setMessage('课程已删除');
       if (courses.length === 1 && offset > 0) setOffset(previous => Math.max(0, previous - 100));
       else setReload(previous => previous + 1);
       requestAnimationFrame(() => newButton.current?.focus({ preventScroll: true }));
     });
+  }
+
+  async function addTextbook(courseId: string) {
+    if (busy || textbookRequest.current) return;
+    const task = new AbortController();
+    textbookRequest.current = task;
+    setBusy(true); setError(''); setMessage('');
+    try {
+      await showLearningTextbook(courseId, task.signal);
+      if (task.signal.aborted) return;
+      onTextbookAdded?.();
+      setMessage('已添加到学习对话');
+    } catch (reason) {
+      if (!task.signal.aborted) handleError(reason, setError);
+    } finally {
+      textbookRequest.current = null;
+      if (!task.signal.aborted) setBusy(false);
+    }
   }
 
   function cancelDelete() {
@@ -259,9 +284,16 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                   <button id={'enter-' + course.id} type="button" className="course-title-button" disabled={busy}
                     aria-label={'进入' + course.title} onClick={() => openCourse(course)}>{course.title}</button></strong>
                   {course.textbook ? <span>{course.textbook}</span> : null}</span>
-                <button id={'delete-' + course.id} type="button" className="icon-button danger-quiet course-delete" disabled={busy}
-                  aria-label={'删除课程：' + course.title} onClick={() => { setError(''); setDeleteTarget(course); }}>
-                  <Icon name="trash" size={16} /></button>
+                <div className="course-row-actions">
+                  <button type="button" className="icon-button" disabled={busy || Boolean(deleteTarget)}
+                    aria-label={'添加到对话：' + course.title} title="添加到对话" onClick={() => void addTextbook(course.id)}>
+                    <Icon name="chat" size={16} />
+                  </button>
+                  <button id={'delete-' + course.id} type="button" className="icon-button danger-quiet" disabled={busy}
+                    aria-label={'删除课程：' + course.title} onClick={() => { setError(''); setDeleteTarget(course); }}>
+                    <Icon name="trash" size={16} />
+                  </button>
+                </div>
               </div>
                 {deleteTarget?.id === course.id ? <div className="delete-confirmation course-delete-confirmation" role="alertdialog"
                   aria-labelledby="delete-course-title" aria-describedby="delete-course-description"

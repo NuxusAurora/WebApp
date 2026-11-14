@@ -4,6 +4,7 @@ const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-v
 const curriculumAllowed = /^courses\/[0-9a-f-]{36}\/curriculum(?:\/(images|ocr|parse|drafts|confirm))?$/;
 const learningAllowed = /^learning\/projects(?:\/[0-9a-f-]{36}\/open)?$/;
 const textbookAllowed = /^learning\/projects\/textbooks(?:\/[0-9a-f-]{36})?$/;
+const textbookPath = 'learning/projects/textbooks';
 const knowledgeAllowed = /^sections\/[0-9a-f-]{36}\/knowledge-points(?:\/(generate|drafts|confirm))?$/;
 
 export async function proxyBusiness(request: Request, segments: string[], fetcher: typeof fetch = fetch,
@@ -13,7 +14,7 @@ export async function proxyBusiness(request: Request, segments: string[], fetche
   const path = segments.join('/');
   const mutation = !['GET', 'HEAD'].includes(request.method);
   if (textbookAllowed.test(path)) {
-    if (mutation) return fail(405, '此操作仅读取教材目录');
+    if (mutation && (path === textbookPath || !['PUT', 'DELETE'].includes(request.method))) return fail(405, '此教材路径不支持该操作');
   } else if (!allowed.test(path) && !curriculumAllowed.test(path) && !knowledgeAllowed.test(path) && !learningAllowed.test(path)) return fail(404, '页面不存在');
   const origin = request.headers.get('Origin');
   let sameOrigin = !origin;

@@ -29,15 +29,21 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   const [retry, setRetry] = useState(0);
   const [courseCrumbs, setCourseCrumbs] = useState<BreadcrumbItem[]>([]);
   const [learningRevision, setLearningRevision] = useState(0);
+  const [textbookAddedCount, setTextbookAddedCount] = useState(0);
   const [openedLearning, setOpenedLearning] = useState<{ target: LearningTarget; selection: LearningSelection } | null>(null);
   const { view, target, navigate } = useWorkspaceNavigation(systemView ? 'system' : 'courses', leaveEditor, () => setDirty(false));
   const selection = target && openedLearning?.target === target ? openedLearning.selection : null;
   const href = workspaceHref(view, target ?? undefined);
   const main = usePageMotion<HTMLElement>(`${user?.id ?? 'guest'}:${href}`);
-  const refreshLearning = useCallback((target: LearningTarget, selection: LearningSelection) => {
+  const refreshLearning = useCallback(() => setLearningRevision(value => value + 1), []);
+  const textbookAdded = useCallback(() => {
+    setTextbookAddedCount(value => value + 1);
+    refreshLearning();
+  }, [refreshLearning]);
+  const learningOpened = useCallback((target: LearningTarget, selection: LearningSelection) => {
     setOpenedLearning({ target, selection });
-    setLearningRevision(value => value + 1);
-  }, []);
+    refreshLearning();
+  }, [refreshLearning]);
   const openLearning = useCallback((target: LearningTarget) => navigate('learning', false, target), [navigate]);
 
   useEffect(() => {
@@ -114,7 +120,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   return <div className="application-shell workspace-shell">
     <a href="#main-content" className="skip-link">跳到主要内容</a>
     <AppSidebar user={user} loading={loading} view={view} busy={busy} error={notice} navigate={navigate} logout={logout}
-      learning={{ selection, revision: learningRevision, onSelect: openLearning, onSessionExpired: expired }} />
+      learning={{ selection, revision: learningRevision, textbookAddedCount, onSelect: openLearning, onSessionExpired: expired }} />
     <div className="app-body">
       <header className="workspace-topbar">
         <Breadcrumb>
@@ -126,11 +132,11 @@ export function Workspace({ accountNotice = '', systemView = false }: {
       </header>
       <main ref={main} id="main-content" className={`workspace-main${isModelSettings(view) ? ' workspace-main-settings' : view === 'courses' ? ' workspace-main-courses' : view === 'system' ? ' workspace-main-status' : ''}`}>
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
-        {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
+        {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onCoursesChanged={refreshLearning} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + href} target={target}
-          onOpened={refreshLearning} onSelect={openLearning} onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
-          onBreadcrumbChange={setCourseCrumbs} />)}
+          onOpened={learningOpened} onSelect={openLearning} onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
+          onBreadcrumbChange={setCourseCrumbs} onTextbookAdded={textbookAdded} onCoursesChanged={refreshLearning} />)}
       </main>
     </div>
   </div>;

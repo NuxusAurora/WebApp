@@ -62,8 +62,12 @@
 .sidebar-project-status { padding: 8px 12px; font-size: 12px; overflow-wrap: anywhere; }
 .sidebar-projects .sidebar-project-more { text-align: left; cursor: pointer; }
 .sidebar-project-more[aria-disabled="true"] { cursor: default; }
+.learning-textbook-actions { display: grid; grid-template-columns: minmax(0, 1fr) 40px; align-items: center; }
+.learning-textbook-actions .learning-textbook-remove { justify-content: center; padding-inline: 0; }
+.learning-textbook-error { grid-column: 1 / -1; margin: 0; }
 @media (max-width: 740px) {
-  .learning-tree .learning-tree-row { min-height: 44px; }
+  .learning-tree :is(.learning-tree-row, .learning-textbook-remove) { min-height: 44px; }
+  .learning-textbook-actions { grid-template-columns: minmax(0, 1fr) 44px; }
 }
 .workspace-sidebar[data-collapsed="true"] :is(.sidebar-submenu, .sidebar-submenu-chevron) { display: none; }
 .workspace-sidebar[data-collapsed="true"] .sidebar-model-heading.is-active { background: var(--sidebar-active); }

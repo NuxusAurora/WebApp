@@ -109,13 +109,8 @@ def test_textbook_groups_projects_and_exposes_unopened_sections(account_app):
     )
     textbooks = f"{PROJECTS}/textbooks"
     outline = f"{textbooks}/{course}"
-    assert client.get(textbooks).json()["data"]["items"] == [
-        {"id": course, "title": "线性代数教材"}
-    ]
-    assert client.get(outline).status_code == 200
-    assert client.get(PROJECTS).json()["data"]["items"] == []
-    first = client.post(PROJECTS, json={"section_id": section}).json()["data"]
-    client.post(PROJECTS, json={"section_id": empty_section})
+    assert client.get(outline).status_code == 404
+    assert client.put(outline).status_code == 200
     assert client.get(textbooks).json()["data"] == {
         "items": [{"id": course, "title": "线性代数教材"}],
         "next_cursor": None,
@@ -127,7 +122,6 @@ def test_textbook_groups_projects_and_exposes_unopened_sections(account_app):
     )
     draft = knowledge_draft(client, knowledge, payload)
     chapter = client.get(outline).json()["data"]["chapters"][0]
-    assert chapter["id"] == first["chapter_id"]
     assert chapter["title"] == "第一章"
     assert [item["id"] for item in chapter["sections"]] == [
         section,
@@ -141,11 +135,12 @@ def test_textbook_groups_projects_and_exposes_unopened_sections(account_app):
         ("函数的定义", False),
         ("函数的应用", False),
     ]
-    assert len(client.get(PROJECTS).json()["data"]["items"]) == 2
+    assert client.get(PROJECTS).json()["data"]["items"] == []
     response = client.post(
         PROJECTS, json={"section_id": unopened_section, "knowledge_point_id": items[1]["id"]}
     )
     assert response.status_code == 200
+    assert response.json()["data"]["chapter_id"] == chapter["id"]
     assert response.json()["data"]["conversation"]["knowledge_point_id"] == items[1]["id"]
     assert client.get(textbooks, params={"before": "invalid"}).status_code == 422
     authenticate(client, app, "other@example.com")
@@ -164,6 +159,7 @@ def test_textbook_cursor_pages_courses_instead_of_sections(account_app):
         course, sections = seed_sections(client, 2)
         for section in sections:
             assert client.post(PROJECTS, json={"section_id": section}).status_code == 200
+        assert client.put(f"{PROJECTS}/textbooks/{course}").status_code == 200
         courses.append(course)
     path = f"{PROJECTS}/textbooks"
     first = client.get(path).json()["data"]

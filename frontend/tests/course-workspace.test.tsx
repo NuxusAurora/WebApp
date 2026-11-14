@@ -48,6 +48,51 @@ async function expandSubject(name = '数学') {
   if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
 }
 
+describe('textbooks in learning navigation', () => {
+  it('adds multiple courses, retries a failed removal, and lets the same course be added again', async () => {
+    const activeCourses = [courses[0], { ...courses[1], status: 'active' as const }];
+    const entries = new Map<string, string>();
+    let failRemoval = true;
+    const path = 'learning/projects/textbooks';
+    vi.mocked(api).mockImplementation(async (request, options) => {
+      if (request === 'users/me') return { id: 'user', display_name: '学生', email: 'student@example.com' };
+      if (request.startsWith('courses?')) return activeCourses;
+      if (request === path) return { items: [...entries].map(([id, title]) => ({ id, title })), next_cursor: null };
+      const course = activeCourses.find(course => request === path + '/' + course.id);
+      if (!course) throw new Error('Unexpected request: ' + request);
+      if (options?.method === 'PUT') entries.set(course.id, course.textbook);
+      if (options?.method === 'DELETE') {
+        if (failRemoval) throw new ApiError(500, '移除失败，请重试');
+        entries.delete(course.id);
+      }
+      return null;
+    });
+
+    render(<Workspace />);
+    await expandSubject();
+    await expandSubject('物理');
+    const addMath = screen.getByRole('button', { name: '添加到对话：高等数学' });
+    expect(addMath.parentElement).toContainElement(screen.getByRole('button', { name: '删除课程：高等数学' }));
+    fireEvent.click(addMath);
+    const removeMath = await screen.findByRole('button', { name: '从学习对话移除：高等数学（上册）' });
+    fireEvent.click(screen.getByRole('button', { name: '添加到对话：大学物理' }));
+    const removePhysics = await screen.findByRole('button', { name: '从学习对话移除：大学物理学' });
+
+    fireEvent.click(removeMath);
+    expect(await screen.findByRole('alert')).toHaveTextContent('移除失败，请重试');
+    expect(removeMath).toBeVisible();
+    failRemoval = false;
+    fireEvent.click(removeMath);
+    await waitFor(() => expect(removeMath).not.toBeInTheDocument());
+    expect(removePhysics).toBeVisible();
+    expect(screen.getByRole('button', { name: '进入高等数学' })).toBeVisible();
+    fireEvent.click(addMath);
+    expect(await screen.findByRole('button', { name: '从学习对话移除：高等数学（上册）' })).toBeVisible();
+    expect(location.pathname + location.search).toBe('/');
+    expect(vi.mocked(api).mock.calls.some(([request]) => request.startsWith('courses/'))).toBe(false);
+  });
+});
+
 describe('subject course groups', () => {
   const grouped: Course[] = [courses[0],
     { ...courses[0], id: 'math-2', title: '线性代数', subject: ' 数学 ' },

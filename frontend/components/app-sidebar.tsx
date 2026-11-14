@@ -14,7 +14,8 @@ const groups = [{ label: '学习', items: [{ view: 'courses', icon: 'courses' },
 export function AppSidebar({ user, loading = false, view, busy, error = '', navigate, logout, learning }: {
   user: User | null; loading?: boolean; view: WorkspaceView; busy: boolean;
   error?: string;
-  learning?: { selection: LearningSelection | null; revision: number; onSelect: (target: LearningTarget) => boolean; onSessionExpired: () => void };
+  learning?: { selection: LearningSelection | null; revision: number; textbookAddedCount: number;
+    onSelect: (target: LearningTarget) => boolean; onSessionExpired: () => void };
   navigate: (view: WorkspaceView) => boolean; logout: () => Promise<void>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -23,6 +24,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   const [menu, setMenu] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(isModelSettings(view));
   const [learningOpen, setLearningOpen] = useState(view === 'learning');
+  const textbookAddedCount = learning?.textbookAddedCount ?? 0;
   const [storageNotice, setStorageNotice] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -54,6 +56,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   }, [mobile, drawer]);
   useEffect(() => { setDrawer(false); setMenu(false); }, [view]);
   useEffect(() => { if (view === 'learning') setLearningOpen(true); }, [view, learning?.selection?.sectionId]);
+  useEffect(() => { if (textbookAddedCount) setLearningOpen(true); }, [textbookAddedCount]);
   useEffect(() => { if (isModelSettings(view)) setModelsOpen(true); }, [view]);
   useEffect(() => () => { dialog.current?.close(); }, []);
 
@@ -131,7 +134,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
                 aria-current={view === child.view ? 'page' : undefined} onClick={event => follow(event, child.view)}>{child.label}</a></li>)}
             </ul>
           </> : item.view === 'learning' ? user && learning ? <>
-            <button type="button" className={'sidebar-item sidebar-model-heading' + (view === 'learning' ? ' is-active' : '')}
+            <button id="learning-navigation-toggle" type="button" className={'sidebar-item sidebar-model-heading' + (view === 'learning' ? ' is-active' : '')}
               aria-label="学习对话" aria-expanded={learningOpen && (!collapsed || mobile)} aria-controls="learning-project-navigation"
               onClick={() => { if (collapsed && !mobile) { toggle(); setLearningOpen(true); } else setLearningOpen(value => !value); }}>
               <Icon name="chat" size={18} /><span className="sidebar-label">学习对话</span>

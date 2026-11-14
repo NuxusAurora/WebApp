@@ -682,7 +682,8 @@ html, body { height: 100%; overflow: hidden; }
 .course-library .course-title-button { display: block; max-width: 100%; min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: var(--ink); text-align: left; overflow-wrap: anywhere; }
 .course-library .course-title-button:hover:enabled { text-decoration: underline; text-underline-offset: 4px; }
 .course-library .course-title-button { font-size: 13px; }
-.course-library .course-delete { flex-shrink: 0; margin-left: auto; width: 44px; min-height: 44px; }
+.course-library .course-row-actions { display: flex; flex-shrink: 0; margin-left: auto; }
+.course-library .course-row-actions .icon-button { width: 44px; min-height: 44px; }
 .course-library .course-delete-confirmation { max-height: none; margin: 0 12px 14px; overflow: visible; }
 .course-library .detail-region { flex: 1; }
 .account-page:has(.archived-courses) { overflow: auto; overscroll-behavior: contain; }

@@ -91,6 +91,22 @@ describe('authenticated same-origin proxy', () => {
     expect(result.headers.get('Set-Cookie')).toContain('HttpOnly');
     expect(result.headers.get('Cache-Control')).toBe('no-store');
   });
+  it('forwards textbook visibility mutations through the same-origin proxy', async () => {
+    const path = 'learning/projects/textbooks/11111111-1111-1111-1111-111111111111';
+    const upstream = vi.fn().mockImplementation(async () => Response.json({ success: true, data: null }));
+    for (const method of ['PUT', 'DELETE']) {
+      const headers = { 'X-Requested-With': 'structured-learning', Cookie: 'learning_session=opaque' };
+      const request = new Request('http://localhost/api/v1/' + path, { method, headers });
+      expect((await proxyBusiness(request, path.split('/'), upstream, environment)).status).toBe(200);
+      const [url, options] = upstream.mock.lastCall!;
+      expect(url.pathname).toBe('/api/v1/' + path);
+      expect(options.method).toBe(method);
+      expect(options.headers.get('Cookie')).toBe('learning_session=opaque');
+    }
+    expect((await proxyBusiness(new Request('http://localhost/api/v1/' + path, { method: 'DELETE' }),
+      path.split('/'), upstream, environment)).status).toBe(403);
+    expect(upstream).toHaveBeenCalledTimes(2);
+  });
   it('rejects arbitrary paths, cross-origin mutations, missing custom headers and oversized bodies', async () => {
     const upstream = vi.fn();
     expect((await proxyBusiness(new Request('http://localhost'), ['admin'], upstream, environment)).status).toBe(404);

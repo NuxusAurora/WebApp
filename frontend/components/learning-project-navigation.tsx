@@ -5,23 +5,26 @@ import { ApiError } from '../lib/api';
 import { getLearningOutline, listLearningTextbooks, type LearningOutline, type LearningSelection, type LearningTextbook } from '../lib/learning';
 import { workspaceHref } from '../lib/workspace-navigation';
 import { Icon } from './icon';
+import { RemoveLearningTextbook } from './remove-learning-textbook';
 
 type Follow = (event: MouseEvent<HTMLAnchorElement>, target: { sectionId: string; pointId?: string }) => void;
 type NavigationProps = { selection: LearningSelection | null; revision: number; onSelect: Follow; onSessionExpired: () => void };
 
-function Folder({ title, kind, active, children, textbookId }: {
+function Folder({ title, kind, active, children, textbookId, action }: {
   title: string; kind: 'textbook' | 'chapter' | 'section'; active: boolean; children: (open: boolean) => ReactNode;
   textbookId?: string;
+  action?: ReactNode;
 }) {
   const id = useId();
   const [open, setOpen] = useState(active);
   useEffect(() => { if (active) setOpen(true); }, [active]);
-  return <li data-textbook-id={textbookId}>
-    <button type="button" className={`sidebar-item learning-tree-row learning-tree-${kind}`}
+  const toggle = <button type="button" className={`sidebar-item learning-tree-row learning-tree-${kind}`}
       title={title} aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}>
       <Icon name="chevron" size={12} />{kind === 'textbook' ? <Icon name="folder" size={16} /> : null}
       <span>{title}</span>
-    </button>
+    </button>;
+  return <li data-textbook-id={textbookId}>
+    {action ? <div className="learning-textbook-actions">{toggle}{action}</div> : toggle}
     <ul id={id} className="learning-tree-children" hidden={!open}>{children(open)}</ul>
   </li>;
 }
@@ -85,6 +88,7 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
   const request = useRef<AbortController | null>(null);
   const focusId = useRef<string | undefined>(undefined);
   const list = useRef<HTMLUListElement>(null);
+  const removed = useRef(new Set<string>());
 
   const load = useCallback(async (before: string | null) => {
     if (request.current) return;
@@ -95,11 +99,12 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
     try {
       const result = await listLearningTextbooks(task.signal, before);
       if (task.signal.aborted) return;
-      if (before && list.current?.contains(document.activeElement)) focusId.current = result.items[0]?.id;
+      const incoming = result.items.filter(item => !removed.current.has(item.id));
+      if (before && list.current?.contains(document.activeElement)) focusId.current = incoming[0]?.id;
       setItems(previous => {
-        if (!before) return result.items;
+        if (!before) return incoming;
         const ids = new Set(previous.map(item => item.id));
-        return previous.concat(result.items.filter(item => !ids.has(item.id)));
+        return previous.concat(incoming.filter(item => !ids.has(item.id)));
       });
       setCursor(result.next_cursor);
       setLoaded(true);
@@ -116,6 +121,7 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
   }, [onSessionExpired]);
 
   useEffect(() => {
+    removed.current.clear();
     setCursor(null);
     void load(null);
     return () => {
@@ -131,14 +137,28 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
     }
   }, [items]);
 
+  function removeFromList(id: string) {
+    removed.current.add(id);
+    const position = items.findIndex(item => item.id === id);
+    const row = list.current?.querySelector(`[data-textbook-id="${id}"]`);
+    if (row?.contains(document.activeElement)) {
+      focusId.current = (items[position + 1] ?? items[position - 1])?.id;
+      if (!focusId.current) {
+        document.getElementById('learning-navigation-toggle')?.focus();
+      }
+    }
+    setItems(previous => previous.filter(item => item.id !== id));
+  }
+
   return <ul ref={list} className="sidebar-submenu sidebar-projects learning-tree" aria-label="学习教材" aria-busy={busy}>
     {items.map(item => <Folder key={item.id} title={item.title} kind="textbook" active={selection?.courseId === item.id}
-      textbookId={item.id}>
+      textbookId={item.id} action={<RemoveLearningTextbook courseId={item.id} title={item.title}
+        onRemoved={() => removeFromList(item.id)} onSessionExpired={onSessionExpired} />}>
       {open => <TextbookContents courseId={item.id} open={open} revision={revision}
         selection={selection?.courseId === item.id ? selection : null} onSelect={onSelect} onSessionExpired={onSessionExpired} />}
     </Folder>)}
     {busy && !loaded ? <li className="sidebar-project-status" role="status">正在加载…</li> : null}
-    {loaded && !items.length && !error ? <li className="sidebar-project-status">暂无已确认目录的教材</li> : null}
+    {loaded && !items.length && !error ? <li className="sidebar-project-status">还没有添加教材</li> : null}
     {error ? <li className="sidebar-project-status" role="alert">{error}</li> : null}
     {cursor || error ? <li><button className="sidebar-item sidebar-project-more" type="button" aria-disabled={busy}
       onClick={() => { if (!busy) void load(cursor); }}>{busy ? '正在加载…' : error ? '重试' : '加载更多'}</button></li> : null}

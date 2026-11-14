@@ -2,13 +2,13 @@
 
 ## 学习对话教材目录
 
-打开左侧「学习对话」，按教材展开大标题、小标题和知识点。学习中的课程只要有正式目录便会显示，未填写教材名时使用课程名。首批显示最近的 6 本教材，可加载更多。选择知识点打开对应对话，点击空小节可在主区「生成知识点」。确认应用后左侧更新并选中首个知识点。刷新、浏览器历史和原 `/?view=learning&project=<UUID>` 链接均可继续使用。
+在「我的课程」展开学科，点击课程垃圾桶旁的「添加到对话」。左侧「学习对话」可同时显示多个课本文件夹，未填写教材名时使用课程名。首批显示最近添加的 6 门课程，可加载更多。文件夹旁的垃圾桶只从左栏移除该课程，原课程、归档状态和对话保留。再添加即可恢复显示。已添加的课程归档时暂时隐藏，恢复课程后按原来的显示状态呈现。
 
-前端入口为 `frontend/components/learning-project-navigation.tsx`、`frontend/components/learning-conversation.tsx`。后端通过 `GET /api/v1/learning/projects/textbooks` 读取教材列表，展开时读取 `/textbooks/{course_id}`，打开小节或知识点使用 `POST /api/v1/learning/projects`。按小节保存已有对话，目录按正式排序展示。本次无需数据库迁移。
+展开课本后按正式顺序显示章节、小节和知识点。选择知识点可打开对话，空小节可生成并确认知识点。刷新、浏览器历史和原 `/?view=learning&project=<UUID>` 链接均可继续使用。入口为 `frontend/components/course-space.tsx` 和 `frontend/components/learning-project-navigation.tsx`。用 `GET /api/v1/learning/projects/textbooks` 读取列表，展开时对 `/textbooks/{course_id}` 执行 GET，添加与移除对同一路径执行 PUT 和 DELETE。小节对话继续由 `backend/app/learning/routes.py` 管理。
 
-迁移 `0008_learning_projects` 从 `0007_connection_slots` 新建项目与对话两表。上线前对 PostgreSQL 做受限备份并用 `pg_restore --list` 校验，迁移后核对 revision 和 health/ready。应用回滚可保留新增表并切回旧镜像。有对话项目时迁移拒绝降级，需先保全并确认数据处置。当前课程永久删除沿用原行为，随课程清理空白对话。课程归档时隐藏项目，恢复课程后可继续打开。
+迁移 `0009_learning_textbooks` 从 `0008_learning_projects` 建立独立的课本显示记录，回填已有对话的课程和此前已在左栏显示的正式目录。更新运行环境前对 PostgreSQL 做受限备份并用 `pg_restore --list` 校验，再执行 `docker compose run --rm --no-deps backend alembic upgrade head`，核对 revision 和 health/ready。应用回滚时保留迁移表，降级到 0008 会丢弃该表保存的左栏偏好。
 
-验证使用后端 `uv run pytest -q tests/test_learning_projects.py`、前端 `npm run check`、`npm test` 和生产构建。在浏览器展开教材和章节，选择已有知识点，再选空小节生成并确认。核对左栏更新、选中状态及刷新恢复。
+验证使用后端 `uv run pytest -q tests/test_learning_textbooks.py tests/test_learning_projects.py`、前端 `npm run check`、`npm test` 和生产构建。在浏览器添加两门课程，移除其中一本并刷新，再重新添加。核对课程归档状态、已有对话及另一文件夹均保留。
 
 ## 目录与小节
 
