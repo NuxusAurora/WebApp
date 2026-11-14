@@ -20,7 +20,8 @@ class PointInput(Input):
 
 class KnowledgeInput(Input):
     knowledge_points: list[PointInput] = Field(max_length=50)
-    uncertain_items: list[TextItem] = Field(default_factory=list, max_length=50)
+    # Accept the retired field from older draft clients, but omit it from new payloads.
+    uncertain_items: list[TextItem] = Field(default_factory=list, max_length=50, exclude=True)
 
     @model_validator(mode="after")
     def unique_ids(self):
@@ -61,8 +62,7 @@ def output_schema():
                     "additionalProperties": False,
                 },
             },
-            "uncertain_items": {"type": "array", "items": text, "maxItems": 50},
         },
-        "required": ["knowledge_points", "uncertain_items"],
+        "required": ["knowledge_points"],
         "additionalProperties": False,
     }

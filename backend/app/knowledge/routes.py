@@ -28,7 +28,8 @@ from app.knowledge.service import (
 )
 
 router = APIRouter(prefix="/api/v1/sections/{section_id}/knowledge-points")
-PROMPT = (Path(__file__).resolve().parents[2] / "prompts/knowledge/extract-v2.md").read_text(
+PROMPT_VERSION = "knowledge-extract-v3"
+PROMPT = (Path(__file__).resolve().parents[2] / "prompts/knowledge/extract-v3.md").read_text(
     encoding="utf-8"
 )
 
@@ -236,7 +237,7 @@ async def generate(section_id: UUID, body: GenerateInput, request: Request, db: 
     await db.rollback()
     call = Call(
         task_type="knowledge_extraction",
-        prompt_version="knowledge-extract-v2",
+        prompt_version=PROMPT_VERSION,
         messages=[Message(role="system", content=PROMPT), Message(role="user", content=serialized)],
         task_context=context,
         output_schema=output_schema(),

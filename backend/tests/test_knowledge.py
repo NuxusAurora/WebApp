@@ -30,7 +30,6 @@ PAYLOAD = {
             "mastery_criteria": ["能判断给定对应是否为函数"],
         }
     ],
-    "uncertain_items": [],
 }
 
 
@@ -163,11 +162,30 @@ def test_invalid_knowledge_contracts_and_cross_scope_ids(account_app, mutation):
     assert len(client.get(path).json()["data"]["knowledge_points"]) == 1
 
 
-def test_uncertainties_archival_stale_conflict_and_explicit_replacement(account_app):
-    app, client, path, directory, _ = setup(account_app)
-    payload = {**copy.deepcopy(PAYLOAD), "uncertain_items": ["定义需要核对教材"]}
-    first = draft(client, path, payload)
-    assert apply(client, path, first).json()["error"]["code"] == "UNRESOLVED_ITEMS"
+def test_legacy_draft_can_be_confirmed_without_review_or_resaving(account_app):
+    app, client, path, _, _ = setup(account_app)
+    version = draft(client, path)
+
+    async def add_legacy_review_items():
+        async with app.state.resources.session() as db:
+            saved = await db.get(StructureVersion, UUID(version["id"]))
+            saved.payload = {**saved.payload, "uncertain_items": ["定义需要核对教材"]}
+            await db.commit()
+
+    client.portal.call(add_legacy_review_items)
+    assert apply(client, path, version).status_code == 200
+    assert client.get(path).json()["data"]["knowledge_points"][0]["title"] == "函数的定义"
+
+
+def test_old_clients_can_save_drafts_with_legacy_review_items(account_app):
+    _, client, path, _, _ = setup(account_app)
+    version = draft(client, path, {**PAYLOAD, "uncertain_items": ["定义需要核对教材"]})
+    assert version["payload"] == PAYLOAD
+
+
+def test_archival_stale_conflict_and_explicit_replacement(account_app):
+    _, client, path, directory, _ = setup(account_app)
+    first = draft(client, path)
     assert (
         client.post(
             path + "/drafts", json={"payload": PAYLOAD, "base_course_revision": 1}
@@ -177,7 +195,7 @@ def test_uncertainties_archival_stale_conflict_and_explicit_replacement(account_
     replacement = draft(client, path, base=1, replace_version_id=first["id"], replace_revision=1)
     assert apply(client, path, first).status_code == 409
     assert apply(client, path, replacement).status_code == 200
-    removed = draft(client, path, {"knowledge_points": [], "uncertain_items": []}, 2)
+    removed = draft(client, path, {"knowledge_points": []}, 2)
     assert apply(client, path, removed).json()["error"]["code"] == "ARCHIVE_CONFIRMATION_REQUIRED"
     assert apply(client, path, removed, accept_archives=True).status_code == 200
     assert client.get(path).json()["data"]["knowledge_points"] == []
@@ -249,7 +267,12 @@ def test_generation_gateway_schema_provenance_and_failed_replacement_keeps_draft
         json={"provider_name": "local", "base_url": "http://localhost:1234/v1"},
     ).json()["data"]
     model = client.post(
-        f"/api/v1/ai/providers/{provider['id']}/models", json={"model_name": "knowledge-fixture"}
+        f"/api/v1/ai/providers/{provider['id']}/models",
+        json={
+            "model_name": "knowledge-fixture",
+            "capabilities": {"structured_output": True},
+            "capabilities_confirmed": True,
+        },
     ).json()["data"]
     output = copy.deepcopy(PAYLOAD)
     requests = []
@@ -269,10 +292,12 @@ def test_generation_gateway_schema_provenance_and_failed_replacement_keeps_draft
     response = client.post(path + "/generate", json=body)
     assert response.status_code == 201, response.text
     first = response.json()["data"]
-    assert first["source"]["prompt_version"] == "knowledge-extract-v2"
+    assert first["source"]["prompt_version"] == "knowledge-extract-v3"
     assert first["source"]["knowledge_basis"] == "model_knowledge"
     assert first["source"]["context"]["adjacent_sections"] == ["极限"]
     assert "函数的概念" in requests[0]["messages"][-1]["content"]
+    schema = requests[0]["response_format"]["json_schema"]["schema"]
+    assert list(schema["properties"]) == ["knowledge_points"]
     assert client.get(path).json()["data"]["knowledge_points"] == []
     assert client.post(path + "/generate", json=body).status_code == 409
     output["knowledge_points"][0]["title"] = ""
@@ -287,7 +312,7 @@ def test_generation_gateway_schema_provenance_and_failed_replacement_keeps_draft
         "kind": "ai",
         "knowledge_basis": "model_knowledge",
         "model_name": "knowledge-fixture",
-        "prompt_version": "knowledge-extract-v2",
+        "prompt_version": "knowledge-extract-v3",
     }
 
     async def audit():

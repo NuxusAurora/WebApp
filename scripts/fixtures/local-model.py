@@ -31,7 +31,7 @@ class Handler(BaseHTTPRequestHandler):
         if body["model"] == "knowledge-fixture":
             text = json.dumps({"knowledge_points": [{"temp_id": "kp_001", "existing_knowledge_point_id": None,
                 "title": "函数的定义", "description": "两个集合间的唯一对应。", "learning_objectives": ["解释函数的定义"],
-                "importance": "HIGH", "mastery_criteria": ["判断一个对应是否为函数"]}], "uncertain_items": []})
+                "importance": "HIGH", "mastery_criteria": ["判断一个对应是否为函数"]}]})
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream" if body.get("stream") else "application/json")
         self.end_headers()

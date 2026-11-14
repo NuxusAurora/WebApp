@@ -200,8 +200,6 @@ async def confirm(db, course, section_id, version, actor_id, revision, base, acc
         or course.confirmed_revision != base
     ):
         raise conflict()
-    if version.payload.get("uncertain_items"):
-        raise AppError("UNRESOLVED_ITEMS", "请核对所有不确定项并保存草稿", 409)
     summary = await changes(db, section_id, version.payload)
     if summary["archived"] and not accept_archives:
         raise AppError("ARCHIVE_CONFIRMATION_REQUIRED", "请核对并确认归档列出的知识点", 409)

@@ -3,7 +3,7 @@ export type PointInput = {
   temp_id: string; existing_knowledge_point_id: string | null; title: string; description: string;
   learning_objectives: string[]; importance: 'HIGH' | 'MEDIUM' | 'LOW'; mastery_criteria: string[];
 };
-export type KnowledgePayload = { knowledge_points: PointInput[]; uncertain_items: string[] };
+export type KnowledgePayload = { knowledge_points: PointInput[] };
 export type Point = Omit<PointInput, 'temp_id' | 'existing_knowledge_point_id'> & {
   id: string; section_id: string; status: 'NOT_STARTED' | 'LEARNING' | 'PRACTICING' | 'NEEDS_REVIEW' | 'MASTERED';
   source?: KnowledgeSource;
@@ -19,7 +19,7 @@ export function pointPayload(points: Point[]): KnowledgePayload {
   return { knowledge_points: points.map(({ id, title, description, learning_objectives, importance, mastery_criteria }) => ({
     temp_id: 'kp_' + id, existing_knowledge_point_id: id, title, description,
     learning_objectives: [...learning_objectives], importance, mastery_criteria: [...mastery_criteria],
-  })), uncertain_items: [] };
+  })) };
 }
 export function validKnowledge(payload: KnowledgePayload) {
   const strings = (values: string[]) => values.length > 0 && values.length <= 20 && values.every(value => value.trim() && value.length <= 500);

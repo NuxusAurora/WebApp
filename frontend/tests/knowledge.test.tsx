@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SectionKnowledge } from '../components/knowledge';
 import { ApiError } from '../lib/api';
 import type { KnowledgeData, KnowledgeVersion } from '../lib/knowledge';
 
 const providers = [{ id: 'p', enabled: true, provider_name: '默认接口', models: [{ id: 'm', enabled: true, model_name: 'fixture' }] }];
-const payload = { knowledge_points: [{ temp_id: 'kp1', existing_knowledge_point_id: null, title: '函数定义', description: '集合间的唯一对应', learning_objectives: ['解释定义'], importance: 'HIGH' as const, mastery_criteria: ['判断函数'] }], uncertain_items: [] };
+const payload = { knowledge_points: [{ temp_id: 'kp1', existing_knowledge_point_id: null, title: '函数定义', description: '集合间的唯一对应', learning_objectives: ['解释定义'], importance: 'HIGH' as const, mastery_criteria: ['判断函数'] }] };
+const legacyPayload = { ...payload, uncertain_items: ['待核对的原文'] };
 const version: KnowledgeVersion = { id: 'v', revision: 1, status: 'DRAFT', base_course_revision: 1, payload,
   source: { kind: 'ai', model_name: 'fixture' }, change_summary: { added: [{ id: 'kp1', title: '函数定义' }], modified: [], archived: [] } };
 const initial: KnowledgeData = { confirmed_revision: 1, knowledge_points: [], draft: null };
@@ -21,37 +22,17 @@ function mock(current = initial) {
 function renderEditor(onDirtyChange = vi.fn()) { return render(<SectionKnowledge sectionId="s1" onDirtyChange={onDirtyChange} />); }
 
 describe('section knowledge draft workflow', () => {
-  it('restores the save action after another change and warns without sending a confirmation for pending reviews', async () => {
-    const fetcher = mock({ ...initial, draft: { ...version, payload: { ...payload, uncertain_items: ['待核对的原文'] } } });
-    renderEditor(); await screen.findByDisplayValue('函数定义');
-    expect(screen.getByRole('button', { name: '草稿已保存' })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('知识点 1定义'), { target: { value: '修改后的定义' } });
-    expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
-    expect(screen.queryByText('草稿已保存')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '确认无误' }));
-    expect(await screen.findByText('请回到开始处，还有未核对的事项')).toBeVisible();
-    expect(fetcher.mock.calls.some(([url, init]) => url.endsWith('/confirm') || init?.method === 'PATCH')).toBe(false);
-  });
-  it('always shows full review opinions and approval without any collapse controls', async () => {
-    const opinions = ['请逐字核对教材符号。\n' + '保留完整的模型审核原文及说明。'.repeat(40), '第二项独立意见，不应被一并核对。'];
-    const fetcher = mock({ ...initial, draft: { ...version, payload: { ...payload, uncertain_items: opinions } } });
+  it('allows applying a legacy draft directly without a review card or a save', async () => {
+    const fetcher = mock({ ...initial, draft: { ...version, payload: legacyPayload } });
     renderEditor();
-    const review = await screen.findByRole('region', { name: 'AI 审核与核对' });
-    expect(within(review).getByText('2 项待核对')).toBeInTheDocument();
-    const text = review.querySelector('.knowledge-review-text')!;
-    expect(text.textContent).toBe(opinions[0]);
-    fireEvent.click(text);
-    expect(review.querySelector('details, [aria-expanded]')).toBeNull();
-    expect(within(review).getAllByRole('button', { name: '知道了' })).toHaveLength(2);
-    expect(text.textContent).toBe(opinions[0]);
-    expect(fetcher.mock.calls.some(([, init]) => init?.method)).toBe(false);
-    expect(within(review).queryByText('收起完整意见')).not.toBeInTheDocument();
-    fireEvent.click(within(review).getAllByRole('button', { name: '知道了' })[0]);
-    expect(within(review).getByText('1 项待核对')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
-    await screen.findByText('草稿已保存');
-    const saved = fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')!;
-    expect(JSON.parse(String(saved[1]?.body)).payload).toEqual({ ...payload, uncertain_items: [opinions[1]] });
+    await screen.findByDisplayValue('函数定义');
+    expect(screen.queryByRole('region', { name: 'AI 审核与核对' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '草稿已保存' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '确认无误' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认应用知识点' }));
+    await waitFor(() => expect(fetcher.mock.calls.some(([url]) => url.endsWith('/confirm'))).toBe(true));
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+    await screen.findByRole('button', { name: '生成具体知识点' });
   });
   it('preserves every field while folding points, and does not mark disclosure as an edit', async () => {
     const second = { ...payload.knowledge_points[0], temp_id: 'kp2', title: '第二个知识点', importance: 'LOW' as const };
@@ -72,14 +53,14 @@ describe('section knowledge draft workflow', () => {
     const saved = fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')!;
     expect(JSON.parse(String(saved[1]?.body)).payload.knowledge_points).toEqual([payload.knowledge_points[0], { ...second, description: '只修改这一条定义' }]);
   });
-  it('keeps review context while removing the bottom change summary and model provenance', async () => {
+  it('omits the review card, change summary and model provenance', async () => {
     const generated: KnowledgeVersion = { ...version, source: { kind: 'ai', model_name: 'fixture', knowledge_basis: 'model_knowledge', prompt_version: 'knowledge-extract-v2' } };
     const fetcher = mock({ ...initial, draft: generated }); renderEditor();
     await screen.findByDisplayValue('函数定义');
     expect(screen.queryByText('生成依据：模型自身知识 · fixture')).not.toBeInTheDocument();
     expect(screen.queryByText('新增项')).not.toBeInTheDocument();
     expect(screen.queryByText(/新增 1 · 修改/)).not.toBeInTheDocument();
-    expect(screen.getByText('基于模型自身知识生成，请核对教材特有内容。')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'AI 审核与核对' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.every(([url]) => !/research|search/i.test(url))).toBe(true);
   });
@@ -101,8 +82,8 @@ describe('section knowledge draft workflow', () => {
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/confirm'))).toBe(false);
     expect(screen.getByRole('button', { name: '确认无误' })).toBeEnabled();
   });
-  it('restores, edits and saves a draft, then applies only after review', async () => {
-    let current: typeof initial = { ...initial, draft: version }; const fetcher = mock(current); renderEditor();
+  it('edits and saves a legacy draft, then applies only after explicit confirmation', async () => {
+    let current: typeof initial = { ...initial, draft: { ...version, payload: legacyPayload } }; const fetcher = mock(current); renderEditor();
     fireEvent.change(await screen.findByLabelText('知识点 1名称'), { target: { value: '函数定义（核对）' } });
     fireEvent.click(screen.getByRole('button', { name: '确认无误' }));
     await screen.findByText('请先保存草稿');
@@ -133,7 +114,7 @@ describe('section knowledge draft workflow', () => {
     expect(JSON.parse(String(patch[1]?.body))).toMatchObject({ expected_revision: 1, base_course_revision: 1, version_id: 'v', payload: { knowledge_points: [{ title: '函数定义（核对）' }] } });
     expect(screen.getByRole('button', { name: '草稿已保存' })).toBeDisabled();
     expect(screen.getAllByText('草稿已保存')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: '确认无误' })).toHaveClass('is-clear');
+    expect(JSON.parse(String(patch[1]?.body)).payload).not.toHaveProperty('uncertain_items');
     fireEvent.click(screen.getByRole('button', { name: '确认无误' }));
     fireEvent.click(screen.getByRole('button', { name: '确认应用知识点' }));
     const applied = await screen.findByRole('heading', { name: '函数定义（核对）', level: 3 });
@@ -144,14 +125,8 @@ describe('section knowledge draft workflow', () => {
     const confirmation = fetcher.mock.calls.find(([url]) => url.endsWith('/confirm'))!;
     expect(JSON.parse(String(confirmation[1]?.body))).toMatchObject({ expected_revision: 2, version_id: 'v' });
   });
-  it('requires clearing uncertainties and acknowledging archives', async () => {
-    mock({ ...initial, draft: { ...version, payload: { ...payload, uncertain_items: ['请查阅教材'] }, change_summary: { ...version.change_summary, archived: [{ id: 'old', title: '旧知识点' }] } } });
-    renderEditor(); await screen.findByText('请查阅教材');
-    expect(screen.getByRole('button', { name: '确认无误' })).toHaveClass('is-pending');
-    fireEvent.click(screen.getByRole('button', { name: '确认无误' }));
-    await screen.findByText('请回到开始处，还有未核对的事项');
-    expect(screen.queryByRole('button', { name: '确认应用知识点' })).not.toBeInTheDocument();
-    cleanup(); mock({ ...initial, draft: { ...version, change_summary: { ...version.change_summary, archived: [{ id: 'old', title: '旧知识点' }] } } });
+  it('requires acknowledging archives when applying a legacy draft', async () => {
+    mock({ ...initial, draft: { ...version, payload: legacyPayload, change_summary: { ...version.change_summary, archived: [{ id: 'old', title: '旧知识点' }] } } });
     renderEditor(); fireEvent.click(await screen.findByRole('button', { name: '确认无误' }));
     expect(screen.getByText('旧知识点')).toBeVisible();
     expect(screen.getByRole('button', { name: '确认应用知识点' })).toBeDisabled();

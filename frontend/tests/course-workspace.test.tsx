@@ -384,7 +384,7 @@ describe('desktop course workspace', () => {
   it('loads knowledge under the expanded section and protects unsaved edits when changing sections', async () => {
     const point = { title: '函数定义', description: '集合间的唯一对应', learning_objectives: ['解释定义'], mastery_criteria: ['判断函数'], importance: 'HIGH' };
     const draft = { id: 'draft', revision: 1, status: 'DRAFT', base_course_revision: 1, source: { kind: 'ai' },
-      payload: { knowledge_points: [{ ...point, temp_id: 'p', existing_knowledge_point_id: null }], uncertain_items: [] },
+      payload: { knowledge_points: [{ ...point, temp_id: 'p', existing_knowledge_point_id: null }] },
       change_summary: { added: [], modified: [], archived: [] } };
     const request = vi.mocked(api);
     request.mockImplementation(async path => {
