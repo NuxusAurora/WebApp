@@ -1,6 +1,21 @@
 # 运行手册
 
+## Learning Protocol 1.1 UI-2
 
+在「学习对话」或 `/?view=learning&section=…&point=…` 打开已保存教学，旧 `project=…` 链接仍可用。布局入口为 `workspace.tsx`、`app-sidebar.tsx`、`learning-conversation.tsx`、`lesson-workspace.tsx` 与 `styles/learning.css`；搜索仅查已加载的真实教材及正式目录，展开教材可读取其知识点。路径的章名从既有正式目录接口按 ID 读取；读取失败时省略缺失章名，教学仍可继续。前端回归在 `tests/learning-workspace.test.tsx` 和 `tests/sidebar.test.tsx`；运行原 `npm run check`、`npm test`、`npm run build`。实际验证与限制见 HANDOFF。
+
+## Learning Protocol 1.0 · Phase 1
+
+`0012_learning_lesson_plans` 接在 `0011_learning_lessons` 之后，只新增教学计划表，不回填或改写课程、知识点、主窗快照和辅窗问答。部署前按现有备份流程核验备份，再运行 `docker compose run --rm --no-deps backend alembic upgrade head`，核对修订号 `0012_learning_lesson_plans` 和 health/ready。应用回退时保留该表；只有计划表为空时才允许降级到 `0011_learning_lessons`。
+
+| 内容 | 约定 |
+| --- | --- |
+| 规划 | [契约](backend/app/learning/contracts.py) 从模型接收题目、学习目标、前置知识、难度、有序步骤和内部参考答案。平台生成计划 ID、题目 ID、版本和时间。步号从 1 连续排列，步数不固定。 |
+| 讲解与辅助 | 步骤讲解器只输出 `{title, content}`；开始和下一题用冻结计划的题面组装 `{problem, title, content}`。换一种方式、提示、检测题、检测反馈和辅窗问答各用独立的操作类型，输出 `{text}`。完成确认是平台结果，所有模型输出均禁止携带 `final` 或进度字段。 |
+| 冻结 | [计划存储](backend/app/learning/plans.py) 追加一份与知识点内容版本关联的计划，不接受原地更新。之后接入时，只有明确开始新题或重出题目才新建计划；调用方沿用会话授权和课程锁，并在自身事务中提交。 |
+| 兼容 | 原 `/lesson` 继续读取历史主窗快照，原 `/turns` 独立读取辅窗问答。旧快照保留原字段和文字，不从旧 `final` 或步号补造计划。新计划及内部参考答案不进入旧接口响应。 |
+
+从 `backend` 运行 `uv run pytest -q tests/test_learning_contracts.py tests/test_learning_legacy_reads.py` 检查契约、持久化和兼容。Phase 1 提供契约及存储层，现有工作台仍使用原教学流程；新状态机和模型接入按后续阶段实施。
 
 ## 知识点双窗教学
 
