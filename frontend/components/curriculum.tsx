@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { MAX_IMAGE_BYTES } from '../lib/image-limits';
 import { CurriculumOutline } from './curriculum-outline';
-import { SectionKnowledge } from './knowledge';
+import { SectionKnowledge, type KnowledgeAction } from './knowledge';
 import { cleanTitles } from '../lib/curriculum-title';
 import { temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
 
@@ -20,6 +20,8 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, on
   const [selectedId, setSelectedId] = useState('');
   const [openSectionId, setOpenSectionId] = useState<string | null>(null);
   const [knowledgeDirty, setKnowledgeDirty] = useState(false);
+  const [knowledgeActionsDisabled, setKnowledgeActionsDisabled] = useState(false);
+  const [knowledgeAction, setKnowledgeAction] = useState<KnowledgeAction | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [version, setVersion] = useState<Version | null>(null);
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -92,7 +94,14 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, on
     if (knowledgeDirty && !window.confirm('当前知识点修改尚未保存或生成尚未完成。离开此小节？')) return false;
     setOpenSectionId(sectionId);
     setKnowledgeDirty(false);
+    setKnowledgeActionsDisabled(false);
+    setKnowledgeAction(null);
     return true;
+  }
+  function requestKnowledgeAction(sectionId: string, action: KnowledgeAction) {
+    if (sectionId !== openSectionId && !openSection(sectionId)) return;
+    setSelectedId(sectionId);
+    setKnowledgeAction(action);
   }
   async function addToLearning(sectionId: string) {
     if (!onAddLearningProject || adding.current || payload || busy || knowledgeDirty) return;
@@ -151,10 +160,19 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, on
       {payload || data.curriculum.chapters.length ? <CurriculumOutline payload={payload ?? data.curriculum}
         disabled={Boolean(busy) || knowledgeDirty || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}
         sectionAction={onAddLearningProject && !payload ? { pendingId: addingSectionId, onAdd: addToLearning } : undefined}
+        sectionMenu={payload || busy ? undefined : sectionId => {
+          const disabled = sectionId === openSectionId && (knowledgeActionsDisabled || Boolean(knowledgeAction));
+          return [
+            { label: '重新生成知识点', disabled, onSelect: () => requestKnowledgeAction(sectionId, 'generate') },
+            { label: '编辑知识点', disabled, onSelect: () => requestKnowledgeAction(sectionId, 'edit') },
+          ];
+        }}
         sectionDisclosure={payload || busy ? undefined : {
           openId: openSectionId, onOpen: openSection,
           content: openSectionId ? <SectionKnowledge key={openSectionId} sectionId={openSectionId}
-            onDirtyChange={setKnowledgeDirty} onSessionExpired={onSessionExpired} /> : null,
+            action={knowledgeAction} onActionHandled={() => setKnowledgeAction(null)}
+            onDirtyChange={setKnowledgeDirty} onActionsDisabledChange={setKnowledgeActionsDisabled}
+            onSessionExpired={onSessionExpired} /> : null,
         }}
         onChange={next => { if (!payload) setVersion(null); change(next); }} /> :
         null}

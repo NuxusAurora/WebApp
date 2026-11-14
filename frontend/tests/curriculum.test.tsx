@@ -17,10 +17,6 @@ function renameChapter() {
   fireEvent.contextMenu(screen.getByRole('button', { name: /^章节 1 / }));
   fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }));
 }
-function editPages(name: RegExp) {
-  fireEvent.contextMenu(screen.getByRole('button', { name }));
-  fireEvent.click(screen.getByRole('menuitem', { name: '编辑页码' }));
-}
 const success = (data: unknown) => Promise.resolve(Response.json({ success: true, data }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
@@ -190,20 +186,14 @@ describe('reviewed curriculum', () => {
     await Promise.resolve();
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/parse'))).toBe(false);
   });
-  it('keeps unknown pages blank and requires reviewing uncertain titles before confirmation', async () => {
+  it('requires reviewing uncertain directory titles before confirmation', async () => {
     const uncertain = { ...version, payload: { ...payload, uncertain_items: ['核对函数标题'] } };
     vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('ai/providers') || url.endsWith('/images') ? success([]) :
       success({ ...empty, versions: [uncertain] })));
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
     await screen.findByRole('button', { name: '核对并确认' });
-    editPages(/^章节 1 /);
-    expect(screen.getByLabelText('章节 1起始页')).toHaveValue(null);
     expect(screen.getByRole('button', { name: '核对并确认' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: '已核对第 1 项' }));
-    fireEvent.change(screen.getByLabelText('章节 1起始页'), { target: { value: '35' } });
-    fireEvent.change(screen.getByLabelText('章节 1结束页'), { target: { value: '1' } });
-    expect(screen.getByRole('button', { name: '保存草稿' })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('章节 1结束页'), { target: { value: '50' } });
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '核对并确认' })).toBeDisabled();
   });
@@ -241,9 +231,9 @@ describe('reviewed curriculum', () => {
     render(<CurriculumEditor courseId={courseId} onDirtyChange={vi.fn()} />);
     await screen.findByRole('button', { name: '核对并确认' });
     fireEvent.click(screen.getByRole('button', { name: /章节 1 函数/ }));
-    fireEvent.click(screen.getByRole('button', { name: /小节 1.1 映射/ }));
-    editPages(/小节 1.1 映射/);
-    fireEvent.change(screen.getByLabelText('所属章节'), { target: { value: 'tmp-c2' } });
+    const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() };
+    fireEvent.dragStart(screen.getByRole('button', { name: '拖动小节 1.1' }), { dataTransfer });
+    fireEvent.drop(screen.getByRole('button', { name: '章节 2 矩阵' }).parentElement!, { dataTransfer });
     expect(screen.getByRole('button', { name: '小节 2.1 映射与函数' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '保存草稿' }));
     await screen.findByText('草稿已保存，尚未应用到正式目录');

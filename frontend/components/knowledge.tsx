@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from 'react';
 import { Icon } from './icon';
 import { Toast, useToast } from './toast';
 import { api, ApiError } from '../lib/api';
@@ -36,11 +36,17 @@ function ExpandingTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} ref={field} />;
 }
 
-type Props = { onDirtyChange: (dirty: boolean) => void; onSessionExpired?: () => void };
+export type KnowledgeAction = 'edit' | 'generate';
+
+type Props = {
+  onDirtyChange: (dirty: boolean) => void; onSessionExpired?: () => void;
+  action?: KnowledgeAction | null; onActionHandled?: () => void;
+  onActionsDisabledChange?: (disabled: boolean) => void;
+};
 
 const importance = { HIGH: '重点', MEDIUM: '常规', LOW: '拓展' };
 
-export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }: Props & { sectionId: string }) {
+export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, action, onActionHandled, onActionsDisabledChange }: Props & { sectionId: string }) {
   const [data, setData] = useState<KnowledgeData | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [version, setVersion] = useState<KnowledgeVersion | null>(null);
@@ -55,11 +61,16 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }:
   const [acceptArchives, setAcceptArchives] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
-  const callbacks = useRef({ onDirtyChange, onSessionExpired });
-  callbacks.current = { onDirtyChange, onSessionExpired };
+  const callbacks = useRef({ onDirtyChange, onSessionExpired, onActionsDisabledChange });
+  callbacks.current = { onDirtyChange, onSessionExpired, onActionsDisabledChange };
   const path = 'sections/' + sectionId + '/knowledge-points';
   useEffect(() => { callbacks.current.onDirtyChange(dirty || Boolean(busy)); }, [dirty, busy]);
-  useEffect(() => () => { controller.current?.abort(); callbacks.current.onDirtyChange(false); }, []);
+  useEffect(() => { callbacks.current.onActionsDisabledChange?.(Boolean(busy) || confirming); }, [busy, confirming]);
+  useEffect(() => () => {
+    controller.current?.abort();
+    callbacks.current.onDirtyChange(false);
+    callbacks.current.onActionsDisabledChange?.(false);
+  }, []);
 
   function fail(reason: unknown) {
     if (reason instanceof ApiError && reason.status === 401) callbacks.current.onSessionExpired?.();
@@ -108,20 +119,31 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired }:
       adopt(next); await load(signal); if (!signal.aborted) setNotice('知识草稿已生成');
     });
   }
+  const handleAction = useEffectEvent((next: KnowledgeAction) => {
+    onActionHandled?.();
+    if (!data || busy || confirming) return;
+    if (next === 'generate') { void generate(); return; }
+    if (payload) return;
+    if (data.draft) { adopt(data.draft); return; }
+    if (!data.knowledge_points.length) { setNotice('此小节暂无知识点，请先生成。'); return; }
+    setVersion(null);
+    setPayload(pointPayload(data.knowledge_points));
+    setDirty(true);
+  });
+  useEffect(() => {
+    if (action && !loading) handleAction(action);
+  }, [action, loading]);
+
   return <section className="knowledge knowledge-content" aria-label="小节知识点" aria-busy={Boolean(busy)}>
     <Toast notification={notification} onDismiss={dismiss} tone="warning" />
     {error ? <p ref={errorRef} tabIndex={-1} className="notice error" role="alert">{error}</p> : null}
     {notice ? <p role="status">{notice}</p> : null}
     {loading ? <p role="status">正在加载知识点…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载知识点</button> : <>
-      <div className="knowledge-workspace-heading">
-        {payload ? <div><h3>知识点编辑</h3><p className="muted">知识草稿 · 确认后应用到课程</p></div> : null}
-      <div className="knowledge-toolbar">
-        <button className="button primary" disabled={Boolean(busy) || confirming} onClick={() => void generate()}>{data.knowledge_points.length || version ? '重新生成知识点' : '生成具体知识点'}</button>
-        {!payload && data.knowledge_points.length > 0 ? <button className="button" disabled={Boolean(busy)} onClick={() => {
-          if (data.draft) adopt(data.draft);
-          else { setVersion(null); setPayload(pointPayload(data.knowledge_points)); setDirty(true); }
-        }}>{data.draft ? '继续编辑知识草稿' : '编辑知识点'}</button> : null}
-      </div></div>
+      {payload ? <div className="knowledge-workspace-heading">
+        <h3>知识点编辑</h3><p className="muted">知识草稿 · 确认后应用到课程</p>
+      </div> : !data.knowledge_points.length ? <div className="knowledge-workspace-heading">
+        <button className="button primary" disabled={Boolean(busy)} onClick={() => void generate()}>生成具体知识点</button>
+      </div> : null}
       {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => {
         const studied = point.status !== 'NOT_STARTED';
         return <li key={point.id} className={studied ? 'is-studied' : undefined}>

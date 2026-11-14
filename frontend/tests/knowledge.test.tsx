@@ -144,9 +144,11 @@ describe('section knowledge draft workflow', () => {
   });
   it('preserves a previous draft if regeneration fails', async () => {
     const fetcher = mock({ ...initial, draft: version }); vi.spyOn(window, 'confirm').mockReturnValue(true);
-    renderEditor(); await screen.findByDisplayValue('函数定义');
+    const onDirtyChange = vi.fn();
+    const editor = render(<SectionKnowledge sectionId="s1" onDirtyChange={onDirtyChange} />);
+    await screen.findByDisplayValue('函数定义');
     fetcher.mockImplementation(() => Promise.resolve(Response.json({ success: false, error: { message: '模型不可用' } }, { status: 502 })));
-    fireEvent.click(screen.getByRole('button', { name: '重新生成知识点' }));
+    editor.rerender(<SectionKnowledge sectionId="s1" onDirtyChange={onDirtyChange} action="generate" />);
     await screen.findByText('模型不可用'); expect(screen.getByDisplayValue('函数定义')).toBeInTheDocument();
     const call = fetcher.mock.calls.find(([url]) => url.endsWith('/generate'))!;
     expect(JSON.parse(String(call[1]?.body))).toMatchObject({ replace_version_id: 'v', replace_revision: 1 });

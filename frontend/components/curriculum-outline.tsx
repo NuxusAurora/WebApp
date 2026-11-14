@@ -8,11 +8,14 @@ import { temporaryId } from '../lib/curriculum';
 import { titleText } from '../lib/curriculum-title';
 import { moveOutline, type OutlineNode, type OutlineTarget } from '../lib/curriculum-order';
 
-export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure, sectionAction }: {
+type MenuAction = { label: string; disabled?: boolean; onSelect: () => void };
+
+export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure, sectionAction, sectionMenu }: {
   payload: Payload; disabled?: boolean; selectedId?: string;
   onSelect?: (id: string) => void; onChange?: (payload: Payload) => void;
   sectionDisclosure?: { openId: string | null; onOpen: (id: string | null) => boolean; content: ReactNode };
   sectionAction?: { pendingId: string | null; onAdd: (id: string) => Promise<void> };
+  sectionMenu?: (id: string) => MenuAction[];
 }) {
   const outlineId = useId();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -21,8 +24,8 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const drop = useRef<OutlineTarget | null>(null);
   const writable = Boolean(onChange) && !disabled;
-  const [menu, setMenu] = useState<{ node: OutlineNode; x: number; y: number } | null>(null);
-  const [editing, setEditing] = useState<{ id: string; mode: 'name' | 'pages'; original: string } | null>(null);
+  const [menu, setMenu] = useState<{ node: OutlineNode; x: number; y: number; alignRight: boolean } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; original: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLOListElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
@@ -35,9 +38,10 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
     const element = menuRef.current;
     if (!menu || !element) return;
     const rect = element.getBoundingClientRect();
-    element.style.left = Math.max(8, Math.min(menu.x, window.innerWidth - rect.width - 8)) + 'px';
+    const left = menu.alignRight ? menu.x - rect.width : menu.x;
+    element.style.left = Math.max(8, Math.min(left, window.innerWidth - rect.width - 8)) + 'px';
     element.style.top = Math.max(8, Math.min(menu.y, window.innerHeight - rect.height - 8)) + 'px';
-    element.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus({ preventScroll: true });
+    (element.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? element).focus({ preventScroll: true });
   }, [menu]);
   useEffect(() => {
     if (!menu) return;
@@ -48,11 +52,14 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
     return () => { document.removeEventListener('pointerdown', outside);
       window.removeEventListener('resize', dismiss); window.removeEventListener('scroll', dismiss, true); };
   }, [menu]);
-  useEffect(() => { if (!writable) { setMenu(null); setEditing(null); } }, [writable]);
+  useEffect(() => { if (!writable) setEditing(null); }, [writable]);
+  useEffect(() => {
+    if (menu && !writable && (menu.node.kind !== 'section' || !sectionMenu)) setMenu(null);
+  }, [menu, writable, sectionMenu]);
   useEffect(() => {
     if (!writable || !selectedId) return;
     const item = payload.chapters.flatMap(chapter => [chapter, ...chapter.sections]).find(item => item.id === selectedId);
-    if (item && !item.title) setEditing(previous => previous?.id === item.id ? previous : { id: item.id, mode: 'name', original: '' });
+    if (item && !item.title) setEditing(previous => previous?.id === item.id ? previous : { id: item.id, original: '' });
   }, [selectedId, payload, writable]);
   function updateNode(id: string, update: (node: Payload['chapters'][number] | Payload['chapters'][number]['sections'][number]) => void) {
     if (!writable) return;
@@ -60,10 +67,9 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
     const item = next.chapters.flatMap(chapter => [chapter, ...chapter.sections]).find(node => node.id === id);
     if (item) { update(item); onChange?.(next); }
   }
-  function openMenu(node: OutlineNode, target: HTMLElement, x: number, y: number) {
-    if (!writable) return;
-    trigger.current = target.querySelector<HTMLElement>('.outline-title') ?? target;
-    setMenu({ node, x, y });
+  function openMenu(node: OutlineNode, target: HTMLElement, x: number, y: number, alignRight = false) {
+    trigger.current = target;
+    setMenu({ node, x, y, alignRight });
   }
   useEffect(() => {
     const parent = payload.chapters.find(chapter => chapter.sections.some(section => section.id === selectedId));
@@ -87,20 +93,23 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
   function row(node: OutlineNode, number: string, title: string, hasChildren = false) {
     title = titleText(title);
     const chapter = node.kind === 'chapter';
+    const hasMenu = writable || (!chapter && Boolean(sectionMenu));
     const open = chapter ? expanded.has(node.id) : sectionDisclosure?.openId === node.id;
     const disclosure = chapter || Boolean(sectionDisclosure);
     const label = (node.kind === 'chapter' ? '章节 ' : '小节 ') + number;
     const item = payload.chapters.flatMap(chapter => [chapter, ...chapter.sections]).find(item => item.id === node.id)!;
-    return <><div className={'curriculum-outline-row ' + (node.kind === 'chapter' ? 'outline-parent' : 'outline-child') +
+    return <div className={'curriculum-outline-row ' + (node.kind === 'chapter' ? 'outline-parent' : 'outline-child') +
       (selectedId === node.id ? ' is-selected' : '')}
       data-outline-kind={node.kind} data-outline-id={node.id}
       data-drop={over?.id === node.id ? over.position : undefined}
-      onContextMenu={event => { if (!writable) return; event.preventDefault(); event.stopPropagation();
-        openMenu(node, event.currentTarget, event.clientX, event.clientY); }}
+      onContextMenu={event => { if (!hasMenu) return; event.preventDefault(); event.stopPropagation();
+        const origin = event.currentTarget.querySelector<HTMLElement>('.outline-title') ?? event.currentTarget;
+        openMenu(node, origin, event.clientX, event.clientY); }}
       onKeyDown={event => {
         if (event.key === 'ContextMenu' || event.shiftKey && event.key === 'F10') {
-          if (!writable) return; event.preventDefault();
-          const rect = event.currentTarget.getBoundingClientRect(); openMenu(node, event.currentTarget, rect.left + 32, rect.bottom);
+          if (!hasMenu) return; event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          openMenu(node, event.target as HTMLElement, rect.left + 32, rect.bottom);
         }
       }}
       onDragOver={event => {
@@ -138,7 +147,7 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
           if (!writable) { event.preventDefault(); return; }
           drag.current = node; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', node.id);
         }} onDragEnd={clearDrag}>⠿</button> : null}
-      {editing?.id === node.id && editing.mode === 'name' && writable ? <div className="outline-title outline-rename">
+      {editing?.id === node.id && writable ? <div className="outline-title outline-rename">
         <span className="outline-number">{number}</span>
         <input autoFocus aria-label={label + '标题'} value={item.title} maxLength={200} required
           onFocus={event => event.currentTarget.select()}
@@ -170,24 +179,16 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
         aria-label={'添加到对话栏：' + title} title="添加到对话栏" onClick={() => void sectionAction.onAdd(node.id)}>
         <Icon name="plus" size={15} /><span>{sectionAction.pendingId === node.id ? '正在添加…' : '添加到对话栏'}</span>
       </button> : null}
-      {writable ? <button className="text-button outline-more" type="button" aria-label={label + '操作'} aria-haspopup="menu"
+      {hasMenu ? <button className="text-button outline-more" type="button" aria-label={label + '操作'} aria-haspopup="menu"
+        aria-expanded={menu?.node.id === node.id}
         onClick={event => { const rect = event.currentTarget.getBoundingClientRect();
-          openMenu(node, event.currentTarget.parentElement!, rect.right, rect.bottom); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg></button> : null}
+          openMenu(node, event.currentTarget, rect.right, rect.bottom, true); }}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg></button> : null}
       {node.kind === 'chapter' && !hasChildren ? <span className="visually-hidden">暂无小节</span> : null}
-    </div>{editing?.id === node.id && editing.mode === 'pages' && writable ? <div className="outline-page-editor">
-      <div className="curriculum-pages">{(['page_start', 'page_end'] as const).map(key => <label className="curriculum-label" key={key}>
-        {key === 'page_start' ? '起始页' : '结束页'}<input autoFocus={key === 'page_start'} type="number" min={1} max={100000} step={1} value={item[key] ?? ''} placeholder="未知"
-          aria-label={label + (key === 'page_start' ? '起始页' : '结束页')}
-          onChange={event => updateNode(node.id, item => { item[key] = event.target.value ? Number(event.target.value) : null; })} /></label>)}</div>
-      {node.kind === 'section' ? <label className="curriculum-label">所属章节<select value={payload.chapters.find(c => c.sections.some(s => s.id === node.id))?.id}
-        onChange={event => onChange?.(moveOutline(payload, node, { kind: 'chapter', id: event.target.value, position: 'inside' }))}>
-        {payload.chapters.map(chapter => <option key={chapter.id} value={chapter.id} disabled={chapter.sections.length >= 100}>{titleText(chapter.title) || '未命名'}</option>)}
-      </select></label> : null}
-      <button type="button" className="text-button" onClick={() => setEditing(null)}>完成</button>
-    </div> : null}</>;
+    </div>;
   }
   const menuChapter = menu && payload.chapters.find(chapter => chapter.id === menu.node.id || chapter.sections.some(section => section.id === menu.node.id));
   const menuItem = menu && (menu.node.kind === 'chapter' ? menuChapter : menuChapter?.sections.find(section => section.id === menu.node.id));
+  const extraActions = menu?.node.kind === 'section' ? sectionMenu?.(menu.node.id) : undefined;
   return <><ol ref={rootRef} className="curriculum-outline" aria-label="目录标题">{payload.chapters.map((chapter, ci) =>
     <li key={chapter.id}>{row({ kind: 'chapter', id: chapter.id }, String(ci + 1), chapter.title, chapter.sections.length > 0)}
       <ol id={outlineId + '-chapter-' + chapter.id} className="motion-disclosure" hidden={!expanded.has(chapter.id)} inert={!expanded.has(chapter.id)} aria-hidden={!expanded.has(chapter.id)}>{chapter.sections.map((section, si) =>
@@ -195,35 +196,31 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
           {sectionDisclosure ? <div className="outline-section-panel" id={outlineId + '-section-' + section.id} hidden={sectionDisclosure.openId !== section.id}>
             {sectionDisclosure.openId === section.id ? sectionDisclosure.content : null}
           </div> : null}</li>)}</ol>
-    </li>)}</ol>{menu && writable && menuItem && menuChapter ? createPortal(<div ref={menuRef} role="menu" aria-label="标题操作" className="outline-context-menu"
+    </li>)}</ol>{menu && menuItem && menuChapter && (writable || extraActions?.length) ? createPortal(<div ref={menuRef} role="menu" tabIndex={-1} aria-label="标题操作" className="outline-context-menu"
       style={{ left: menu.x, top: menu.y }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); closeMenu(true); }
         if (event.key === 'Tab') closeMenu(true);
         if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
           event.preventDefault(); const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'));
           const index = items.indexOf(document.activeElement as HTMLButtonElement);
-          items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length]?.focus();
+          const next = event.key === 'Home' ? 0 : event.key === 'End' || (index < 0 && event.key === 'ArrowUp') ? items.length - 1 :
+            (index + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length;
+          items[next]?.focus();
         }
       }}>
-      <button role="menuitem" onClick={() => { updateNode(menu.node.id, item => { item.title = titleText(item.title); });
-        setEditing({ id: menu.node.id, mode: 'name', original: titleText(menuItem.title) }); closeMenu(); }}>重命名</button>
+      {extraActions?.map(action => <button key={action.label} type="button" role="menuitem" disabled={action.disabled}
+        onClick={() => { closeMenu(true); action.onSelect(); }}>{action.label}</button>)}
+      {writable ? <><button role="menuitem" onClick={() => { updateNode(menu.node.id, item => { item.title = titleText(item.title); });
+        setEditing({ id: menu.node.id, original: titleText(menuItem.title) }); closeMenu(); }}>重命名</button>
       {menu.node.kind === 'chapter' ? <button role="menuitem" disabled={menuChapter.sections.length >= 100 || payload.chapters.reduce((n, c) => n + 1 + c.sections.length, 0) >= 500}
         onClick={() => { const next = structuredClone(payload); const id = temporaryId(); next.chapters.find(c => c.id === menu.node.id)!.sections.push({ id, title: '' });
-          setExpanded(previous => new Set(previous).add(menu.node.id)); setEditing({ id, mode: 'name', original: '' }); onSelect?.(id); onChange?.(next); closeMenu(); }}>添加小标题</button> : null}
-      <button role="menuitem" onClick={() => { setEditing({ id: menu.node.id, mode: 'pages', original: '' }); closeMenu(); }}>编辑页码</button>
-      {([-1, 1] as const).map(delta => {
-        const list = menu.node.kind === 'chapter' ? payload.chapters : menuChapter.sections;
-        const index = list.findIndex(item => item.id === menu.node.id); const target = list[index + delta];
-        return <button key={delta} role="menuitem" disabled={!target} onClick={() => {
-          onChange?.(moveOutline(payload, menu.node, { kind: menu.node.kind, id: target.id, position: delta < 0 ? 'before' : 'after' })); closeMenu(true);
-        }}>{delta < 0 ? '上移' : '下移'}</button>;
-      })}
+          setExpanded(previous => new Set(previous).add(menu.node.id)); setEditing({ id, original: '' }); onSelect?.(id); onChange?.(next); closeMenu(); }}>添加小标题</button> : null}
       <button role="menuitem" className="danger-quiet" onClick={() => {
         if (!window.confirm(menu.node.kind === 'chapter' ? '从草稿移除此章及其小节？正式目录在确认前不变。' : '从草稿移除此小节？正式目录在确认前不变。')) return;
         const next = structuredClone(payload);
         if (menu.node.kind === 'chapter') next.chapters = next.chapters.filter(c => c.id !== menu.node.id);
         else next.chapters.forEach(c => { c.sections = c.sections.filter(s => s.id !== menu.node.id); });
         onChange?.(next); closeMenu();
-      }}>移除</button>
+      }}>移除</button></> : null}
     </div>, document.body) : null}</>;
 }

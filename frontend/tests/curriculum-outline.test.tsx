@@ -40,14 +40,15 @@ describe('curriculum outline', () => {
     fireEvent.change(child, { target: { value: '取消这次修改' } }); fireEvent.keyDown(child, { key: 'Escape' });
     expect(screen.getByRole('button', { name: /小节 1.1 很长/ })).toBeInTheDocument();
   });
-  it('adds a child to the targeted collapsed chapter and renumbers after moving it', () => {
+  it('adds a child to the targeted collapsed chapter and renumbers after dragging it', () => {
     render(<Interactive />);
     fireEvent.contextMenu(screen.getByRole('button', { name: '章节 2 矩阵' }));
     fireEvent.click(screen.getByRole('menuitem', { name: '添加小标题' }));
     const input = screen.getByRole('textbox', { name: '小节 2.2标题' });
     fireEvent.change(input, { target: { value: '新增小节' } }); fireEvent.keyDown(input, { key: 'Enter' });
-    fireEvent.contextMenu(screen.getByRole('button', { name: '章节 2 矩阵' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: '上移' }));
+    const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() };
+    fireEvent.dragStart(screen.getByRole('button', { name: '拖动章节 2' }), { dataTransfer });
+    fireEvent.drop(screen.getByRole('button', { name: '章节 1 行列式' }).parentElement!, { dataTransfer, clientY: -1 });
     expect(screen.getByRole('button', { name: '小节 1.2 新增小节' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '章节 2 行列式' })).toBeInTheDocument();
   });
@@ -67,6 +68,16 @@ describe('curriculum outline', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     fireEvent.contextMenu(chapter); expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(change).not.toHaveBeenCalled();
+  });
+  it('omits page editing and move commands from chapter and section menus', () => {
+    render(<Interactive />);
+    fireEvent.contextMenu(screen.getByRole('button', { name: '章节 1 行列式' }));
+    for (const name of ['编辑页码', '上移', '下移']) {
+      expect(screen.queryByRole('menuitem', { name })).not.toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole('button', { name: '章节 1 行列式' }));
+    fireEvent.click(screen.getByRole('button', { name: '小节 1.1操作' }));
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['重命名', '移除']);
   });
   it('limits new children and keeps payload metadata while normalizing names', () => {
     const full = structuredClone(payload); full.chapters[0].sections = Array.from({ length: 100 }, (_, i) => ({ id: 's' + i, title: 'x' }));

@@ -633,8 +633,6 @@ html, body { height: 100%; overflow: hidden; }
 .outline-context-menu button { min-height: 44px; padding: 8px 12px; text-align: left; background: transparent; border: 0; border-radius: var(--radius); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .outline-context-menu button:hover:enabled, .outline-context-menu button:focus-visible { background: var(--surface-soft); }
 .outline-context-menu button:disabled { opacity: .5; cursor: default; }
-.outline-page-editor { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 12px; }
-.outline-page-editor .curriculum-pages { flex: 1 1 220px; }
 .curriculum-import { border-top: 1px solid var(--line); padding-top: 16px; }
 .curriculum-diff summary, .curriculum-import > summary { cursor: pointer; font-size: 13px; font-weight: var(--weight-emphasis); padding: 4px 0; }
 .curriculum-import[open] > * + * { margin-top: 12px; }
@@ -654,8 +652,6 @@ html, body { height: 100%; overflow: hidden; }
 .curriculum-confirm { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 12px; }
 .curriculum-confirm label { display: flex; gap: 8px; align-items: center; }
 .curriculum-notice { color: var(--ink); }
-.curriculum-pages { display: flex; gap: 12px; margin-top: 8px; }
-.curriculum-pages > label { flex: 1; }
 .curriculum-uncertainties { margin-bottom: 20px; font-size: 12px; line-height: 1.7; }
 .curriculum-uncertainties li { padding: 4px 0; overflow-wrap: anywhere; }
 /* Course library: one list surface, then a separate full-width detail view. */

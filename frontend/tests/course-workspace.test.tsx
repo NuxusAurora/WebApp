@@ -425,6 +425,48 @@ describe('desktop course workspace', () => {
     expect(first).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('集合间的唯一对应')).not.toBeInTheDocument();
   });
+  it('opens knowledge editing and regeneration from the confirmed section menu', async () => {
+    const point = { id: 'point', section_id: 's1', title: '函数定义', description: '集合间的唯一对应',
+      learning_objectives: ['解释定义'], mastery_criteria: ['判断函数'], importance: 'HIGH', status: 'NOT_STARTED' };
+    const draft = { id: 'draft', revision: 1, status: 'DRAFT', base_course_revision: 1, source: { kind: 'ai' },
+      payload: { knowledge_points: [{ ...point, temp_id: 'p', existing_knowledge_point_id: 'point' }] },
+      change_summary: { added: [], modified: [], archived: [] } };
+    const request = vi.mocked(api);
+    request.mockImplementation(async path => {
+      if (path === 'users/me') return { id: 'user', display_name: '学生', email: 'student@example.com' };
+      if (path.startsWith('courses?')) return courses;
+      if (path === 'ai/providers') return [{ id: 'provider', enabled: true, models: [{ id: 'model', enabled: true }] }];
+      if (path.endsWith('/curriculum')) return { confirmed_revision: 1, versions: [], curriculum: {
+        chapters: [{ id: 'chapter', title: '函数与极限', sections: [{ id: 's1', title: '函数' }] }],
+      } };
+      if (path === 'sections/s1/knowledge-points/generate') return draft;
+      if (path === 'sections/s1/knowledge-points') return { confirmed_revision: 1, knowledge_points: [point], draft: null };
+      throw new Error('Unexpected request');
+    });
+    await ready();
+    fireEvent.click(screen.getByRole('tab', { name: '目录与小节' }));
+    fireEvent.click(await screen.findByRole('button', { name: '章节 1 函数与极限' }));
+    const more = screen.getByRole('button', { name: '小节 1.1操作' });
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole('menuitem', { name: '编辑知识点' }));
+    expect(await screen.findByDisplayValue('函数定义')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '重新生成知识点' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '编辑知识点' })).not.toBeInTheDocument();
+
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole('menuitem', { name: '重新生成知识点' }));
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls.some(([path]) => path.endsWith('/generate'))).toBe(false);
+    vi.mocked(window.confirm).mockReturnValueOnce(true);
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole('menuitem', { name: '重新生成知识点' }));
+    await screen.findByText('知识草稿已生成');
+    const generate = request.mock.calls.filter(([path]) => path.endsWith('/generate'));
+    expect(generate).toHaveLength(1);
+    expect(JSON.parse(String(generate[0][1]?.body))).toEqual({
+      provider_id: 'provider', model_id: 'model', base_course_revision: 1,
+    });
+  });
 });
 
 describe('archived courses in settings', () => {
