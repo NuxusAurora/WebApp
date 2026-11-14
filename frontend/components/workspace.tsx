@@ -135,7 +135,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
         {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onCoursesChanged={refreshLearning} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + href} target={target}
-          onOpened={learningOpened} onSelect={openLearning} onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
+          onOpened={learningOpened} onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
           onBreadcrumbChange={setCourseCrumbs} onTextbookAdded={textbookAdded} onCoursesChanged={refreshLearning} />)}
       </main>
     </div>

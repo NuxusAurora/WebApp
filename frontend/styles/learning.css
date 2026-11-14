@@ -1,30 +1,19 @@
 .learning-conversation { min-height: 0; overflow-y: auto; }
 .learning-conversation-header { margin-bottom: 24px; }
 .learning-conversation-header h1 { margin: 0; font-size: clamp(21px, 3vw, 26px); overflow-wrap: anywhere; }
-.learning-conversation-header h1:focus { outline: none; }
+.learning-conversation h1[tabindex="-1"]:focus { outline: none; }
 .learning-conversation-header p { margin: 4px 0 0; overflow-wrap: anywhere; }
-.learning-conversation-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 270px); gap: 24px; }
-.learning-conversation-layout > :only-child { grid-column: 1 / -1; }
-.learning-conversation-main, .learning-conversation-outline, .learning-conversation-empty {
+.learning-conversation-main, .learning-conversation-empty {
   min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-card); corner-shape: squircle;
   background: var(--surface); padding: 20px; overflow-wrap: anywhere;
 }
 .learning-conversation-main { min-height: 260px; }
-.learning-conversation-main h2 { margin: 0; font-size: 18px; }
 .learning-conversation-main p { margin: 8px 0 0; }
 .learning-conversation-main p:only-child, .learning-conversation-empty { margin: 0; }
-.learning-conversation-outline h2 { margin: 0 0 12px; font-size: 14px; }
-.learning-conversation-outline ol { list-style: none; padding: 0; margin: 0; }
-.learning-point-button {
-  display: flex; align-items: baseline; gap: 10px; width: 100%; min-height: 44px; padding: 10px;
-  text-align: left; color: var(--ink); background: transparent; border: 0; border-radius: var(--radius);
-  corner-shape: squircle; overflow-wrap: anywhere;
-}
-.learning-point-button span { color: var(--muted); font-variant-numeric: tabular-nums; }
-.learning-point-button:hover, .learning-point-button[aria-current="true"] { background: var(--accent-soft); }
-.learning-point-button[aria-disabled="true"] { cursor: default; }
+.workspace-main:has(> .learning-conversation-point) { max-width: none; }
+.learning-conversation-main.learning-conversation-point { flex: 1; min-height: 0; }
+.learning-conversation-point h1 { margin: 0; font-size: 18px; }
 .learning-conversation-error { margin-bottom: 16px; }
 @media (max-width: 900px) {
-  .learning-conversation-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .learning-conversation-main { min-height: 144px; }
 }

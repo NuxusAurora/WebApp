@@ -6,10 +6,9 @@ import { openSectionConversation, openLearningProject, type LearningProjectDetai
 import type { LearningTarget } from '../lib/workspace-navigation';
 import { SectionKnowledge } from './knowledge';
 
-export function LearningConversation({ target, onOpened, onSelect, onDirtyChange, onSessionExpired }: {
+export function LearningConversation({ target, onOpened, onDirtyChange, onSessionExpired }: {
   target: LearningTarget | null;
   onOpened: (target: LearningTarget, selection: LearningSelection) => void;
-  onSelect: (target: LearningTarget) => boolean;
   onDirtyChange: (dirty: boolean) => void;
   onSessionExpired: () => void;
 }) {
@@ -56,12 +55,17 @@ export function LearningConversation({ target, onOpened, onSelect, onDirtyChange
     };
   }, [load]);
 
-  const title = project?.section_title;
+  const selectedPoint = project?.knowledge_points.find(point => point.id === project.conversation?.knowledge_point_id);
+  const title = selectedPoint?.title ?? project?.section_title;
   useEffect(() => {
     if (title) heading.current?.focus({ preventScroll: true });
-  }, [title]);
+  }, [title, selectedPoint?.id]);
 
-  const selectedPoint = project?.knowledge_points.find(point => point.id === project.conversation?.knowledge_point_id);
+  if (selectedPoint) return <section className="learning-conversation learning-conversation-main learning-conversation-point"
+    aria-labelledby="learning-point-title">
+    <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{selectedPoint.title}</h1>
+    <p className="muted">教学功能待接入</p>
+  </section>;
 
   return <section className="learning-conversation" aria-label="学习对话">
     <header className="learning-conversation-header">
@@ -74,25 +78,9 @@ export function LearningConversation({ target, onOpened, onSelect, onDirtyChange
       <p className="notice error" role="alert">{error}</p>
       <button type="button" className="button secondary" disabled={busy} onClick={() => void load()}>重新打开</button>
     </div> : null}
-    {project ? <div className="learning-conversation-layout" aria-busy={busy}>
-      <div className="learning-conversation-main">
-        {selectedPoint ? <>
-          <h2>{selectedPoint.title}</h2>
-          <p className="muted">教学功能待接入</p>
-        </> : <SectionKnowledge sectionId={project.section_id} generateLabel="生成知识点"
-          onConfirmed={load} onDirtyChange={onDirtyChange} onSessionExpired={onSessionExpired} />}
-      </div>
-      {project.knowledge_points.length ? <aside className="learning-conversation-outline" aria-labelledby="learning-outline-title">
-        <h2 id="learning-outline-title">知识点</h2>
-        <ol>{project.knowledge_points.map((point, index) => {
-          const current = point.id === selectedPoint?.id;
-          return <li key={point.id}><button type="button" className="learning-point-button"
-            aria-current={current ? 'true' : undefined} aria-disabled={busy || current}
-            onClick={() => { if (!busy && !current) onSelect({ sectionId: project.section_id, pointId: point.id }); }}>
-            <span aria-hidden="true">{index + 1}</span>{point.title}
-          </button></li>;
-        })}</ol>
-      </aside> : null}
+    {project ? <div className="learning-conversation-main" aria-busy={busy}>
+      <SectionKnowledge sectionId={project.section_id} generateLabel="生成知识点"
+        onConfirmed={load} onDirtyChange={onDirtyChange} onSessionExpired={onSessionExpired} />
     </div> : null}
   </section>;
 }
