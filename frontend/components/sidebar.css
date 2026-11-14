@@ -43,13 +43,28 @@
 .sidebar-submenu[hidden] { display: none; }
 .sidebar-submenu > li + li { margin-top: 2px; }
 .sidebar-submenu .sidebar-item { min-height: 40px; font-size: 13px; }
-.sidebar-projects .sidebar-project { display: grid; gap: 1px; line-height: 1.4; padding-block: 7px; }
-.sidebar-project > :is(span, small) { overflow: hidden; text-overflow: ellipsis; }
-.sidebar-project small, .sidebar-project-status, .sidebar-projects .sidebar-project-more { color: var(--sidebar-secondary); }
-.sidebar-project small { font-size: 11px; }
+.sidebar-projects { margin-inline-start: 12px; }
+.learning-tree-children { list-style: none; margin: 0; padding: 0 0 0 10px; }
+.learning-tree .learning-tree-row {
+  gap: 6px; padding: 6px 8px; min-height: 36px; line-height: 1.4; text-align: left;
+  white-space: normal; corner-shape: squircle;
+}
+.learning-tree-row span { min-width: 0; overflow-wrap: anywhere; }
+.learning-tree-row > svg { flex: none; color: inherit; }
+.learning-tree-row[aria-expanded="true"] > svg:first-child { transform: rotate(90deg); }
+.learning-tree a.learning-tree-row { padding-inline-start: 26px; }
+.learning-tree .learning-tree-chapter { --learning-tree-color: var(--chapter-title); }
+.learning-tree .learning-tree-section { --learning-tree-color: var(--section-title); }
+.learning-tree .learning-tree-point { --learning-tree-color: var(--knowledge-title-color); font-size: 12px; }
+.learning-tree .learning-tree-point.is-studied { --learning-tree-color: var(--studied-knowledge-title); }
+.learning-tree-row > span { color: var(--learning-tree-color, currentColor); }
+.sidebar-project-status, .sidebar-projects .sidebar-project-more { color: var(--sidebar-secondary); }
 .sidebar-project-status { padding: 8px 12px; font-size: 12px; overflow-wrap: anywhere; }
 .sidebar-projects .sidebar-project-more { text-align: left; cursor: pointer; }
 .sidebar-project-more[aria-disabled="true"] { cursor: default; }
+@media (max-width: 740px) {
+  .learning-tree .learning-tree-row { min-height: 44px; }
+}
 .workspace-sidebar[data-collapsed="true"] :is(.sidebar-submenu, .sidebar-submenu-chevron) { display: none; }
 .workspace-sidebar[data-collapsed="true"] .sidebar-model-heading.is-active { background: var(--sidebar-active); }
 .sidebar-bottom-area { flex-shrink: 0; padding: 8px 12px 12px; }

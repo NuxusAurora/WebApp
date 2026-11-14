@@ -42,11 +42,13 @@ type Props = {
   onDirtyChange: (dirty: boolean) => void; onSessionExpired?: () => void;
   action?: KnowledgeAction | null; onActionHandled?: () => void;
   onActionsDisabledChange?: (disabled: boolean) => void;
+  onConfirmed?: () => void;
+  generateLabel?: string;
 };
 
 const importance = { HIGH: '重点', MEDIUM: '常规', LOW: '拓展' };
 
-export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, action, onActionHandled, onActionsDisabledChange }: Props & { sectionId: string }) {
+export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, action, onActionHandled, onActionsDisabledChange, onConfirmed, generateLabel = '生成具体知识点' }: Props & { sectionId: string }) {
   const [data, setData] = useState<KnowledgeData | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [version, setVersion] = useState<KnowledgeVersion | null>(null);
@@ -142,7 +144,7 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
       {payload ? <div className="knowledge-workspace-heading">
         <h3>知识点编辑</h3><p className="muted">知识草稿 · 确认后应用到课程</p>
       </div> : !data.knowledge_points.length ? <div className="knowledge-workspace-heading">
-        <button className="button primary" disabled={Boolean(busy)} onClick={() => void generate()}>生成具体知识点</button>
+        <button className="button primary" disabled={Boolean(busy)} onClick={() => void generate()}>{generateLabel}</button>
       </div> : null}
       {!payload ? (data.knowledge_points.length ? <ol className="knowledge-list">{data.knowledge_points.map(point => {
         const studied = point.status !== 'NOT_STARTED';
@@ -201,7 +203,9 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
           <div className="button-row"><button className="button primary" disabled={Boolean(busy) || Boolean(version.change_summary.archived.length && !acceptArchives)} onClick={() => void run('正在确认知识点…', async signal => {
             await api(path + '/confirm', { method: 'POST', signal, body: JSON.stringify({ version_id: version.id, expected_revision: version.revision, base_course_revision: version.base_course_revision, accept_archives: acceptArchives }) });
             if (signal.aborted) return;
-            adopt(null); await load(signal);
+            adopt(null);
+            onConfirmed?.();
+            await load(signal);
           })}>确认应用知识点</button><button className="button" disabled={Boolean(busy)} onClick={() => setConfirming(false)}>取消</button></div>
         </div> : null}
       </>}

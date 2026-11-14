@@ -1,7 +1,6 @@
 /* CourseSpace owns the shared tab shell and scroll area. */
 .knowledge {
   --knowledge-warning-bg: color-mix(in srgb, var(--warning) 12%, var(--surface));
-  --knowledge-title-color: light-dark(#6b6b6b, #b8b8b8);
   --knowledge-title-size: 12px;
   max-width: none; min-width: 0; color: var(--ink); }
 .knowledge-fields label { display: grid; gap: 8px; min-width: 0; }

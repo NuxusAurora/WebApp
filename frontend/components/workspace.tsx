@@ -11,8 +11,9 @@ import { AppSidebar } from './app-sidebar';
 import { LearningConversation } from './learning-conversation';
 import { ConnectionStatus } from './connection-status';
 import { Breadcrumb, type BreadcrumbItem } from './ui';
-import { isModelSettings, modelSettingsItems, useWorkspaceNavigation, workspaceLabels } from '../lib/workspace-navigation';
+import { isModelSettings, modelSettingsItems, useWorkspaceNavigation, workspaceHref, workspaceLabels, type LearningTarget } from '../lib/workspace-navigation';
 import { api, ApiError } from '../lib/api';
+import type { LearningSelection } from '../lib/learning';
 import { usePageMotion } from '../lib/page-motion';
 
 export function Workspace({ accountNotice = '', systemView = false }: {
@@ -28,10 +29,16 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   const [retry, setRetry] = useState(0);
   const [courseCrumbs, setCourseCrumbs] = useState<BreadcrumbItem[]>([]);
   const [learningRevision, setLearningRevision] = useState(0);
-  const { view, projectId, navigate } = useWorkspaceNavigation(systemView ? 'system' : 'courses', leaveEditor, () => setDirty(false));
-  const main = usePageMotion<HTMLElement>(`${user?.id ?? 'guest'}:${view}:${projectId ?? ''}`);
-  const refreshLearning = useCallback(() => setLearningRevision(value => value + 1), []);
-  const openLearning = useCallback((id: string) => navigate('learning', false, id), [navigate]);
+  const [openedLearning, setOpenedLearning] = useState<{ target: LearningTarget; selection: LearningSelection } | null>(null);
+  const { view, target, navigate } = useWorkspaceNavigation(systemView ? 'system' : 'courses', leaveEditor, () => setDirty(false));
+  const selection = target && openedLearning?.target === target ? openedLearning.selection : null;
+  const href = workspaceHref(view, target ?? undefined);
+  const main = usePageMotion<HTMLElement>(`${user?.id ?? 'guest'}:${href}`);
+  const refreshLearning = useCallback((target: LearningTarget, selection: LearningSelection) => {
+    setOpenedLearning({ target, selection });
+    setLearningRevision(value => value + 1);
+  }, []);
+  const openLearning = useCallback((target: LearningTarget) => navigate('learning', false, target), [navigate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,6 +55,16 @@ export function Workspace({ accountNotice = '', systemView = false }: {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; controller.abort(); };
   }, [retry]);
+
+  useEffect(() => {
+    if (view !== 'learning' || !dirty) return;
+    function guard(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
+  }, [view, dirty]);
 
   function leaveEditor() {
     if (isModelSettings(view) && aiBusy) return false;
@@ -97,7 +114,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   return <div className="application-shell workspace-shell">
     <a href="#main-content" className="skip-link">跳到主要内容</a>
     <AppSidebar user={user} loading={loading} view={view} busy={busy} error={notice} navigate={navigate} logout={logout}
-      learning={{ projectId, revision: learningRevision, onSelect: openLearning, onSessionExpired: expired }} />
+      learning={{ selection, revision: learningRevision, onSelect: openLearning, onSessionExpired: expired }} />
     <div className="app-body">
       <header className="workspace-topbar">
         <Breadcrumb>
@@ -111,8 +128,8 @@ export function Workspace({ accountNotice = '', systemView = false }: {
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
         {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
-        }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + (projectId ?? '')} projectId={projectId}
-          onOpened={refreshLearning} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
+        }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + href} target={target}
+          onOpened={refreshLearning} onSelect={openLearning} onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
           onBreadcrumbChange={setCourseCrumbs} />)}
       </main>
     </div>

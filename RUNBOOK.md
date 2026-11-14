@@ -1,14 +1,14 @@
 # 运行手册
 
-## 学习对话入口 · 2026-11-12
+## 学习对话教材目录
 
-在左侧「学习对话」选择已有项目。当前项目高亮，首批显示 6 项，点击「加载更多」追加早期项目。可刷新或使用 `/?view=learning&project=<UUID>` 恢复。知识点按正式目录顺序展示，无正式知识点时保留项目并提示先在目录生成和确认。
+打开左侧「学习对话」，按教材展开大标题、小标题和知识点。学习中的课程只要有正式目录便会显示，未填写教材名时使用课程名。首批显示最近的 6 本教材，可加载更多。选择知识点打开对应对话，点击空小节可在主区「生成知识点」。确认应用后左侧更新并选中首个知识点。刷新、浏览器历史和原 `/?view=learning&project=<UUID>` 链接均可继续使用。
 
-前端入口为 `frontend/components/learning-project-navigation.tsx`、`frontend/components/learning-conversation.tsx`。后端为 `backend/app/learning`，通过 `GET/POST /api/v1/learning/projects` 列表和添加（添加由 API 提供），通过 `POST /api/v1/learning/projects/{id}/open` 恢复或切换。打开只创建或恢复空白对话，保留原学习状态。
+前端入口为 `frontend/components/learning-project-navigation.tsx`、`frontend/components/learning-conversation.tsx`。后端通过 `GET /api/v1/learning/projects/textbooks` 读取教材列表，展开时读取 `/textbooks/{course_id}`，打开小节或知识点使用 `POST /api/v1/learning/projects`。按小节保存已有对话，目录按正式排序展示。本次无需数据库迁移。
 
 迁移 `0008_learning_projects` 从 `0007_connection_slots` 新建项目与对话两表。上线前对 PostgreSQL 做受限备份并用 `pg_restore --list` 校验，迁移后核对 revision 和 health/ready。应用回滚可保留新增表并切回旧镜像。有对话项目时迁移拒绝降级，需先保全并确认数据处置。当前课程永久删除沿用原行为，随课程清理空白对话。课程归档时隐藏项目，恢复课程后可继续打开。
 
-验证命令：后端 `uv run pytest -q tests/test_learning_projects.py`，前端 `npm run check`、`npm test` 和生产构建。浏览器验收覆盖从左侧打开已有项目、当前项高亮、加载更多、滚动及刷新恢复。
+验证使用后端 `uv run pytest -q tests/test_learning_projects.py`、前端 `npm run check`、`npm test` 和生产构建。在浏览器展开教材和章节，选择已有知识点，再选空小节生成并确认。核对左栏更新、选中状态及刷新恢复。
 
 ## 目录与小节
 
