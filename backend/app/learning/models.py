@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, ForeignKey, Index, Text, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models import Base, Record
@@ -68,3 +69,29 @@ class LearningLessonRevision(Record, Base):
     action: Mapped[str] = mapped_column(Text)
     response: Mapped[str] = mapped_column(Text)
     state: Mapped[dict] = mapped_column(JSON)
+
+
+class LearningLessonPlan(Base):
+    """An immutable plan and its question; a conversation can contain many questions."""
+
+    __tablename__ = "learning_lesson_plans"
+    __table_args__ = (
+        UniqueConstraint("question_id", name="uq_learning_lesson_plan_question"),
+        CheckConstraint("plan_version >= 1", name="ck_learning_lesson_plan_version"),
+        Index("ix_learning_lesson_plan_conversation", "conversation_id"),
+    )
+
+    plan_id: Mapped[UUID] = mapped_column(primary_key=True)
+    question_id: Mapped[UUID]
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("learning_conversations.id", ondelete="CASCADE")
+    )
+    knowledge_point_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_points.id", ondelete="CASCADE")
+    )
+    content_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("structure_versions.id", deferrable=True, initially="DEFERRED")
+    )
+    plan_version: Mapped[int]
+    created_at: Mapped[datetime]
+    payload: Mapped[dict] = mapped_column(JSON)

@@ -15,5 +15,6 @@ async def current_lesson(db, conversation_id):
     )
 
 
-def state_data(lesson):
+def legacy_state_data(lesson: LearningLessonRevision | None) -> dict:
+    """Keep pre-protocol snapshots readable without inferring a plan from them."""
     return {"revision": lesson.revision, **lesson.state} if lesson else {"revision": 0}
