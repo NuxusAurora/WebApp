@@ -1,4 +1,5 @@
 from app.learning.lesson_state import legacy_state_data
+from app.learning.lesson_support import available
 
 
 def snapshot(conversation_id, row):
@@ -25,7 +26,8 @@ def snapshot(conversation_id, row):
             "teaching": ["next"],
             "final_step": ["complete"],
             "completed": ["next-question"],
-        }[status],
+        }[status]
+        + (available(state) if status != "completed" else []),
         "support": state.get("support"),
         "check": state.get("check"),
         "completion": state.get("completion"),

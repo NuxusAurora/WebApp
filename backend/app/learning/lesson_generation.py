@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -9,13 +10,14 @@ from app.errors import AppError
 from app.learning.context import teaching_model
 from app.learning.contracts import LessonOperation, model_output_schema, validate_model_output
 
-INSTRUCTIONS = {
-    LessonOperation.PLAN: (
-        "按知识点命题并制定有序计划，每步一个目标。新题改变推理任务，不能只替换数字。"
-    ),
-    LessonOperation.NEXT: (
-        "按给定题目讲解指定步骤。遵守完成标准和禁止项。不输出步号、状态或后续解法。"
-    ),
+PROMPT_DIRECTORY = Path(__file__).resolve().parents[2] / "prompts" / "learning"
+PROMPTS = {
+    LessonOperation.PLAN: "plan-v1",
+    LessonOperation.NEXT: "step-v1",
+    LessonOperation.HINT: "hint-v1",
+    LessonOperation.REPHRASE: "rephrase-v1",
+    LessonOperation.CHECK_QUESTION: "check-question-v1",
+    LessonOperation.CHECK_FEEDBACK: "check-feedback-v1",
 }
 
 
@@ -28,11 +30,14 @@ class LessonGenerator:
     async def generate(self, operation, context):
         provider, model, _ = await teaching_model(self.db, self.actor_id)
         await limit(self.request, "ai", str(self.actor_id))
+        prompt = PROMPTS[operation]
         call = Call(
             task_type="knowledge_lesson",
-            prompt_version=f"learning-{operation.value}-v1",
+            prompt_version=prompt,
             messages=[
-                Message(role="system", content=INSTRUCTIONS[operation]),
+                Message(
+                    role="system", content=(PROMPT_DIRECTORY / f"{prompt}.md").read_text("utf-8")
+                ),
                 Message(role="user", content=json.dumps(context, ensure_ascii=False)),
             ],
             timeout=55,

@@ -52,6 +52,7 @@ class LearningTurn(Record, Base):
     request_id: Mapped[UUID]
     question: Mapped[str] = mapped_column(Text)
     answer: Mapped[str] = mapped_column(Text)
+    question_id: Mapped[UUID | None] = mapped_column(index=True)
 
 
 class LearningLessonRevision(Record, Base):

@@ -1,5 +1,9 @@
 # 运行手册
 
+## Learning Protocol 2.0 · Phase 3
+
+教学候选使用 `backend/prompts/learning/` 下的规划、步骤、提示、换讲法、检测及评价模板。三级提示和检测保存在主窗修订，`check-answer` 先保存作答，`evaluate-check` 独立评价并可重试。辅窗依旧单独保存问答，`0014_teaching_turn_question` 给新问答标记题目来源，旧问答仍可在原会话中查看。旧记录不回填。
+
 ## Learning Protocol 2.0 · Phase 2
 
 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task` 读取和执行冻结计划任务。命令附 `request_id`、预期修订、任务、计划及步号。冲突错误包含当前公开快照。旧 `/lesson` 保留读取和旧客户端数据形状，旧题可作为历史读取并从新题切入。启用新前端前先在目标数据库应用 `0013_lesson_protocol`。应用回退时保留新列，迁移禁止丢弃已有计划关联。

@@ -21,7 +21,9 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
         generated.append((operation, context))
         if operation == LessonOperation.PLAN:
             return validate_model_output(operation, draft_data | {"problem": next(problems)})
-        return validate_model_output(operation, {"title": "主题", "content": "讲解"})
+        return validate_model_output(
+            operation, {"title": "主题", "content": context["step"]["objective"]}
+        )
 
     monkeypatch.setattr(LessonGenerator, "generate", generate)
 
@@ -95,3 +97,63 @@ def test_first_step_failure_leaves_no_plan(example_conversation, draft_data, mon
         == 502
     )
     assert client.get(url).json()["data"] == empty
+
+
+def test_check_reply_is_saved_before_evaluation_and_support_keeps_step(
+    example_conversation, draft_data, monkeypatch
+):
+    _, client, conversation_id = example_conversation
+    url = f"/api/v1/learning/conversations/{conversation_id}/lesson/task"
+    evaluation_fails = True
+
+    async def generate(self, operation, context):
+        if operation == LessonOperation.PLAN:
+            return validate_model_output(operation, draft_data)
+        if operation == LessonOperation.NEXT:
+            return validate_model_output(operation, {"title": "演示", "content": "一段讲解"})
+        if operation == LessonOperation.CHECK_FEEDBACK:
+            assert context["answer"] == "这是学生答案"
+            if evaluation_fails:
+                raise AppError("MODEL_TIMEOUT", "模型响应超时", 502)
+        text = f"提示 {context['level']}" if operation == LessonOperation.HINT else "简短内容"
+        return validate_model_output(operation, {"text": text})
+
+    monkeypatch.setattr(LessonGenerator, "generate", generate)
+    state = client.get(url).json()["data"]
+
+    def post(action, status=200, **extra):
+        nonlocal state
+        body = {
+            "action": action,
+            "expected_revision": state["revision"],
+            "expected_task_id": state.get("task_id"),
+            "expected_plan_id": state.get("plan", {}).get("plan_id"),
+            "expected_step_index": state.get("current_step", {}).get("index"),
+            "request_id": str(uuid4()),
+        } | extra
+        result = client.post(url, json=body)
+        assert result.status_code == status, result.json()
+        if status == 200:
+            state = result.json()["data"]
+
+    post("start")
+    step = state["current_step"]
+    for _ in range(3):
+        post("hint")
+    post("hint", 400)
+    assert [hint["level"] for hint in state["support"]["hints"]] == [1, 2, 3]
+    post("rephrase")
+    assert len(state["support"]["hints"]) == 3
+    post("check-question")
+    check_id = state["check"]["check_id"]
+    post("check-answer", check_id=check_id, answer="这是学生答案")
+    post("evaluate-check", 502, check_id=check_id)
+    restored = client.get(url).json()["data"]
+    assert restored["check"]["answer"] == "这是学生答案"
+    assert restored["check"]["status"] == "awaiting_evaluation"
+    evaluation_fails = False
+    post("evaluate-check", check_id=check_id)
+    assert state["current_step"] == step
+    assert state["check"]["status"] == "feedback_ready"
+    assert state["check"]["attempt_id"] == restored["check"]["attempt_id"]
+    assert state["completion"] is None
