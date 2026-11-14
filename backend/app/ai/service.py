@@ -12,6 +12,21 @@ from app.errors import AppError
 from app.models import User
 
 
+def public_error(error):
+    messages = {
+        "AI_AUTH_FAILED": "模型密钥无效或无访问权限",
+        "AI_RATE_LIMITED": "模型服务繁忙，请稍后重试",
+        "AI_TIMEOUT": "模型响应超时，请重试",
+        "AI_UNAVAILABLE": "无法连接本地模型，请检查地址和服务状态",
+        "AI_SCHEMA_MISMATCH": "模型输出不符合结构要求",
+        "AI_UNSUPPORTED_CAPABILITY": "请先确认模型支持此能力",
+        "AI_INVALID_SCHEMA": "输出结构定义无效",
+        "AI_VISION_MISMATCH": "图片识别测试未通过",
+        "AI_AUDIT_UNAVAILABLE": "调用记录保存失败，请稍后重试",
+    }
+    return AppError(error.code, messages.get(error.code, "模型未能完成请求，请检查配置后重试"), 502)
+
+
 async def lock_connections(db, actor_id):
     # All slot creation/activation takes this account lock before provider row locks.
     await db.scalar(select(User.id).where(User.id == actor_id).with_for_update())

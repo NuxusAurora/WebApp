@@ -10,6 +10,9 @@ export type LearningProject = {
   textbook_title: string;
 };
 type LearningPoint = { id: string; title: string };
+export type TeachingTurn = { id: string; position: number; question: string; answer: string };
+export type TeachingHistory = { turns: TeachingTurn[]; before: number | null };
+export type TeachingQuestion = { request_id: string; after: number; question: string };
 export type LearningTextbook = { id: string; title: string };
 export type LearningSelection = { courseId: string; chapterId: string; sectionId: string; pointId?: string };
 export type LearningOutline = { chapters: {
@@ -24,6 +27,15 @@ export type LearningProjectDetail = LearningProject & {
 
 const projectsPath = 'learning/projects';
 const textbooksPath = projectsPath + '/textbooks';
+const turnsPath = (id: string) => `learning/conversations/${id}/turns`;
+
+export function getTeachingHistory(id: string, signal: AbortSignal, before?: number) {
+  return api<TeachingHistory>(turnsPath(id) + (before ? '?before=' + before : ''), { signal });
+}
+
+export function askTeachingQuestion(id: string, body: TeachingQuestion, signal: AbortSignal) {
+  return api<TeachingTurn>(turnsPath(id), { method: 'POST', body: JSON.stringify(body), signal });
+}
 
 export function showLearningTextbook(courseId: string, signal: AbortSignal) {
   return api<null>(textbooksPath + '/' + courseId, { method: 'PUT', signal });

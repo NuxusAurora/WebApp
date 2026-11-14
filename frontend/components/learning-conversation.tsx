@@ -5,6 +5,7 @@ import { ApiError } from '../lib/api';
 import { openSectionConversation, openLearningProject, type LearningProjectDetail, type LearningSelection } from '../lib/learning';
 import type { LearningTarget } from '../lib/workspace-navigation';
 import { SectionKnowledge } from './knowledge';
+import { TeachingChat } from './teaching-chat';
 
 export function LearningConversation({ target, onOpened, onDirtyChange, onSessionExpired }: {
   target: LearningTarget | null;
@@ -56,16 +57,13 @@ export function LearningConversation({ target, onOpened, onDirtyChange, onSessio
   }, [load]);
 
   const selectedPoint = project?.knowledge_points.find(point => point.id === project.conversation?.knowledge_point_id);
-  const title = selectedPoint?.title ?? project?.section_title;
+  const title = project?.section_title;
   useEffect(() => {
     if (title) heading.current?.focus({ preventScroll: true });
-  }, [title, selectedPoint?.id]);
+  }, [title]);
 
-  if (selectedPoint) return <section className="learning-conversation learning-conversation-main learning-conversation-point"
-    aria-labelledby="learning-point-title">
-    <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{selectedPoint.title}</h1>
-    <p className="muted">教学功能待接入</p>
-  </section>;
+  if (selectedPoint && project?.conversation) return <TeachingChat key={project.conversation.id}
+    conversationId={project.conversation.id} title={selectedPoint.title} onSessionExpired={onSessionExpired} />;
 
   return <section className="learning-conversation" aria-label="学习对话">
     <header className="learning-conversation-header">

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Index, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models import Base, Record
@@ -35,3 +35,19 @@ class LearningConversation(Record, Base):
     content_version_id: Mapped[UUID] = mapped_column(
         ForeignKey("structure_versions.id", deferrable=True, initially="DEFERRED")
     )
+
+
+class LearningTurn(Record, Base):
+    __tablename__ = "learning_turns"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "position", name="uq_learning_turn_position"),
+        UniqueConstraint("conversation_id", "request_id", name="uq_learning_turn_request"),
+    )
+
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("learning_conversations.id", ondelete="CASCADE")
+    )
+    position: Mapped[int]
+    request_id: Mapped[UUID]
+    question: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(Text)

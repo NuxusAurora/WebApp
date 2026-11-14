@@ -15,7 +15,37 @@
   flex: 1; min-height: 0; border: 0; border-radius: 0;
 }
 .learning-conversation-point h1 { margin: 0; font-size: 18px; }
+.learning-conversation-point h1:focus { outline: none; }
 .learning-conversation-error { margin-bottom: 16px; }
+.learning-conversation-point.teaching-chat {
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px; padding: 20px 0 0; overflow: hidden;
+}
+.teaching-chat > h1 { padding-inline: 20px; }
+.teaching-transcript { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 20px 12px; }
+.teaching-transcript:focus-visible { outline-offset: -2px; }
+.teaching-turn, .teaching-status, .teaching-composer { width: 100%; max-width: 820px; margin-inline: auto; }
+.teaching-turn { display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
+.teaching-chat .teaching-turn p { margin: 0; white-space: pre-wrap; }
+.teaching-question {
+  align-self: flex-end; max-width: 88%; padding: 10px 14px;
+  border-radius: var(--radius-special); background: var(--accent-soft);
+}
+.teaching-answer { line-height: 1.75; }
+.teaching-composer { display: grid; gap: 8px; padding: 0 20px 16px; }
+.teaching-composer .notice { margin: 0; }
+.teaching-composer > button { justify-self: start; }
+.teaching-input-row { display: flex; align-items: flex-end; gap: 8px; }
+.teaching-input-row textarea {
+  flex: 1; min-width: 0; max-height: 25vh; resize: vertical; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  color: var(--ink); background: var(--surface-secondary); font-size: max(16px, 1em);
+}
+.teaching-input-row textarea::placeholder { color: var(--muted); }
+.teaching-input-row .button { flex-shrink: 0; min-height: 44px; }
 @media (max-width: 900px) {
   .learning-conversation-main { min-height: 144px; }
+}
+@media (max-width: 740px) {
+  .teaching-chat > h1, .teaching-transcript, .teaching-composer { padding-inline: 16px; }
 }
