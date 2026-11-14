@@ -12,9 +12,8 @@ function pageLabel(node: { page_start?: number | null; page_end?: number | null 
   return node.page_start != null || node.page_end != null ? `（${node.page_start ?? '?'}–${node.page_end ?? '?'} 页）` : '';
 }
 
-export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, onAddLearningProject }: {
+export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: {
   courseId: string; onDirtyChange: (dirty: boolean) => void; onSessionExpired?: () => void;
-  onAddLearningProject?: (sectionId: string, signal: AbortSignal) => Promise<void>;
 }) {
   const [data, setData] = useState<Curriculum | null>(null);
   const [selectedId, setSelectedId] = useState('');
@@ -26,8 +25,6 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, on
   const [version, setVersion] = useState<Version | null>(null);
   const [payload, setPayload] = useState<Payload | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [addingSectionId, setAddingSectionId] = useState<string | null>(null);
-  const adding = useRef<AbortController | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -75,7 +72,6 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, on
     try { await load(task.signal, true); } catch (reason) { if (!task.signal.aborted) failure(reason); }
     finally { if (alive.current && !task.signal.aborted) setLoading(false); }
   }
-  useEffect(() => () => adding.current?.abort(), []);
   useEffect(() => { void refresh(); return () => controller.current?.abort(); }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function run(label: string, action: (signal: AbortSignal) => Promise<void>) {
@@ -102,21 +98,6 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, on
     if (sectionId !== openSectionId && !openSection(sectionId)) return;
     setSelectedId(sectionId);
     setKnowledgeAction(action);
-  }
-  async function addToLearning(sectionId: string) {
-    if (!onAddLearningProject || adding.current || payload || busy || knowledgeDirty) return;
-    const task = new AbortController();
-    adding.current = task;
-    setAddingSectionId(sectionId);
-    setError('');
-    try {
-      await onAddLearningProject(sectionId, task.signal);
-    } catch (reason) {
-      if (!task.signal.aborted && alive.current) failure(reason);
-    } finally {
-      adding.current = null;
-      if (!task.signal.aborted && alive.current) setAddingSectionId(null);
-    }
   }
   function change(next: Payload) {
     setOpenSectionId(null); setPayload(next); setDirty(true); setConfirming(false);
@@ -159,7 +140,6 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired, on
         }} />
       {payload || data.curriculum.chapters.length ? <CurriculumOutline payload={payload ?? data.curriculum}
         disabled={Boolean(busy) || knowledgeDirty || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}
-        sectionAction={onAddLearningProject && !payload ? { pendingId: addingSectionId, onAdd: addToLearning } : undefined}
         sectionMenu={payload || busy ? undefined : sectionId => {
           const disabled = sectionId === openSectionId && (knowledgeActionsDisabled || Boolean(knowledgeAction));
           return [

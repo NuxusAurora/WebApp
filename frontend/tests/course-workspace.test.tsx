@@ -447,6 +447,7 @@ describe('desktop course workspace', () => {
     fireEvent.click(screen.getByRole('tab', { name: '目录与小节' }));
     fireEvent.click(await screen.findByRole('button', { name: '章节 1 函数与极限' }));
     const more = screen.getByRole('button', { name: '小节 1.1操作' });
+    expect(screen.queryByRole('button', { name: /添加到对话栏/ })).not.toBeInTheDocument();
     fireEvent.click(more);
     fireEvent.click(screen.getByRole('menuitem', { name: '编辑知识点' }));
     expect(await screen.findByDisplayValue('函数定义')).toBeInTheDocument();

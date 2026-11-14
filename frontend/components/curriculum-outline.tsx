@@ -10,11 +10,10 @@ import { moveOutline, type OutlineNode, type OutlineTarget } from '../lib/curric
 
 type MenuAction = { label: string; disabled?: boolean; onSelect: () => void };
 
-export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure, sectionAction, sectionMenu }: {
+export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure, sectionMenu }: {
   payload: Payload; disabled?: boolean; selectedId?: string;
   onSelect?: (id: string) => void; onChange?: (payload: Payload) => void;
   sectionDisclosure?: { openId: string | null; onOpen: (id: string | null) => boolean; content: ReactNode };
-  sectionAction?: { pendingId: string | null; onAdd: (id: string) => Promise<void> };
   sectionMenu?: (id: string) => MenuAction[];
 }) {
   const outlineId = useId();
@@ -174,11 +173,6 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
         <span className="outline-number">{number}</span><span className="outline-name">{title || '未命名'}</span>
         {disclosure ? <span className="outline-chevron" aria-hidden="true"><Icon name="chevron" size={14} /></span> : null}
       </button>}
-      {!chapter && sectionAction ? <button type="button" className="text-button outline-add-learning"
-        disabled={disabled || Boolean(sectionAction.pendingId)}
-        aria-label={'添加到对话栏：' + title} title="添加到对话栏" onClick={() => void sectionAction.onAdd(node.id)}>
-        <Icon name="plus" size={15} /><span>{sectionAction.pendingId === node.id ? '正在添加…' : '添加到对话栏'}</span>
-      </button> : null}
       {hasMenu ? <button className="text-button outline-more" type="button" aria-label={label + '操作'} aria-haspopup="menu"
         aria-expanded={menu?.node.id === node.id}
         onClick={event => { const rect = event.currentTarget.getBoundingClientRect();

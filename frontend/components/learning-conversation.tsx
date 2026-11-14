@@ -59,7 +59,7 @@ export function LearningConversation({ projectId, onOpened, onSessionExpired }: 
       <h1 ref={heading} tabIndex={-1}>{title ?? '学习对话'}</h1>
       {project ? <p className="muted">{project.course_title}</p> : null}
     </header>
-    {!projectId ? <p className="learning-conversation-empty muted">从课程小节添加对话，或在左侧选择已有项目。</p> : null}
+    {!projectId ? <p className="learning-conversation-empty muted">在左侧选择学习对话。</p> : null}
     {projectId && !project && busy ? <p role="status" className="learning-conversation-empty muted">正在打开对话…</p> : null}
     {error ? <div className="learning-conversation-error">
       <p className="notice error" role="alert">{error}</p>

@@ -12,11 +12,10 @@ import { Toast, useToast } from './toast';
 import { PageContainer, type BreadcrumbItem } from './ui';
 import { usePageMotion } from '../lib/page-motion';
 
-export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange, onAddLearningProject }: {
+export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange }: {
   onDirtyChange?: (dirty: boolean) => void;
   onSessionExpired?: () => void;
   onBreadcrumbChange?: (items: BreadcrumbItem[]) => void;
-  onAddLearningProject?: (sectionId: string, signal: AbortSignal) => Promise<void>;
 }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selected, setSelected] = useState<Course | null>(null);
@@ -308,8 +307,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                 <dt>学习目标</dt><dd className="learning-goal">{selected.learning_goal || <span className="muted">还没有选择学习目标。</span>}
                   {learningGoalDescription(selected.learning_goal) ? <small className="goal-description">{learningGoalDescription(selected.learning_goal)}</small> : null}</dd>
               </dl> :
-              <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired}
-                onAddLearningProject={onAddLearningProject} />}
+              <CurriculumEditor key={selected.id} courseId={selected.id} onDirtyChange={setDirty} onSessionExpired={onSessionExpired} />}
             </div>
           </section> : null}
       </PageContainer>}

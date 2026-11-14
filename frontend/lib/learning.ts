@@ -15,12 +15,6 @@ export type LearningProjectDetail = LearningProject & {
 
 const projectsPath = 'learning/projects';
 
-export function addLearningProject(sectionId: string, signal: AbortSignal) {
-  return api<LearningProjectDetail>(projectsPath, {
-    method: 'POST', body: JSON.stringify({ section_id: sectionId }), signal,
-  });
-}
-
 export function openLearningProject(projectId: string, signal: AbortSignal, pointId?: string) {
   return api<LearningProjectDetail>(projectsPath + '/' + projectId + '/open', {
     method: 'POST', body: JSON.stringify({ knowledge_point_id: pointId }), signal,

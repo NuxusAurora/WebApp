@@ -13,7 +13,6 @@ import { ConnectionStatus } from './connection-status';
 import { Breadcrumb, type BreadcrumbItem } from './ui';
 import { isModelSettings, modelSettingsItems, useWorkspaceNavigation, workspaceLabels } from '../lib/workspace-navigation';
 import { api, ApiError } from '../lib/api';
-import { addLearningProject } from '../lib/learning';
 import { usePageMotion } from '../lib/page-motion';
 
 export function Workspace({ accountNotice = '', systemView = false }: {
@@ -33,10 +32,6 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   const main = usePageMotion<HTMLElement>(`${user?.id ?? 'guest'}:${view}:${projectId ?? ''}`);
   const refreshLearning = useCallback(() => setLearningRevision(value => value + 1), []);
   const openLearning = useCallback((id: string) => navigate('learning', false, id), [navigate]);
-  const addLearning = useCallback(async (sectionId: string, signal: AbortSignal) => {
-    const project = await addLearningProject(sectionId, signal);
-    if (!signal.aborted) openLearning(project.id);
-  }, [openLearning]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -118,7 +113,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + (projectId ?? '')} projectId={projectId}
           onOpened={refreshLearning} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
-          onBreadcrumbChange={setCourseCrumbs} onAddLearningProject={addLearning} />)}
+          onBreadcrumbChange={setCourseCrumbs} />)}
       </main>
     </div>
   </div>;
