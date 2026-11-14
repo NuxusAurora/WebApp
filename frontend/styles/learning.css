@@ -86,7 +86,10 @@
 .lesson-history summary { cursor: pointer; width: fit-content; }
 .lesson-history section { margin-block: var(--space-4); }
 .lesson-rich > * + * { margin-block-start: var(--space-3); }
-.lesson-rich pre, .lesson-rich .lesson-wide, .lesson-rich .katex-display { max-width: 100%; overflow-x: auto; }
+.lesson-rich pre, .lesson-rich .lesson-wide, .lesson-rich .katex-display {
+  max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain;
+}
+.lesson-rich :is(pre, .lesson-wide):focus-visible { outline-offset: -2px; }
 .lesson-rich pre { padding: var(--space-3); background: var(--surface-secondary); }
 .lesson-rich table { border-collapse: collapse; }
 .lesson-rich :is(th, td) { padding: var(--space-2); border: 1px solid var(--line-soft); }
@@ -157,4 +160,14 @@
 @media (width < 768px) {
   .learning-context-path { display: none; }
   .learning-shell:has(.lesson-workspace[data-questions-open="true"]) :is(.workspace-topbar, .sidebar-mobile-trigger) { display: none; }
+  .lesson-actions .button, .teaching-chat-header button, .teaching-composer .text-button,
+  .lesson-actions-menu summary { min-block-size: var(--touch-target); }
+  .teaching-chat-header { padding-block-start: max(var(--space-3), env(safe-area-inset-top)); }
+  .teaching-composer {
+    padding-inline-start: max(var(--space-4), env(safe-area-inset-left));
+    padding-inline-end: max(var(--space-4), env(safe-area-inset-right));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-content, .teaching-transcript { scroll-behavior: auto; }
 }

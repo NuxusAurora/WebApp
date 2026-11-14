@@ -11,10 +11,10 @@ import type { ContentFormat, PublishedStep } from '../lib/lesson-task';
 export function LessonContent({ text, format }: { text: string; format?: ContentFormat }) {
   if (format !== 'markdown') return <p>{text}</p>;
   return <div className="lesson-rich">
-    <Markdown skipHtml remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}
+    <Markdown skipHtml remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false }]]}
       components={{
         img: ({ alt }) => alt ? <span>{alt}</span> : null,
-        pre: ({ children }) => <pre tabIndex={0} aria-label="代码块">{children}</pre>,
+        pre: ({ children }) => <pre tabIndex={0} role="region" aria-label="代码块">{children}</pre>,
         table: ({ children }) => <div className="lesson-wide" role="region" tabIndex={0} aria-label="表格"><table>{children}</table></div>,
       }}>{text}</Markdown>
   </div>;
