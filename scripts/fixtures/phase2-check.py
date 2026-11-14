@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 import app.ai.models  # register AI metadata
 import app.curriculum.models  # register curriculum metadata
 import app.knowledge.models  # register knowledge metadata
+import app.learning.models  # register learning metadata
+import app.learning.textbooks  # register the textbook list table
 from app.config import Settings
 from app.models import Base
 

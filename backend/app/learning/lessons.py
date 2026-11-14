@@ -12,7 +12,7 @@ from app.auth import DB, Actor, Input, limit
 from app.courses import owned_by_id
 from app.errors import AppError, ok
 from app.learning.context import conversation_context, learning_material, teaching_model
-from app.learning.lesson_state import current_lesson, lesson_query, state_data
+from app.learning.lesson_state import current_lesson, legacy_state_data, lesson_query
 from app.learning.models import LearningLessonRevision
 
 router = APIRouter(prefix="/api/v1/learning/conversations/{conversation_id}/lesson")
@@ -114,7 +114,7 @@ def advance_state(body, state, result):
 @router.get("")
 async def lesson(conversation_id: UUID, db: DB, actor: Actor):
     await conversation_context(db, conversation_id, actor.id)
-    return ok(state_data(await current_lesson(db, conversation_id)))
+    return ok(legacy_state_data(await current_lesson(db, conversation_id)))
 
 
 @router.post("")
@@ -124,7 +124,7 @@ async def change_lesson(
     actor_id = actor.id
     course, section, point = await conversation_context(db, conversation_id, actor_id)
     if saved := await replay(db, conversation_id, body):
-        return ok(state_data(saved))
+        return ok(legacy_state_data(saved))
     current = await current_lesson(db, conversation_id)
     require_action(body, current)
     state = current.state if current else {}
@@ -144,7 +144,7 @@ async def change_lesson(
     await owned_by_id(db, course_id, actor_id)
     _, _, point = await conversation_context(db, conversation_id, actor_id)
     if saved := await replay(db, conversation_id, body):
-        return ok(state_data(saved))
+        return ok(legacy_state_data(saved))
     if point.content_version_id != point_version:
         raise AppError("LESSON_CONFLICT", "知识点已更新，请重新加载", 409)
     require_action(body, await current_lesson(db, conversation_id))
@@ -158,4 +158,4 @@ async def change_lesson(
     )
     db.add(saved)
     await db.commit()
-    return ok(state_data(saved))
+    return ok(legacy_state_data(saved))
