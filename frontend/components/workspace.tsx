@@ -31,6 +31,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   const [learningRevision, setLearningRevision] = useState(0);
   const [textbookAddedCount, setTextbookAddedCount] = useState(0);
   const [openedLearning, setOpenedLearning] = useState<{ target: LearningTarget; selection: LearningSelection } | null>(null);
+  const [questionTarget, setQuestionTarget] = useState<LearningTarget | null>(null);
   const { view, target, navigate } = useWorkspaceNavigation(systemView ? 'system' : 'courses', leaveEditor, () => setDirty(false));
   const selection = target && openedLearning?.target === target ? openedLearning.selection : null;
   const href = workspaceHref(view, target ?? undefined);
@@ -42,8 +43,8 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   }, [refreshLearning]);
   const learningOpened = useCallback((target: LearningTarget, selection: LearningSelection) => {
     setOpenedLearning({ target, selection });
-    refreshLearning();
-  }, [refreshLearning]);
+  }, []);
+  const questionsChanged = useCallback((open: boolean) => setQuestionTarget(open ? target : null), [target]);
   const openLearning = useCallback((target: LearningTarget) => navigate('learning', false, target), [navigate]);
 
   useEffect(() => {
@@ -117,25 +118,27 @@ export function Workspace({ accountNotice = '', systemView = false }: {
     </main>
   </div>;
 
-  return <div className="application-shell workspace-shell">
+  return <div className={`application-shell workspace-shell${view === 'learning' ? ' learning-shell' : ''}`}>
     <a href="#main-content" className="skip-link">跳到主要内容</a>
     <AppSidebar user={user} loading={loading} view={view} busy={busy} error={notice} navigate={navigate} logout={logout}
-      learning={{ selection, revision: learningRevision, textbookAddedCount, onSelect: openLearning, onSessionExpired: expired }} />
+      learning={{ selection, revision: learningRevision, textbookAddedCount, onSelect: openLearning, onSessionExpired: expired }}
+      questionsOpen={view === 'learning' && target !== null && target === questionTarget} />
     <div className="app-body">
       <header className="workspace-topbar">
-        <Breadcrumb>
+        {view === 'learning' ? <span className="learning-app-title">学习对话</span> : <Breadcrumb>
           {view === 'courses' && courseCrumbs.length ? courseCrumbs.map((item, index) => <Fragment key={index}>
             {index ? <Icon name="chevron" size={14} /> : null}
             {item.onSelect ? <button type="button" disabled={item.disabled} onClick={item.onSelect} title={item.label}>{item.label}</button> :
               <strong aria-current={index === courseCrumbs.length - 1 ? 'page' : undefined} title={item.label}>{item.label}</strong>}
-          </Fragment>) : isModelSettings(view) ? <><span>模型设置</span><Icon name="chevron" size={14} /><strong aria-current="page">{modelSettingsItems.find(item => item.view === view)?.label}</strong></> : <strong aria-current="page">{workspaceLabels[view]}</strong>}</Breadcrumb>
+          </Fragment>) : isModelSettings(view) ? <><span>模型设置</span><Icon name="chevron" size={14} /><strong aria-current="page">{modelSettingsItems.find(item => item.view === view)?.label}</strong></> : <strong aria-current="page">{workspaceLabels[view]}</strong>}</Breadcrumb>}
       </header>
       <main ref={main} id="main-content" className={`workspace-main${isModelSettings(view) ? ' workspace-main-settings' : view === 'courses' ? ' workspace-main-courses' : view === 'system' ? ' workspace-main-status' : ''}`}>
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
         {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onCoursesChanged={refreshLearning} onPasswordChanged={() => {
           expired(); setNotice('密码已修改，请重新登录。');
         }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + href} target={target}
-          onOpened={learningOpened} onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
+          onOpened={learningOpened} onOutlineChanged={refreshLearning} onQuestionsChange={questionsChanged}
+          onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
           onBreadcrumbChange={setCourseCrumbs} onTextbookAdded={textbookAdded} onCoursesChanged={refreshLearning} />)}
       </main>
     </div>

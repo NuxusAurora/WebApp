@@ -5,7 +5,11 @@ export function sidebarDOM(initialWidth = 1440) {
   const queries: { query: string; listeners: Set<() => void> }[] = [];
   vi.stubGlobal('matchMedia', (query: string) => {
     const record = { query, listeners: new Set<() => void>() }; queries.push(record);
-    return { get matches() { return query.includes('min-width: 741') ? width > 740 && width <= 1100 : width <= 740; },
+    return { get matches() {
+      if (query.includes('1280px')) return width >= 768 && width < 1280;
+      if (query.includes('width < 768px')) return width < 768;
+      return query.includes('min-width: 741') ? width > 740 && width <= 1100 : width <= 740;
+    },
       media: query, addEventListener: (_: string, callback: () => void) => record.listeners.add(callback),
       removeEventListener: (_: string, callback: () => void) => record.listeners.delete(callback) };
   });

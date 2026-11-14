@@ -6,6 +6,7 @@ import { getLearningOutline, listLearningTextbooks, type LearningOutline, type L
 import { workspaceHref } from '../lib/workspace-navigation';
 import { Icon } from './icon';
 import { RemoveLearningTextbook } from './remove-learning-textbook';
+import { Input } from './ui';
 
 type Follow = (event: MouseEvent<HTMLAnchorElement>, target: { sectionId: string; pointId?: string }) => void;
 type NavigationProps = { selection: LearningSelection | null; revision: number; onSelect: Follow; onSessionExpired: () => void };
@@ -21,7 +22,7 @@ function Folder({ title, kind, active, children, textbookId, action }: {
   const toggle = <button type="button" className={`sidebar-item learning-tree-row learning-tree-${kind}`}
       title={title} aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}>
       <Icon name="chevron" size={12} />{kind === 'textbook' ? <Icon name="folder" size={16} /> : null}
-      <span>{title}</span>
+      <span className="learning-tree-label">{title}</span>
     </button>;
   return <li data-textbook-id={textbookId}>
     {action ? <div className="learning-textbook-actions">{toggle}{action}</div> : toggle}
@@ -35,16 +36,31 @@ function LearningLink({ title, sectionId, pointId, studied, current, onSelect }:
   const target = { sectionId, pointId };
   return <li><a href={workspaceHref('learning', target)} title={title}
     className={'sidebar-item learning-tree-row ' + (pointId ? 'learning-tree-point' : 'learning-tree-section') +
-      (studied ? ' is-studied' : '') + (current ? ' is-current' : '')}
+      (current ? ' is-current' : '')}
     aria-current={current ? 'page' : undefined} onClick={event => onSelect(event, target)}>
-    <span>{title}</span>
+    {pointId ? <span className="learning-tree-mark" aria-hidden="true">{studied ? <Icon name="check" size={12} /> : null}</span> : <Icon name="file" size={13} />}
+    <span className="learning-tree-label">{title}</span>
+    {studied ? <span className="visually-hidden"> 已开始学习</span> : null}
   </a></li>;
 }
 
-function TextbookContents({ courseId, open, selection, revision, onSelect, onSessionExpired }: NavigationProps & {
-  courseId: string; open: boolean;
+function OutlineFolders({ chapters, selection, onSelect, expanded = false }: Pick<LearningOutline, 'chapters'> &
+  Pick<NavigationProps, 'selection' | 'onSelect'> & { expanded?: boolean }) {
+  return chapters.map(chapter => <Folder key={chapter.id} title={chapter.title} kind="chapter"
+    active={expanded || selection?.chapterId === chapter.id}>
+    {() => chapter.sections.length ? chapter.sections.map(section => section.knowledge_points.length
+      ? <Folder key={section.id} title={section.title} kind="section" active={expanded || selection?.sectionId === section.id}>
+        {() => section.knowledge_points.map(point => <LearningLink key={point.id} title={point.title}
+          sectionId={section.id} pointId={point.id} studied={point.studied} current={selection?.pointId === point.id} onSelect={onSelect} />)}
+      </Folder> : <LearningLink key={section.id} title={section.title} sectionId={section.id}
+        current={selection?.sectionId === section.id && !selection.pointId} onSelect={onSelect} />)
+      : <li className="sidebar-project-status">暂无小节</li>}
+  </Folder>);
+}
+
+function TextbookContents({ courseId, open, outline, onOutline, selection, revision, onSelect, onSessionExpired }: NavigationProps & {
+  courseId: string; open: boolean; outline?: LearningOutline; onOutline: (id: string, outline: LearningOutline) => void;
 }) {
-  const [outline, setOutline] = useState<LearningOutline | null>(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -52,14 +68,14 @@ function TextbookContents({ courseId, open, selection, revision, onSelect, onSes
     const task = new AbortController();
     setError('');
     getLearningOutline(courseId, task.signal).then(result => {
-      if (!task.signal.aborted) setOutline(result);
+      if (!task.signal.aborted) onOutline(courseId, result);
     }).catch(reason => {
       if (task.signal.aborted) return;
       if (reason instanceof ApiError && reason.status === 401) onSessionExpired();
       else setError(reason instanceof Error ? reason.message : '无法读取教材目录');
     });
     return () => task.abort();
-  }, [courseId, open, revision, retry, onSessionExpired]);
+  }, [courseId, open, revision, retry, onOutline, onSessionExpired]);
 
   if (error) return <li className="sidebar-project-status">
     <p role="alert">{error}</p>
@@ -67,16 +83,7 @@ function TextbookContents({ courseId, open, selection, revision, onSelect, onSes
   </li>;
   if (!outline) return open ? <li className="sidebar-project-status" role="status">正在加载目录…</li> : null;
   if (!outline.chapters.length) return <li className="sidebar-project-status">暂无目录</li>;
-  return outline.chapters.map(chapter => <Folder key={chapter.id} title={chapter.title} kind="chapter"
-    active={selection?.chapterId === chapter.id}>
-    {open => !open ? null : chapter.sections.length ? chapter.sections.map(section => section.knowledge_points.length
-      ? <Folder key={section.id} title={section.title} kind="section" active={selection?.sectionId === section.id}>
-        {open => open && section.knowledge_points.map(point => <LearningLink key={point.id} title={point.title}
-          sectionId={section.id} pointId={point.id} studied={point.studied} current={selection?.pointId === point.id} onSelect={onSelect} />)}
-      </Folder> : <LearningLink key={section.id} title={section.title} sectionId={section.id}
-        current={selection?.sectionId === section.id} onSelect={onSelect} />)
-      : <li className="sidebar-project-status">暂无小节</li>}
-  </Folder>);
+  return <OutlineFolders chapters={outline.chapters} selection={selection} onSelect={onSelect} />;
 }
 
 export function LearningProjectNavigation({ selection, revision, onSelect, onSessionExpired }: NavigationProps) {
@@ -85,6 +92,12 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [outlines, setOutlines] = useState<Record<string, LearningOutline>>({});
+  const [query, setQuery] = useState('');
+  const search = useId();
+  const saveOutline = useCallback((id: string, outline: LearningOutline) => {
+    setOutlines(previous => ({ ...previous, [id]: outline }));
+  }, []);
   const request = useRef<AbortController | null>(null);
   const focusId = useRef<string | undefined>(undefined);
   const list = useRef<HTMLUListElement>(null);
@@ -148,13 +161,49 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
       }
     }
     setItems(previous => previous.filter(item => item.id !== id));
+    setOutlines(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => key !== id)));
   }
 
-  return <ul ref={list} className="sidebar-submenu sidebar-projects learning-tree" aria-label="学习教材" aria-busy={busy}>
+  const term = query.trim().toLocaleLowerCase();
+  const matches = (title: string) => title.toLocaleLowerCase().includes(term);
+  const results = term ? items.flatMap(item => {
+    const outline = outlines[item.id];
+    if (matches(item.title)) return [{ item, chapters: outline?.chapters }];
+    const chapters = outline?.chapters.flatMap(chapter => {
+      if (matches(chapter.title)) return [chapter];
+      const sections = chapter.sections.flatMap(section => {
+        if (matches(section.title)) return [section];
+        const points = section.knowledge_points.filter(point => matches(point.title));
+        return points.length ? [{ ...section, knowledge_points: points }] : [];
+      });
+      return sections.length ? [{ ...chapter, sections }] : [];
+    });
+    return chapters?.length ? [{ item, chapters }] : [];
+  }) : [];
+
+  return <>
+    <div className="learning-tree-search">
+      <label htmlFor={search} className="visually-hidden">搜索已加载的学习目录</label>
+      <Icon name="search" size={15} />
+      <Input id={search} type="search" value={query} onChange={event => setQuery(event.target.value)}
+        placeholder="搜索已加载目录" autoComplete="off" />
+    </div>
+    {term ? <>
+      <p className="learning-search-status" role="status">
+        {results.length ? `${results.length} 本教材匹配` : busy && !loaded ? '正在读取教材…' : '已加载目录中没有匹配项'}
+      </p>
+      <ul className="sidebar-submenu sidebar-projects learning-tree learning-search-results" aria-label="目录搜索结果">
+        {results.map(({ item, chapters }) => <Folder key={item.id} title={item.title} kind="textbook" active>
+          {() => chapters?.length ? <OutlineFolders chapters={chapters} selection={selection} onSelect={onSelect} expanded /> :
+            <li className="sidebar-project-status">{chapters ? '暂无目录' : '清除搜索后展开教材可读取知识点。'}</li>}
+        </Folder>)}
+      </ul>
+    </> : null}
+    <ul ref={list} hidden={Boolean(term)} className="sidebar-submenu sidebar-projects learning-tree" aria-label="学习教材" aria-busy={busy}>
     {items.map(item => <Folder key={item.id} title={item.title} kind="textbook" active={selection?.courseId === item.id}
       textbookId={item.id} action={<RemoveLearningTextbook courseId={item.id} title={item.title}
         onRemoved={() => removeFromList(item.id)} onSessionExpired={onSessionExpired} />}>
-      {open => <TextbookContents courseId={item.id} open={open} revision={revision}
+      {open => <TextbookContents courseId={item.id} open={open} outline={outlines[item.id]} onOutline={saveOutline} revision={revision}
         selection={selection?.courseId === item.id ? selection : null} onSelect={onSelect} onSessionExpired={onSessionExpired} />}
     </Folder>)}
     {busy && !loaded ? <li className="sidebar-project-status" role="status">正在加载…</li> : null}
@@ -162,5 +211,6 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
     {error ? <li className="sidebar-project-status" role="alert">{error}</li> : null}
     {cursor || error ? <li><button className="sidebar-item sidebar-project-more" type="button" aria-disabled={busy}
       onClick={() => { if (!busy) void load(cursor); }}>{busy ? '正在加载…' : error ? '重试' : '加载更多'}</button></li> : null}
-  </ul>;
+    </ul>
+  </>;
 }

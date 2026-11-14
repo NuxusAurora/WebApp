@@ -1,5 +1,9 @@
 # 运行手册
 
+## Learning Protocol 1.1 UI-2
+
+在「学习对话」或 `/?view=learning&section=…&point=…` 打开已保存教学，旧 `project=…` 链接仍可用。布局入口为 `workspace.tsx`、`app-sidebar.tsx`、`learning-conversation.tsx`、`lesson-workspace.tsx` 与 `styles/learning.css`；搜索仅查已加载的真实教材及正式目录，展开教材可读取其知识点。路径的章名从既有正式目录接口按 ID 读取；读取失败时省略缺失章名，教学仍可继续。前端回归在 `tests/learning-workspace.test.tsx` 和 `tests/sidebar.test.tsx`；运行原 `npm run check`、`npm test`、`npm run build`。实际验证与限制见 HANDOFF。
+
 ## 知识点双窗教学
 
 在「模型设置」启用一个已保存的模型，再在左侧教材目录选中知识点。「开始学习」生成题目和第一步，确认后才继续。右上角「随时提问」打开独立问答窗，Enter 发送，Shift+Enter 换行，旧问答自动保留。

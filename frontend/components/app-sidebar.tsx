@@ -11,19 +11,23 @@ const preferenceKey = 'learning-workspace.sidebar-collapsed';
 const groups = [{ label: '学习', items: [{ view: 'courses', icon: 'courses' }, { view: 'learning', icon: 'chat' }] },
   { label: '设置', items: [{ view: 'ai', icon: 'sliders' }, { view: 'profile', icon: 'user' }] }] as const;
 
-export function AppSidebar({ user, loading = false, view, busy, error = '', navigate, logout, learning }: {
+export function AppSidebar({ user, loading = false, view, busy, error = '', navigate, logout, learning, questionsOpen = false }: {
   user: User | null; loading?: boolean; view: WorkspaceView; busy: boolean;
   error?: string;
+  questionsOpen?: boolean;
   learning?: { selection: LearningSelection | null; revision: number; textbookAddedCount: number;
     onSelect: (target: LearningTarget) => boolean; onSessionExpired: () => void };
   navigate: (view: WorkspaceView) => boolean; logout: () => Promise<void>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [compactLearning, setCompactLearning] = useState(false);
+  const [keepLearningExpanded, setKeepLearningExpanded] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(isModelSettings(view));
   const [learningOpen, setLearningOpen] = useState(view === 'learning');
+  const [learningMounted, setLearningMounted] = useState(false);
   const textbookAddedCount = learning?.textbookAddedCount ?? 0;
   const [storageNotice, setStorageNotice] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
@@ -31,19 +35,33 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   const accountButton = useRef<HTMLButtonElement>(null);
   const accountMenu = useRef<HTMLDivElement>(null);
   const preference = useRef<boolean | null>(null);
+  const learningView = view === 'learning';
 
   useLayoutEffect(() => {
-    const media = window.matchMedia('(max-width: 740px)');
-    const tablet = window.matchMedia('(min-width: 741px) and (max-width: 1100px)');
     try { const saved = localStorage.getItem(preferenceKey); preference.current = saved === 'true' ? true : saved === 'false' ? false : null; } catch { /* Browser preference is optional. */ }
+  }, []);
+  useLayoutEffect(() => {
+    const media = window.matchMedia(learningView ? '(width < 768px)' : '(max-width: 740px)');
+    const tablet = window.matchMedia(learningView ? '(768px <= width < 1280px)' : '(min-width: 741px) and (max-width: 1100px)');
     const update = () => {
       setMobile(media.matches);
       setCollapsed(preference.current ?? tablet.matches);
+      setCompactLearning(learningView && tablet.matches);
+      setKeepLearningExpanded(false);
       setDrawer(false); setMenu(false);
     };
     update(); media.addEventListener('change', update); tablet.addEventListener('change', update);
     return () => { media.removeEventListener('change', update); tablet.removeEventListener('change', update); };
-  }, []);
+  }, [learningView]);
+
+  useLayoutEffect(() => { setKeepLearningExpanded(false); }, [questionsOpen]);
+  const constrainedByQuestions = questionsOpen && compactLearning;
+  const rail = !mobile && (constrainedByQuestions ? !keepLearningExpanded : collapsed);
+  const learningVisible = learningOpen && !rail;
+
+  useEffect(() => {
+    if (learningVisible && (!mobile || drawer)) setLearningMounted(true);
+  }, [learningVisible, mobile, drawer]);
 
   useLayoutEffect(() => {
     const element = dialog.current; if (!element) return;
@@ -74,6 +92,10 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   }, [menu]);
 
   function toggle() {
+    if (constrainedByQuestions) {
+      setKeepLearningExpanded(!keepLearningExpanded);
+      return;
+    }
     const next = !collapsed; preference.current = next; setCollapsed(next);
     try { localStorage.setItem(preferenceKey, String(next)); setStorageNotice(''); }
     catch { setStorageNotice('无法保存侧栏偏好，本次使用仍有效。'); }
@@ -99,7 +121,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   return <>
     <button ref={opener} type="button" className="sidebar-mobile-trigger" aria-label="打开导航" aria-expanded={mobile && drawer}
       aria-controls="workspace-sidebar" onClick={() => setDrawer(true)}><Icon name="menu" size={20} /></button>
-    <dialog ref={dialog} id="workspace-sidebar" className="workspace-sidebar" data-collapsed={collapsed && !mobile}
+    <dialog ref={dialog} id="workspace-sidebar" className="workspace-sidebar" data-collapsed={rail}
       role={mobile ? 'dialog' : 'complementary'} aria-label={mobile ? '导航菜单' : '侧边栏'} aria-modal={mobile && drawer ? true : undefined}
       onCancel={event => { event.preventDefault(); if (menu) { setMenu(false); accountButton.current?.focus(); } else setDrawer(false); }}
       onClick={event => {
@@ -112,10 +134,10 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
           <span className="sidebar-brand-icon"><Icon name="book" size={23} /></span>
           <span className="sidebar-brand-copy"><strong>学习工作台</strong><small>LEARNING STUDIO</small></span>
         </a>
-        <button type="button" className="sidebar-toggle" aria-label={mobile ? '关闭导航' : collapsed ? '展开侧边栏' : '收起侧边栏'}
-          aria-expanded={mobile ? drawer : !collapsed} onClick={() => mobile ? setDrawer(false) : toggle()}>
-          <Icon name={mobile ? 'close' : collapsed ? 'panel-open' : 'panel-close'} size={17} />
-          <span className="sidebar-tooltip" role="tooltip">{mobile ? '关闭导航' : collapsed ? '展开侧边栏' : '收起侧边栏'}</span>
+        <button type="button" className="sidebar-toggle" aria-label={mobile ? '关闭导航' : rail ? '展开侧边栏' : '收起侧边栏'}
+          aria-expanded={mobile ? drawer : !rail} onClick={() => mobile ? setDrawer(false) : toggle()}>
+          <Icon name={mobile ? 'close' : rail ? 'panel-open' : 'panel-close'} size={17} />
+          <span className="sidebar-tooltip" role="tooltip">{mobile ? '关闭导航' : rail ? '展开侧边栏' : '收起侧边栏'}</span>
         </button>
       </div>
       <nav className="sidebar-navigation" aria-label="主导航">
@@ -123,8 +145,8 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
           <span className="sidebar-group-label">{group.label}</span>
           {group.items.map(item => <div key={item.view}>{item.view === 'ai' ? <>
             <button type="button" className={'sidebar-item sidebar-model-heading' + (isModelSettings(view) ? ' is-active' : '')}
-              aria-label="模型设置" aria-expanded={modelsOpen && (!collapsed || mobile)} aria-controls="model-settings-navigation"
-              onClick={() => { if (collapsed && !mobile) { toggle(); setModelsOpen(true); } else setModelsOpen(value => !value); }}>
+              aria-label="模型设置" aria-expanded={modelsOpen && !rail} aria-controls="model-settings-navigation"
+              onClick={() => { if (rail) { toggle(); setModelsOpen(true); } else setModelsOpen(value => !value); }}>
               <Icon name="sliders" size={18} /><span className="sidebar-label">模型设置</span>
               <span className="sidebar-submenu-chevron"><Icon name="chevron" size={14} /></span>
               <span className="sidebar-tooltip" role="tooltip">模型设置</span>
@@ -135,14 +157,14 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
             </ul>
           </> : item.view === 'learning' ? user && learning ? <>
             <button id="learning-navigation-toggle" type="button" className={'sidebar-item sidebar-model-heading' + (view === 'learning' ? ' is-active' : '')}
-              aria-label="学习对话" aria-expanded={learningOpen && (!collapsed || mobile)} aria-controls="learning-project-navigation"
-              onClick={() => { if (collapsed && !mobile) { toggle(); setLearningOpen(true); } else setLearningOpen(value => !value); }}>
+              aria-label="学习对话" aria-expanded={learningVisible} aria-controls="learning-project-navigation"
+              onClick={() => { if (rail) { toggle(); setLearningOpen(true); } else setLearningOpen(value => !value); }}>
               <Icon name="chat" size={18} /><span className="sidebar-label">学习对话</span>
               <span className="sidebar-submenu-chevron"><Icon name="chevron" size={14} /></span>
               <span className="sidebar-tooltip" role="tooltip">学习对话</span>
             </button>
-            <div id="learning-project-navigation" hidden={!learningOpen || collapsed && !mobile}>
-              {learningOpen && (!collapsed || mobile) ? <LearningProjectNavigation key={user.id} selection={learning.selection}
+            <div id="learning-project-navigation" hidden={!learningVisible}>
+              {learningMounted || learningVisible && (!mobile || drawer) ? <LearningProjectNavigation key={user.id} selection={learning.selection}
                 revision={learning.revision} onSelect={followProject} onSessionExpired={learning.onSessionExpired} /> : null}
             </div>
           </> : null : navItem(item.view, item.icon)}</div>)}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { ApiError } from '../lib/api';
 import { getLesson, updateLesson, type LessonAction, type LessonProgress, type LessonRequest } from '../lib/learning';
 import { TeachingChat } from './teaching-chat';
+import { LearningContextPath } from './learning-context-path';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
 
@@ -15,8 +16,9 @@ function withoutStepLabels(text: string) {
   ).trim();
 }
 
-export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
-  conversationId: string; title: string; onSessionExpired: () => void;
+export function LessonWorkspace({ conversationId, title, path, onQuestionsChange, onSessionExpired }: {
+  conversationId: string; title: string; path: (string | undefined)[];
+  onQuestionsChange: (open: boolean) => void; onSessionExpired: () => void;
 }) {
   const [progress, setProgress] = useState<LessonProgress | null>(null);
   const [busy, setBusy] = useState<'load' | LessonAction | null>('load');
@@ -30,6 +32,7 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
   const launch = useRef<HTMLButtonElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const scrollToEnd = useRef(false);
+  const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
 
   const fail = useCallback((cause: unknown) => {
     if (cause instanceof ApiError && cause.status === 401) onSessionExpired();
@@ -69,9 +72,17 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
 
   useLayoutEffect(() => {
     const panel = content.current;
-    if (!scrollToEnd.current || !panel?.clientHeight) return;
-    panel.scrollTop = panel.scrollHeight;
-    scrollToEnd.current = false;
+    if (!panel?.clientHeight) return;
+    if (scrollToEnd.current) {
+      panel.scrollTop = panel.scrollHeight;
+      scrollToEnd.current = false;
+    } else if (readingAnchor.current) {
+      const { node, top } = readingAnchor.current;
+      panel.scrollTop = node && panel.contains(node)
+        ? panel.scrollTop + node.getBoundingClientRect().top - panel.getBoundingClientRect().top + top
+        : top;
+    }
+    readingAnchor.current = null;
   }, [progress, questions]);
 
   async function act(action: LessonAction) {
@@ -105,8 +116,19 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
     }
   }
 
+  function rememberReadingPosition() {
+    const panel = content.current;
+    if (!panel?.clientHeight) return;
+    const panelTop = panel.getBoundingClientRect().top;
+    const node = Array.from(panel.querySelectorAll<HTMLElement>('.lesson-body > *'))
+      .find(child => child.getBoundingClientRect().bottom > panelTop);
+    readingAnchor.current = { node, top: node ? panelTop - node.getBoundingClientRect().top : panel.scrollTop };
+  }
+
   function closeQuestions() {
+    rememberReadingPosition();
     setQuestions(false);
+    onQuestionsChange(false);
     requestAnimationFrame(() => launch.current?.focus({ preventScroll: true }));
   }
 
@@ -115,15 +137,28 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
   const stepContent = step ? withoutStepLabels(step.content) : '';
   const complete = progress?.complete;
   const blocked = Boolean(busy) || stale;
+  const contextStatus = stale ? '进度已变化' : busy === 'load' ? '正在读取进度' :
+    busy === 'start' ? (complete ? '正在准备下一题' : '正在准备教学') :
+      complete ? '本题已完成' : step ? (step.final ? '最后一步' : '学习中') :
+        progress ? '未开始' : error ? '无法读取进度' : '';
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
     aria-label={title} data-questions-open={Boolean(questions)}>
     <section className="lesson-main" aria-labelledby="learning-point-title">
       <header className="lesson-header">
-        <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
+        <div className="lesson-header-copy">
+          <LearningContextPath labels={path} />
+          <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
+        </div>
+        <p className="lesson-context-status" role="status">
+          {contextStatus}
+        </p>
         <button ref={launch} type="button" className="button secondary" aria-expanded={Boolean(questions)}
           aria-controls={questions === null ? undefined : 'teaching-questions'}
-          onClick={() => questions ? closeQuestions() : setQuestions(true)}>随时提问</button>
+          onClick={() => {
+            if (questions) closeQuestions();
+            else { rememberReadingPosition(); setQuestions(true); onQuestionsChange(true); }
+          }}>随时提问</button>
       </header>
       <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
         <div className="lesson-body">

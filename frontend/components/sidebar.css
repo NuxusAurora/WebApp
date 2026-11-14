@@ -52,12 +52,6 @@
 .learning-tree-row span { min-width: 0; overflow-wrap: anywhere; }
 .learning-tree-row > svg { flex: none; color: inherit; }
 .learning-tree-row[aria-expanded="true"] > svg:first-child { transform: rotate(90deg); }
-.learning-tree a.learning-tree-row { padding-inline-start: 26px; }
-.learning-tree .learning-tree-chapter { --learning-tree-color: var(--chapter-title); }
-.learning-tree .learning-tree-section { --learning-tree-color: var(--section-title); }
-.learning-tree .learning-tree-point { --learning-tree-color: var(--knowledge-title-color); font-size: 12px; }
-.learning-tree .learning-tree-point.is-studied { --learning-tree-color: var(--studied-knowledge-title); }
-.learning-tree-row > span { color: var(--learning-tree-color, currentColor); }
 .sidebar-project-status, .sidebar-projects .sidebar-project-more { color: var(--sidebar-secondary); }
 .sidebar-project-status { padding: 8px 12px; font-size: 12px; overflow-wrap: anywhere; }
 .sidebar-projects .sidebar-project-more { text-align: left; cursor: pointer; }
@@ -128,4 +122,72 @@
   .application-shell.workspace-shell { transition: none; }
   .workspace-sidebar[open] { animation: none; }
   .workspace-sidebar a, .workspace-sidebar button { transition: none; }
+}
+
+/* Learning shell: the rail is separate from the reading column. */
+.learning-shell .sidebar-header { height: 56px; padding-block: var(--space-2); }
+.learning-shell .workspace-sidebar[data-collapsed="true"] .sidebar-header { height: 96px; }
+.learning-shell .sidebar-brand-copy small { display: none; }
+.learning-shell .sidebar-brand-copy strong { font-size: 16px; font-weight: 600; }
+.learning-shell .sidebar-brand-icon { background: none; color: var(--sidebar-icon-active); }
+.learning-shell .sidebar-navigation { overscroll-behavior: contain; }
+.learning-tree-search {
+  position: relative; margin: var(--space-2) var(--space-2) var(--space-3);
+  color: var(--sidebar-secondary);
+}
+.learning-tree-search > svg { position: absolute; inset-inline-start: var(--space-2); top: 50%; transform: translateY(-50%); pointer-events: none; }
+.learning-tree-search .ui-input { padding-inline-start: var(--space-8); font-size: var(--font-caption); }
+.learning-tree-search .ui-input::placeholder { color: var(--text-secondary); opacity: 1; }
+.learning-search-status { color: var(--sidebar-secondary); margin: var(--space-2); font-size: var(--font-caption); }
+.sidebar-submenu.learning-tree { margin-inline-start: 0; padding-inline-start: 0; border: 0; }
+.learning-tree .learning-tree-children { padding-inline-start: var(--space-3); }
+.learning-tree .learning-tree-row {
+  min-height: 36px; padding-inline: var(--space-2); gap: var(--space-2);
+  font-size: var(--font-caption); color: var(--sidebar-text);
+}
+.learning-tree .learning-tree-label {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; color: inherit;
+}
+.learning-tree .learning-tree-textbook { font-weight: 600; }
+.learning-tree .learning-tree-chapter { font-weight: 500; }
+.learning-tree .learning-tree-section { font-weight: var(--weight-emphasis); }
+.learning-tree .learning-tree-point { color: var(--sidebar-secondary); }
+.learning-tree .learning-tree-row.is-current { color: var(--sidebar-text); font-weight: 600; background: var(--sidebar-active); }
+.learning-tree .learning-tree-row.is-current::before {
+  content: ''; position: absolute; inset-block: var(--space-2); inset-inline-start: 0; width: 1px;
+  background: var(--sidebar-icon-active);
+}
+.learning-tree .learning-tree-row > svg { color: var(--sidebar-icon); }
+.learning-tree-mark { display: grid; place-items: center; flex: 0 0 12px; color: var(--sidebar-secondary); }
+.learning-tree-mark:empty::before { content: ''; width: 4px; height: 4px; border: 1px solid currentColor; border-radius: 50%; }
+.learning-tree .is-current .learning-tree-mark { color: var(--sidebar-icon-active); }
+.learning-tree :is(.learning-tree-row, .learning-textbook-remove, .sidebar-project-more):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: -2px;
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 768px) {
+  .learning-textbook-actions:not(:hover, :focus-within) .learning-textbook-remove:not([aria-disabled="true"]) { opacity: 0; }
+}
+@media (width < 768px) {
+  .application-shell.learning-shell { --sidebar-width: 0px; grid-template-columns: minmax(0, 1fr); }
+  .learning-shell .app-body { grid-column: 1; }
+  .learning-shell .workspace-topbar { padding-inline-start: 64px; }
+  .learning-shell .workspace-sidebar {
+    position: fixed; inset: 0 auto 0 0; width: min(288px, calc(100vw - 48px)); height: 100dvh; z-index: 60;
+  }
+  .learning-shell .workspace-sidebar::backdrop { background: rgb(0 0 0 / .5); }
+  .learning-shell .sidebar-mobile-trigger {
+    position: fixed; z-index: 25; top: 6px; left: var(--space-3); display: grid; place-items: center;
+    width: var(--touch-target); height: var(--touch-target); padding: 0; border: 0;
+    border-radius: var(--radius); background: transparent; color: var(--text-primary);
+  }
+  .learning-shell .sidebar-toggle, .learning-shell .sidebar-item,
+  .learning-shell .learning-tree .learning-tree-row { min-height: var(--touch-target); }
+  .learning-shell .sidebar-toggle { min-width: var(--touch-target); }
+  .learning-shell .workspace-sidebar[open] { animation: sidebar-drawer-in 200ms ease-in-out; }
+  .learning-shell .sidebar-tooltip { display: none !important; }
+  .learning-shell .learning-tree-search .ui-input { font-size: 16px; min-height: var(--touch-target); }
+}
+@media (width < 768px) and (prefers-reduced-motion: reduce) {
+  .learning-shell .workspace-sidebar[open] { animation: none; }
 }

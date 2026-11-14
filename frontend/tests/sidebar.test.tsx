@@ -88,6 +88,24 @@ describe('shared sidebar', () => {
     expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'true');
     unmount(); expect(media.listenerCount()).toBe(0);
   });
+  it('gives the reader room when asking and restores the saved preference afterwards', () => {
+    const media = sidebarDOM(1024);
+    localStorage.setItem('learning-workspace.sidebar-collapsed', 'false');
+    const props = { user, view: 'learning' as const, busy: false, navigate: () => true, logout: vi.fn() };
+    const { rerender } = render(<AppSidebar {...props} />);
+    expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'false');
+    rerender(<AppSidebar {...props} questionsOpen />);
+    expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '展开侧边栏' }));
+    expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'false');
+    expect(localStorage.getItem('learning-workspace.sidebar-collapsed')).toBe('false');
+    rerender(<AppSidebar {...props} />);
+    expect(screen.getByRole('complementary')).toHaveAttribute('data-collapsed', 'false');
+    act(() => media.resize(767));
+    const opener = screen.getByRole('button', { name: '打开导航' });
+    fireEvent.click(opener);
+    expect(screen.getByRole('dialog', { name: '导航菜单' })).toHaveAttribute('aria-modal', 'true');
+  });
   it('survives corrupt or blocked preferences without losing the current collapse state', () => {
     localStorage.setItem('learning-workspace.sidebar-collapsed', 'broken');
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });

@@ -67,6 +67,13 @@ export function getLearningOutline(courseId: string, signal: AbortSignal) {
   return api<LearningOutline>(textbooksPath + '/' + courseId, { signal });
 }
 
+export async function getLearningChapterTitle(courseId: string, chapterId: string, signal: AbortSignal) {
+  // The confirmed curriculum remains accessible even for older links whose textbook is no longer in the sidebar.
+  const result = await api<{ curriculum: { chapters: { id: string; title: string }[] } }>(
+    'courses/' + courseId + '/curriculum', { signal });
+  return result.curriculum.chapters.find(chapter => chapter.id === chapterId)?.title;
+}
+
 export type LessonAction = 'start' | 'next' | 'explain' | 'hint' | 'check' | 'evaluate';
 export type LessonRequest = { request_id: string; revision: number; action: LessonAction; response: string };
 export type LessonProgress = {

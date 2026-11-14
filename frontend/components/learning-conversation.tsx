@@ -6,16 +6,21 @@ import { openSectionConversation, openLearningProject, type LearningProjectDetai
 import type { LearningTarget } from '../lib/workspace-navigation';
 import { SectionKnowledge } from './knowledge';
 import { LessonWorkspace } from './lesson-workspace';
+import { LearningContextPath } from './learning-context-path';
+import { getLearningChapterTitle } from '../lib/learning';
 
-export function LearningConversation({ target, onOpened, onDirtyChange, onSessionExpired }: {
+export function LearningConversation({ target, onOpened, onOutlineChanged, onQuestionsChange, onDirtyChange, onSessionExpired }: {
   target: LearningTarget | null;
   onOpened: (target: LearningTarget, selection: LearningSelection) => void;
+  onOutlineChanged: () => void;
+  onQuestionsChange: (open: boolean) => void;
   onDirtyChange: (dirty: boolean) => void;
   onSessionExpired: () => void;
 }) {
   const [project, setProject] = useState<LearningProjectDetail | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [chapter, setChapter] = useState<{ id: string; title?: string } | null>(null);
   const request = useRef<AbortController | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
 
@@ -58,15 +63,31 @@ export function LearningConversation({ target, onOpened, onDirtyChange, onSessio
 
   const selectedPoint = project?.knowledge_points.find(point => point.id === project.conversation?.knowledge_point_id);
   const title = project?.section_title;
+  const courseId = project?.course_id;
+  const chapterId = project?.chapter_id;
+  useEffect(() => {
+    if (!courseId || !chapterId) return;
+    const task = new AbortController();
+    void getLearningChapterTitle(courseId, chapterId, task.signal).then(title => {
+      if (!task.signal.aborted) setChapter({ id: chapterId, title });
+    }, reason => {
+      if (!task.signal.aborted && reason instanceof ApiError && reason.status === 401) onSessionExpired();
+      // Course and section already came from the project. Leave the chapter out if the optional read fails.
+    });
+    return () => task.abort();
+  }, [courseId, chapterId, onSessionExpired]);
   useEffect(() => {
     if (title) heading.current?.focus({ preventScroll: true });
   }, [title]);
 
+  const ancestors = project ? [project.course_title, chapter && chapter.id === chapterId ? chapter.title : undefined] : [];
   if (selectedPoint && project?.conversation) return <LessonWorkspace key={project.conversation.id}
-    conversationId={project.conversation.id} title={selectedPoint.title} onSessionExpired={onSessionExpired} />;
+    conversationId={project.conversation.id} title={selectedPoint.title} path={[...ancestors, title]}
+    onQuestionsChange={onQuestionsChange} onSessionExpired={onSessionExpired} />;
 
   return <section className="learning-conversation" aria-label="学习对话">
     <header className="learning-conversation-header">
+      <LearningContextPath labels={ancestors} />
       <h1 ref={heading} tabIndex={-1}>{title ?? '学习对话'}</h1>
       {project ? <p className="muted">{project.textbook_title}</p> : null}
     </header>
@@ -78,7 +99,7 @@ export function LearningConversation({ target, onOpened, onDirtyChange, onSessio
     </div> : null}
     {project ? <div className="learning-conversation-main" aria-busy={busy}>
       <SectionKnowledge sectionId={project.section_id} generateLabel="生成知识点"
-        onConfirmed={load} onDirtyChange={onDirtyChange} onSessionExpired={onSessionExpired} />
+        onConfirmed={() => { onOutlineChanged(); void load(); }} onDirtyChange={onDirtyChange} onSessionExpired={onSessionExpired} />
     </div> : null}
   </section>;
 }
