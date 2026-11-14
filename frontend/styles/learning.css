@@ -97,6 +97,20 @@
 .lesson-footer > p { margin: 0 auto; }
 .lesson-footer > button, .lesson-check button { justify-self: start; width: auto; }
 .lesson-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lesson-primary-action { margin-inline-start: auto; }
+.lesson-secondary-actions, .lesson-actions-menu > div { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lesson-actions-menu { display: none; }
+.lesson-actions-menu summary { cursor: pointer; padding-block: var(--space-3); }
+.lesson-support { border-inline-start: 2px solid var(--line); padding-inline-start: var(--space-3); }
+.lesson-support summary { cursor: pointer; font-weight: 500; }
+.lesson-support summary + * { margin-block-start: var(--space-2); }
+.lesson-check-form { display: grid; gap: var(--space-2); }
+.lesson-completion { padding: var(--space-4); background: var(--surface-secondary); }
+@container (width < 640px) {
+  .lesson-secondary-actions { display: none; }
+  .lesson-actions-menu { display: block; }
+  .lesson-actions-menu[open] { flex-basis: 100%; }
+}
 .lesson-check textarea, .teaching-input-row textarea {
   min-width: 0; max-height: 25vh; resize: vertical; padding: 8px 12px;
   border: 1px solid var(--line); border-radius: var(--radius);
