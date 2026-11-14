@@ -10,8 +10,10 @@
 .learning-conversation-main { min-height: 260px; }
 .learning-conversation-main p { margin: 8px 0 0; }
 .learning-conversation-main p:only-child, .learning-conversation-empty { margin: 0; }
-.workspace-main:has(> .learning-conversation-point) { max-width: none; }
-.learning-conversation-main.learning-conversation-point { flex: 1; min-height: 0; }
+.workspace-main:has(> .learning-conversation-point) { max-width: none; padding: 0; }
+.learning-conversation-main.learning-conversation-point {
+  flex: 1; min-height: 0; border: 0; border-radius: 0;
+}
 .learning-conversation-point h1 { margin: 0; font-size: 18px; }
 .learning-conversation-error { margin-bottom: 16px; }
 @media (max-width: 900px) {
