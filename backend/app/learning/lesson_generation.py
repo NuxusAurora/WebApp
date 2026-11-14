@@ -29,7 +29,7 @@ class LessonGenerator:
 
     async def generate(self, operation, context):
         provider, model, _ = await teaching_model(self.db, self.actor_id)
-        await limit(self.request, "ai", str(self.actor_id))
+        await limit(self.request, "lesson-ai", str(self.actor_id), maximum=24)
         prompt = PROMPTS[operation]
         call = Call(
             task_type="knowledge_lesson",

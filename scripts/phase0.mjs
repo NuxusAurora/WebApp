@@ -8,6 +8,7 @@ import { phase1Acceptance } from './phase1-acceptance.mjs';
 import { phase2Acceptance } from './phase2-acceptance.mjs';
 import { phase3Acceptance } from './phase3-acceptance.mjs';
 import { phase4Acceptance } from './phase4-acceptance.mjs';
+import { learningAcceptance } from './learning-acceptance.mjs';
 
 const [command, ...flags] = process.argv.slice(2);
 const owned = command === 'verify';
@@ -161,6 +162,7 @@ async function main() {
     await phase2Acceptance(ctx, address('backend', 8000), address('frontend', 3000));
     await phase3Acceptance(ctx, address('backend', 8000), address('frontend', 3000));
     await phase4Acceptance(ctx, address('backend', 8000), address('frontend', 3000));
+    await learningAcceptance(ctx, address('frontend', 3000));
     passed = true;
   } finally {
     if (passed && keep) console.log(`Retained only for browser QA. Environment file: ${envFile}`);

@@ -95,7 +95,7 @@ def public_user(user):
     }
 
 
-async def limit(request: Request, action: str, identity: str):
+async def limit(request: Request, action: str, identity: str, *, maximum: int = 10):
     # Never store raw email/IP in limiter keys. Atomic TTL avoids unbounded keys on cancellation.
     key = f"auth-limit:{action}:{digest(identity)}"
     count = await request.app.state.resources.redis.eval(
@@ -104,7 +104,7 @@ async def limit(request: Request, action: str, identity: str):
         1,
         key,
     )
-    if count > 10:
+    if count > maximum:
         raise AppError("RATE_LIMITED", "尝试过于频繁，请稍后重试", 429)
 
 

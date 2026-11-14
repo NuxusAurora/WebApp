@@ -1,5 +1,11 @@
 # 运行手册
 
+## Learning Protocol 2.0 · 联调与发布验收
+
+从项目根运行 `node scripts/phase0.mjs verify`，它会用隔离 Compose 栈跑旧回归和 `scripts/learning-acceptance.mjs`，并清理专用容器与卷。生产构建版本应配套 Alembic `0014_teaching_turn_question`。在目标环境备份并验证可恢复性后，从当前后端候选显式执行 `alembic upgrade 0014_teaching_turn_question`。先核对修订、旧数据和 health/ready，再启用新前端。已有计划或题目归属时保留新 Schema，回退应用版本时不要强制降级。
+
+教学模型调用使用独立的每账户 24 次／10 分钟额度。超时或中断后客户端重新读取服务端快照。修订保存已发布内容与同请求重放结果，辅窗历史在独立表中。真实模型和设备覆盖见 [交接](HANDOFF.md)。
+
 ## Learning Protocol 2.0 · Phase 3
 
 教学候选使用 `backend/prompts/learning/` 下的规划、步骤、提示、换讲法、检测及评价模板。三级提示和检测保存在主窗修订，`check-answer` 先保存作答，`evaluate-check` 独立评价并可重试。辅窗依旧单独保存问答，`0014_teaching_turn_question` 给新问答标记题目来源，旧问答仍可在原会话中查看。旧记录不回填。

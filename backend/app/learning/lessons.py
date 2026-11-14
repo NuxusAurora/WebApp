@@ -1,4 +1,6 @@
+import asyncio
 import json
+from contextlib import suppress
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
@@ -131,9 +133,24 @@ async def get_task(conversation_id: UUID, db: DB, actor: Actor):
 async def task_command(
     conversation_id: UUID, body: LessonCommand, request: Request, db: DB, actor: Actor
 ):
-    return ok(
-        await execute(db, conversation_id, actor.id, body, LessonGenerator(db, request, actor.id))
-    )
+    async def wait_for_disconnect():
+        while (await request.receive())["type"] != "http.disconnect":
+            pass
+
+    generator = LessonGenerator(db, request, actor.id)
+    operation = asyncio.create_task(execute(db, conversation_id, actor.id, body, generator))
+    disconnect = asyncio.create_task(wait_for_disconnect())
+    try:
+        await asyncio.wait({operation, disconnect}, return_when=asyncio.FIRST_COMPLETED)
+        if operation.done():
+            return ok(operation.result())
+        raise AppError("REQUEST_CANCELLED", "请求已取消，请重新读取教学进度", 499)
+    finally:
+        for task in (operation, disconnect):
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
 
 
 @router.post("")
