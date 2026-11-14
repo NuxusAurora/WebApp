@@ -39,7 +39,6 @@
 .lesson-block { display: grid; gap: 8px; }
 .lesson-block h2, .lesson-check label { margin: 0; font-size: 16px; font-weight: var(--weight-emphasis); }
 .lesson-workspace .lesson-block p { margin: 0; line-height: 1.75; white-space: pre-wrap; }
-.lesson-block .lesson-step-number { color: var(--muted); font-size: var(--font-caption); }
 .lesson-footer {
   display: grid; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--line-soft);
 }

@@ -7,6 +7,14 @@ import { TeachingChat } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
 
+// Generated lessons can already contain step labels. Keep the server's index as the visible label.
+function withoutStepLabels(text: string) {
+  return text.replace(
+    /^[ \t\u3000]*(?:#{1,6}[ \t]+)?(?:\*\*|__)?(?:第[ \t\u3000]*[0-9０-９零〇一二三四五六七八九十百千万两]+[ \t\u3000]*步|步骤[ \t\u3000]*[0-9０-９零〇一二三四五六七八九十百千万两]+|step[ \t]+[0-9０-９]+)(?:\*\*|__)?[ \t\u3000]*(?:[：:、]|[.．](?![0-9０-９])|$)(?:\*\*|__)?[ \t\u3000]*/gim,
+    '',
+  ).trim();
+}
+
 export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
   conversationId: string; title: string; onSessionExpired: () => void;
 }) {
@@ -103,6 +111,8 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
   }
 
   const step = progress?.step;
+  const stepTitle = step ? withoutStepLabels(step.title) : '';
+  const stepContent = step ? withoutStepLabels(step.content) : '';
   const complete = progress?.complete;
   const blocked = Boolean(busy) || stale;
 
@@ -123,9 +133,8 @@ export function LessonWorkspace({ conversationId, title, onSessionExpired }: {
               <p>{progress.problem}</p>
             </section>
             <section className="lesson-block" aria-labelledby="lesson-step">
-              <p className="lesson-step-number">第 {step.index} 步</p>
-              <h2 id="lesson-step">{step.title}</h2>
-              <p>{step.content}</p>
+              <h2 id="lesson-step">第 {step.index} 步{stepTitle ? `：${stepTitle}` : null}</h2>
+              {stepContent ? <p>{stepContent}</p> : null}
             </section>
             {progress.check && !complete ? <form className="lesson-block lesson-check"
               onSubmit={event => { event.preventDefault(); void act('evaluate'); }}>

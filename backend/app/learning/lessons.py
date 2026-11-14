@@ -16,7 +16,7 @@ from app.learning.lesson_state import current_lesson, lesson_query, state_data
 from app.learning.models import LearningLessonRevision
 
 router = APIRouter(prefix="/api/v1/learning/conversations/{conversation_id}/lesson")
-PROMPT = (Path(__file__).resolve().parents[2] / "prompts/learning/lesson-v1.md").read_text(
+PROMPT = (Path(__file__).resolve().parents[2] / "prompts/learning/lesson-v2.md").read_text(
     encoding="utf-8"
 )
 TEXT = {"type": "string", "minLength": 1, "maxLength": 3000, "pattern": r"\S"}
@@ -80,7 +80,7 @@ def model_call(body, material, state):
     }
     return Call(
         task_type="knowledge_lesson",
-        prompt_version="lesson-v1",
+        prompt_version="lesson-v2",
         messages=[
             Message(role="system", content=PROMPT),
             Message(role="user", content=json.dumps(data, ensure_ascii=False)),
