@@ -223,6 +223,7 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
       </footer>
     </section>
     {questions !== null ? <TeachingChat conversationId={conversationId} open={questions}
+      activeStep={progress?.current_step?.index}
       onClose={closeQuestions} onSessionExpired={onSessionExpired} /> : null}
   </section>;
 }

@@ -122,13 +122,16 @@
 .teaching-transcript { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 12px; }
 .teaching-transcript:focus-visible { outline-offset: -2px; }
 .teaching-turn { display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
+.teaching-turn strong { display: block; font-size: var(--font-caption); font-weight: 600; margin-bottom: var(--space-1); }
 .teaching-chat .teaching-turn p { margin: 0; white-space: pre-wrap; }
 .teaching-question {
-  align-self: flex-end; max-width: 88%; padding: 10px 14px;
-  border-radius: var(--radius-special); background: var(--accent-soft);
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 2px solid var(--line); background: var(--surface-secondary);
 }
+.teaching-chat .teaching-context { flex-basis: 100%; font-size: var(--font-caption); color: var(--text-secondary); margin: 0; }
+.teaching-chat .teaching-empty { color: var(--text-secondary); margin-block: var(--space-5); }
 .teaching-answer { line-height: 1.75; }
-.teaching-composer { display: grid; gap: 8px; padding: 8px 16px 16px; }
+.teaching-composer { display: grid; gap: 8px; padding: 8px 16px max(16px, env(safe-area-inset-bottom)); }
 .teaching-composer .notice { margin: 0; }
 .teaching-composer > button { justify-self: start; }
 .teaching-input-row { display: flex; align-items: flex-end; gap: 8px; }
