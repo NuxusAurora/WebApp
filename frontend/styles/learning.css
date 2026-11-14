@@ -70,6 +70,26 @@
 .lesson-block { display: grid; gap: 8px; }
 .lesson-block h2, .lesson-check label { margin: 0; font-size: 16px; font-weight: var(--weight-emphasis); }
 .lesson-workspace .lesson-block p { margin: 0; line-height: 1.75; white-space: pre-wrap; }
+.lesson-body > *, .lesson-reading-step, .lesson-rich { min-width: 0; }
+.lesson-problem-card {
+  padding: var(--space-4); background: var(--surface-secondary);
+  border: 1px solid var(--line-soft); border-radius: var(--radius-card);
+}
+.lesson-problem-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lesson-problem-header h2, .lesson-step-number { color: var(--text-secondary); font-size: var(--font-caption); }
+.lesson-workspace .lesson-reading-step { font-size: 16px; color: var(--text-primary); }
+.lesson-reading-step h2 { font-size: 24px; font-weight: 600; line-height: 1.3; scroll-margin-top: 12px; }
+.lesson-reading-step h2:focus-visible { outline-offset: 3px; }
+.lesson-reading-step h3, .lesson-objective strong { font-weight: 600; }
+.lesson-objective { color: var(--text-secondary); }
+.lesson-history { border-block-start: 1px solid var(--line-soft); padding-block-start: var(--space-3); }
+.lesson-history summary { cursor: pointer; width: fit-content; }
+.lesson-history section { margin-block: var(--space-4); }
+.lesson-rich > * + * { margin-block-start: var(--space-3); }
+.lesson-rich pre, .lesson-rich .lesson-wide, .lesson-rich .katex-display { max-width: 100%; overflow-x: auto; }
+.lesson-rich pre { padding: var(--space-3); background: var(--surface-secondary); }
+.lesson-rich table { border-collapse: collapse; }
+.lesson-rich :is(th, td) { padding: var(--space-2); border: 1px solid var(--line-soft); }
 .lesson-footer {
   display: grid; gap: var(--space-2); padding: var(--space-3) clamp(var(--space-8), 4vw, var(--space-12))
     max(var(--space-4), env(safe-area-inset-bottom)); border-top: 1px solid var(--line-soft);

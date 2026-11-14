@@ -35,10 +35,11 @@ beforeEach(() => {
     if (path === 'courses/course/curriculum') return { curriculum: { chapters } };
     if (path === 'learning/projects') return project(JSON.parse(String(init?.body)).knowledge_point_id);
     if (path === 'learning/projects/' + projectId + '/open') return project(firstId);
-    if (path === 'learning/conversations/' + firstId + '/lesson') {
-      return { revision: 4, problem: '已有题目', step: { index: 2, title: '已有步骤', content: '继续阅读', final: true } };
+    if (path === 'learning/conversations/' + firstId + '/lesson/task') {
+      return { revision: 4, actions: ['start'], status: 'legacy', legacy: { revision: 4, problem: '已有题目',
+        step: { index: 2, title: '已有步骤', content: '继续阅读', final: true } } };
     }
-    if (path === 'learning/conversations/' + secondId + '/lesson') return { revision: 0 };
+    if (path === 'learning/conversations/' + secondId + '/lesson/task') return { revision: 0, status: 'not_started', actions: ['start'] };
     throw new Error('Unexpected request: ' + path);
   });
 });

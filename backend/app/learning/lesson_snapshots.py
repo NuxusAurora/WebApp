@@ -17,7 +17,11 @@ def snapshot(conversation_id, row):
     return {
         **base,
         "task_id": state["task_id"],
-        "question": {"question_id": state["question_id"], "problem": state["problem"]},
+        "question": {
+            "question_id": state["question_id"],
+            "problem": state["problem"],
+            "format": "markdown",
+        },
         "plan": {"plan_id": str(row.plan_id), **state["plan"]},
         "current_step": steps[-1],
         "completed_steps": steps if status == "completed" else steps[:-1],

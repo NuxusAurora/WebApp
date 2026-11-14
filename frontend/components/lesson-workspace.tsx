@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '../lib/api';
-import { getLesson, updateLesson, type LessonAction, type LessonProgress, type LessonRequest } from '../lib/learning';
+import { readLessonTask, runLessonCommand, type LessonCommand, type LessonTask } from '../lib/lesson-task';
+import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
 import { TeachingChat } from './teaching-chat';
 import { LearningContextPath } from './learning-context-path';
 
@@ -20,18 +21,16 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
   conversationId: string; title: string; path: (string | undefined)[];
   onQuestionsChange: (open: boolean) => void; onSessionExpired: () => void;
 }) {
-  const [progress, setProgress] = useState<LessonProgress | null>(null);
-  const [busy, setBusy] = useState<'load' | LessonAction | null>('load');
+  const [progress, setProgress] = useState<LessonTask | null>(null);
+  const [busy, setBusy] = useState<'load' | LessonCommand | null>('load');
   const [error, setError] = useState('');
   const [stale, setStale] = useState(false);
-  const [response, setResponse] = useState('');
   const [questions, setQuestions] = useState<boolean | null>(null);
   const request = useRef<AbortController | null>(null);
-  const retry = useRef<LessonRequest | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const launch = useRef<HTMLButtonElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const scrollToEnd = useRef(false);
+  const focusStep = useRef(false);
   const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
 
   const fail = useCallback((cause: unknown) => {
@@ -46,11 +45,10 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
     setBusy('load');
     setError('');
     try {
-      const result = await getLesson(conversationId, task.signal);
+      const result = await readLessonTask(conversationId, task.signal);
       if (task.signal.aborted) return;
       setProgress(result);
       setStale(false);
-      retry.current = null;
     } catch (cause) {
       if (!task.signal.aborted) fail(cause);
     } finally {
@@ -73,9 +71,11 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
   useLayoutEffect(() => {
     const panel = content.current;
     if (!panel?.clientHeight) return;
-    if (scrollToEnd.current) {
-      panel.scrollTop = panel.scrollHeight;
-      scrollToEnd.current = false;
+    if (focusStep.current) {
+      const stepHeading = panel.querySelector<HTMLElement>('#lesson-step');
+      stepHeading?.focus({ preventScroll: true });
+      stepHeading?.scrollIntoView?.({ block: 'start' });
+      focusStep.current = false;
     } else if (readingAnchor.current) {
       const { node, top } = readingAnchor.current;
       panel.scrollTop = node && panel.contains(node)
@@ -85,28 +85,30 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
     readingAnchor.current = null;
   }, [progress, questions]);
 
-  async function act(action: LessonAction) {
-    if (!progress || request.current || stale) return;
-    const input = action === 'evaluate' ? response.trim() : '';
-    if (action === 'evaluate' && !input) return;
+  async function act(action: LessonCommand, fields?: { check_id: string; answer?: string }) {
+    if (!progress?.actions.includes(action) || request.current || stale) return;
     const task = new AbortController();
     request.current = task;
-    const previous = retry.current;
-    const body: LessonRequest = previous?.action === action && previous.response === input
-      ? previous : { request_id: crypto.randomUUID(), revision: progress.revision, action, response: input };
-    retry.current = body;
     setError('');
     setBusy(action);
     try {
-      const result = await updateLesson(conversationId, body, task.signal);
+      const result = await runLessonCommand(conversationId, progress, action, task.signal, fields);
       if (task.signal.aborted) return;
-      if (action === 'start' || action === 'next' || action === 'check' || action === 'evaluate') setResponse('');
-      scrollToEnd.current = true;
+      focusStep.current = result.current_step?.step_id !== progress.current_step?.step_id;
       setProgress(result);
-      retry.current = null;
     } catch (cause) {
       if (task.signal.aborted) return;
-      if (cause instanceof ApiError && cause.status === 409) setStale(true);
+      if (!(cause instanceof ApiError) || [409, 502, 503, 504].includes(cause.status)) {
+        try {
+          const latest = await readLessonTask(conversationId, task.signal);
+          if (task.signal.aborted) return;
+          setProgress(latest);
+          if (latest.revision !== progress.revision && cause instanceof ApiError && cause.status === 409) {
+            setError('进度已更新，请确认当前步骤');
+            return;
+          }
+        } catch { if (!task.signal.aborted) setStale(true); }
+      }
       fail(cause);
     } finally {
       if (request.current === task) {
@@ -132,14 +134,16 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
     requestAnimationFrame(() => launch.current?.focus({ preventScroll: true }));
   }
 
-  const step = progress?.step;
-  const stepTitle = step ? withoutStepLabels(step.title) : '';
-  const stepContent = step ? withoutStepLabels(step.content) : '';
-  const complete = progress?.complete;
+  const legacy = progress?.legacy;
+  const step = progress?.current_step ?? legacy?.step;
+  const problem = progress?.question?.problem ?? legacy?.problem;
+  const complete = progress?.status === 'completed' || legacy?.complete;
+  const primary: LessonCommand = progress?.status === 'final_step' ? 'complete' :
+    progress?.status === 'completed' ? 'next-question' : progress?.status === 'teaching' ? 'next' : 'start';
   const blocked = Boolean(busy) || stale;
   const contextStatus = stale ? '进度已变化' : busy === 'load' ? '正在读取进度' :
     busy === 'start' ? (complete ? '正在准备下一题' : '正在准备教学') :
-      complete ? '本题已完成' : step ? (step.final ? '最后一步' : '学习中') :
+      complete ? '本题已完成' : step ? (progress?.status === 'final_step' || legacy?.step?.final ? '最后一步' : '学习中') :
         progress ? '未开始' : error ? '无法读取进度' : '';
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
@@ -162,26 +166,19 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
       </header>
       <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
         <div className="lesson-body">
-          {progress && step ? <>
-            <section className="lesson-block" aria-labelledby="lesson-problem">
-              <h2 id="lesson-problem">题目</h2>
-              <p>{progress.problem}</p>
-            </section>
-            <section className="lesson-block" aria-labelledby="lesson-step">
-              <h2 id="lesson-step">第 {step.index} 步{stepTitle ? `：${stepTitle}` : null}</h2>
-              {stepContent ? <p>{stepContent}</p> : null}
-            </section>
-            {progress.check && !complete ? <form className="lesson-block lesson-check"
-              onSubmit={event => { event.preventDefault(); void act('evaluate'); }}>
-              <label htmlFor="lesson-response">理解检测</label>
-              <p>{progress.check}</p>
-              <textarea id="lesson-response" rows={2} maxLength={1000} value={response}
-                onChange={event => setResponse(event.target.value)} disabled={blocked} placeholder="写下你的理解…" />
-              <button className="button secondary" type="submit" disabled={blocked || !response.trim()}>提交回答</button>
-            </form> : null}
-            {progress.support ? <section className="lesson-block" aria-live="polite">
-              <h2>{supportLabels[progress.support.kind]}</h2>
-              <p>{progress.support.text}</p>
+          {progress && step && problem ? <>
+            <ProblemCard key={progress.question?.question_id ?? 'legacy'} text={problem} format={progress.question?.format} />
+            <LessonStep title={withoutStepLabels(step.title)} total={progress.plan?.total_steps}
+              step={{ ...step, content: withoutStepLabels(step.content) }} />
+            {Boolean(progress.completed_steps?.length) ? <details className="lesson-history">
+              <summary>已完成步骤（{progress.completed_steps?.length}）</summary>
+              {progress.completed_steps?.map(entry => <LessonStep key={entry.step_id}
+                title={withoutStepLabels(entry.title)} step={entry} current={false} />)}
+            </details> : null}
+            {legacy?.check ? <section className="lesson-block"><h2>理解检测</h2><p>{legacy.check}</p></section> : null}
+            {legacy?.support ? <section className="lesson-block" aria-live="polite">
+              <h2>{supportLabels[legacy.support.kind]}</h2>
+              <LessonContent text={legacy.support.text} />
             </section> : null}
           </> : progress ? <p className="muted">从一道题开始，一次学一步。</p> : null}
           {complete ? <p role="status">已完成这道题。</p> : null}
@@ -194,14 +191,10 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
           disabled={Boolean(busy)} onClick={() => void load()}>重新加载进度</button> : null}
         {progress ? <div className="lesson-actions">
           <button type="button" className="button primary" disabled={blocked}
-            onClick={() => void act(!step || complete ? 'start' : 'next')}>
-            {!step ? '开始学习' : complete ? '下一题' : step.final ? '我理解了，完成本题' : '我理解了，下一步'}
+            onClick={() => void act(primary)}>
+            {primary === 'complete' ? '我理解了，完成本题' : primary === 'next' ? '我理解了，下一步' :
+              primary === 'next-question' || legacy ? '开始下一题' : '开始学习'}
           </button>
-          {step && !complete ? <>
-            <button type="button" className="button secondary" disabled={blocked} onClick={() => void act('explain')}>换一种方式</button>
-            <button type="button" className="button secondary" disabled={blocked} onClick={() => void act('hint')}>给我提示</button>
-            <button type="button" className="button secondary" disabled={blocked} onClick={() => void act('check')}>验证一下</button>
-          </> : null}
         </div> : null}
       </footer>
     </section>

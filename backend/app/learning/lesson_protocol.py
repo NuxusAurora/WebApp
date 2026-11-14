@@ -120,6 +120,7 @@ async def render(generator, material, draft, index, history):
         "title": output.title,
         "content": output.content,
         "objective": step.objective,
+        "format": "markdown",
         "is_final_step": index == len(draft.steps),
     }
 
