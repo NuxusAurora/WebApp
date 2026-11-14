@@ -7,15 +7,13 @@ from pydantic import Field
 from sqlalchemy import select
 
 from app.ai.contracts import AIError, Call, Message
-from app.ai.models import AIModel, AIProvider
 from app.ai.service import prepare, public_error
 from app.auth import DB, Actor, Input, limit
 from app.courses import owned_by_id
-from app.curriculum.models import Chapter, Section
 from app.errors import AppError, ok
-from app.knowledge.models import KnowledgePoint
-from app.learning.models import LearningConversation, LearningProject, LearningTurn
-from app.models import Course
+from app.learning.context import conversation_context, learning_material, teaching_model
+from app.learning.lesson_state import current_lesson
+from app.learning.models import LearningTurn
 
 router = APIRouter(prefix="/api/v1/learning/conversations/{conversation_id}/turns")
 PAGE_SIZE = 30
@@ -41,32 +39,6 @@ def turn_data(turn):
     }
 
 
-async def conversation_context(db, conversation_id, actor_id):
-    query = (
-        select(Course, Section, KnowledgePoint)
-        .select_from(LearningConversation)
-        .join(LearningProject, LearningProject.id == LearningConversation.project_id)
-        .join(Section, Section.id == LearningProject.section_id)
-        .join(Chapter, Chapter.id == Section.chapter_id)
-        .join(Course, Course.id == Chapter.course_id)
-        .join(KnowledgePoint, KnowledgePoint.id == LearningConversation.knowledge_point_id)
-        .where(
-            LearningConversation.id == conversation_id,
-            LearningProject.user_id == actor_id,
-            Course.user_id == actor_id,
-            Course.status == "active",
-            Chapter.archived.is_(False),
-            Section.archived.is_(False),
-            KnowledgePoint.section_id == Section.id,
-            KnowledgePoint.archived_at.is_(None),
-        )
-    )
-    row = (await db.execute(query.execution_options(populate_existing=True))).one_or_none()
-    if row is None:
-        raise AppError("NOT_FOUND", "此知识点对话不存在或已归档", 404)
-    return row
-
-
 def turn_query(conversation_id):
     return select(LearningTurn).where(LearningTurn.conversation_id == conversation_id)
 
@@ -87,21 +59,21 @@ def require_current(after, latest):
         raise AppError("TURN_CONFLICT", "对话已更新，请加载最新消息后再发送", 409)
 
 
-def teaching_call(course, section, point, history, question, context_size):
+def teaching_call(course, section, point, history, question, context_size, lesson=None):
     # Bound the supplied context without dropping the user's current question.
     output = min(2048, max(64, context_size // 4))
     budget = min(16000, max(512, context_size - output))
-    facts = {
-        "课程": course.title,
-        "教材": course.textbook,
-        "学习目标": course.learning_goal[:500],
-        "小节": section.title,
-        "知识点": point.title,
-        "定义": point.description,
-        "学习要求": point.learning_objectives,
-    }
+    facts = learning_material(course, section, point)
     material = json.dumps(facts, ensure_ascii=False)[: max(500, budget // 3)]
-    instruction = Message(role="system", content=f"{PROMPT}\n当前学习材料：\n{material}")
+    context = f"{PROMPT}\n当前学习材料：\n{material}"
+    if lesson:
+        step = lesson.state["step"]
+        snapshot = {
+            "题目": lesson.state["problem"][:900],
+            "当前步骤": {**step, "content": step["content"][:1100]},
+        }
+        context += "\n主窗只读内容：\n" + json.dumps(snapshot, ensure_ascii=False)
+    instruction = Message(role="system", content=context)
     remaining = budget - len(instruction.content) - len(question)
     previous = []
     for turn in history:
@@ -153,25 +125,18 @@ async def ask(conversation_id: UUID, body: Question, request: Request, db: DB, a
     latest = turn_query(conversation_id).order_by(LearningTurn.position.desc())
     recent = (await db.scalars(latest.limit(CONTEXT_TURNS))).all()
     require_current(body.after, recent[0] if recent else None)
-    config = (
-        await db.execute(
-            select(AIProvider.id, AIModel.id, AIModel.capabilities)
-            .join(AIModel, AIModel.provider_id == AIProvider.id)
-            .where(
-                AIProvider.user_id == actor_id,
-                AIProvider.enabled.is_(True),
-                AIModel.enabled.is_(True),
-            )
-        )
-    ).first()
-    if config is None:
-        raise AppError("AI_CONFIG_INCOMPLETE", "请在「模型设置」中启用并保存一个模型")
-    provider_id, model_id, capabilities = config
+    provider_id, model_id, capabilities = await teaching_model(db, actor_id)
     course_id = course.id
     point_version = point.content_version_id
     question = body.question.strip()
     call = teaching_call(
-        course, section, point, recent, question, capabilities.get("max_context_tokens", 4096)
+        course,
+        section,
+        point,
+        recent,
+        question,
+        capabilities.get("max_context_tokens", 4096),
+        await current_lesson(db, conversation_id),
     )
     await limit(request, "ai", str(actor_id))
     target, sink, _ = await prepare(request, db, actor_id, provider_id, model_id, call)

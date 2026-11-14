@@ -66,3 +66,23 @@ export function listLearningTextbooks(signal: AbortSignal, cursor: string | null
 export function getLearningOutline(courseId: string, signal: AbortSignal) {
   return api<LearningOutline>(textbooksPath + '/' + courseId, { signal });
 }
+
+export type LessonAction = 'start' | 'next' | 'explain' | 'hint' | 'check' | 'evaluate';
+export type LessonRequest = { request_id: string; revision: number; action: LessonAction; response: string };
+export type LessonProgress = {
+  revision: number;
+  problem?: string;
+  step?: { index: number; title: string; content: string; final: boolean };
+  complete?: boolean;
+  support?: { kind: 'explain' | 'hint' | 'evaluate'; text: string } | null;
+  check?: string | null;
+};
+const lessonPath = (id: string) => `learning/conversations/${id}/lesson`;
+
+export function getLesson(id: string, signal: AbortSignal) {
+  return api<LessonProgress>(lessonPath(id), { signal });
+}
+
+export function updateLesson(id: string, body: LessonRequest, signal: AbortSignal) {
+  return api<LessonProgress>(lessonPath(id), { method: 'POST', body: JSON.stringify(body), signal });
+}

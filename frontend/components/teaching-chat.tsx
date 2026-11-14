@@ -5,8 +5,8 @@ import { ApiError } from '../lib/api';
 import { askTeachingQuestion, getTeachingHistory, type TeachingQuestion, type TeachingTurn } from '../lib/learning';
 import { Icon } from './icon';
 
-export function TeachingChat({ conversationId, title, onSessionExpired }: {
-  conversationId: string; title: string; onSessionExpired: () => void;
+export function TeachingChat({ conversationId, open, onClose, onSessionExpired }: {
+  conversationId: string; open: boolean; onClose: () => void; onSessionExpired: () => void;
 }) {
   const [turns, setTurns] = useState<TeachingTurn[] | null>(null);
   const [before, setBefore] = useState<number | null>(null);
@@ -55,7 +55,6 @@ export function TeachingChat({ conversationId, title, onSessionExpired }: {
   }, [conversationId, fail]);
 
   useEffect(() => {
-    heading.current?.focus({ preventScroll: true });
     void load();
     return () => {
       request.current?.abort();
@@ -64,6 +63,11 @@ export function TeachingChat({ conversationId, title, onSessionExpired }: {
   }, [load]);
 
   useEffect(() => {
+    if (open) heading.current?.focus({ preventScroll: true });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const element = transcript.current;
     if (!element) return;
     if (scrollAfterPrepend.current !== null) {
@@ -73,7 +77,7 @@ export function TeachingChat({ conversationId, title, onSessionExpired }: {
       element.scrollTop = element.scrollHeight;
       scrollToEnd.current = false;
     }
-  }, [turns, busy]);
+  }, [turns, busy, open]);
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,9 +111,14 @@ export function TeachingChat({ conversationId, title, onSessionExpired }: {
     }
   }
 
-  return <section className="learning-conversation-main learning-conversation-point teaching-chat"
-    aria-labelledby="learning-point-title">
-    <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
+  return <aside className="teaching-chat" id="teaching-questions" hidden={!open}
+    aria-labelledby="teaching-questions-title" onKeyDown={event => {
+      if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
+    }}>
+    <header className="teaching-chat-header">
+      <h2 ref={heading} id="teaching-questions-title" tabIndex={-1}>随时提问</h2>
+      <button type="button" className="text-button" onClick={onClose} aria-label="关闭提问窗">关闭</button>
+    </header>
     <div className="teaching-transcript" ref={transcript} role="region" aria-label="问答记录" tabIndex={0}>
       {before ? <button type="button" className="text-button" disabled={Boolean(busy)}
         onClick={() => void load(before)}>查看更早的对话</button> : null}
@@ -129,7 +138,7 @@ export function TeachingChat({ conversationId, title, onSessionExpired }: {
       {((!turns && error) || reloadNeeded) ? <button type="button" className="button secondary"
         disabled={Boolean(busy)} onClick={() => void load()}>重新加载对话</button> : null}
       {turns ? <div className="teaching-input-row">
-        <textarea aria-label="提问" placeholder="围绕这个知识点提问…" rows={2} maxLength={4000}
+        <textarea aria-label="提问" placeholder="对当前步骤或知识点提问…" rows={2} maxLength={4000}
           value={question} readOnly={busy === 'send'} onChange={event => setQuestion(event.target.value)}
           onKeyDown={event => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -142,5 +151,5 @@ export function TeachingChat({ conversationId, title, onSessionExpired }: {
         </button>
       </div> : null}
     </form>
-  </section>;
+  </aside>;
 }

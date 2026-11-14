@@ -5,7 +5,7 @@ import { ApiError } from '../lib/api';
 import { openSectionConversation, openLearningProject, type LearningProjectDetail, type LearningSelection } from '../lib/learning';
 import type { LearningTarget } from '../lib/workspace-navigation';
 import { SectionKnowledge } from './knowledge';
-import { TeachingChat } from './teaching-chat';
+import { LessonWorkspace } from './lesson-workspace';
 
 export function LearningConversation({ target, onOpened, onDirtyChange, onSessionExpired }: {
   target: LearningTarget | null;
@@ -62,7 +62,7 @@ export function LearningConversation({ target, onOpened, onDirtyChange, onSessio
     if (title) heading.current?.focus({ preventScroll: true });
   }, [title]);
 
-  if (selectedPoint && project?.conversation) return <TeachingChat key={project.conversation.id}
+  if (selectedPoint && project?.conversation) return <LessonWorkspace key={project.conversation.id}
     conversationId={project.conversation.id} title={selectedPoint.title} onSessionExpired={onSessionExpired} />;
 
   return <section className="learning-conversation" aria-label="学习对话">

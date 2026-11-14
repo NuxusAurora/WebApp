@@ -1,10 +1,10 @@
 # 运行手册
 
-## 知识点教学问答
+## 知识点双窗教学
 
-在「模型设置」启用一个已保存的模型，再在左侧教材目录选中知识点。主区底部可输入问题，Enter 发送，Shift+Enter 换行。每个知识点保存自己的已完成问答。加载最近 30 轮后可以继续向前翻阅，模型根据已确认的知识点和近期问答回答追问。
+在「模型设置」启用一个已保存的模型，再在左侧教材目录选中知识点。「开始学习」生成题目和第一步，确认后才继续。右上角「随时提问」打开独立问答窗，Enter 发送，Shift+Enter 换行，旧问答自动保留。
 
-前端入口为 `frontend/components/teaching-chat.tsx`。后端在 `backend/app/learning/teaching.py` 提供 `GET/POST /api/v1/learning/conversations/{conversation_id}/turns`。迁移 `0010_learning_turns` 新建问答表，既有对话从空历史开始。运行环境按备份、校验、迁移、更新镜像的顺序升级。旧应用回滚时可保留问答表，含问答记录时迁移拒绝降级。
+`GET/POST /api/v1/learning/conversations/{conversation_id}/lesson` 读写主窗进度，`GET/POST …/turns` 单独读写辅窗问答。升级前备份并检查，再迁移至 `0011_learning_lessons` 并更新服务。该迁移只新建进度表，保留旧问答表；旧应用回滚可以保留此表，含教学记录时迁移拒绝降级。
 
 验收时在同一知识点发送问题和追问，刷新确认记录恢复，再切换知识点检查隔离。后端回归入口是 `uv run pytest -q tests/test_learning_teaching.py`。
 

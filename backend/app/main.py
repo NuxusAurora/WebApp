@@ -23,6 +23,7 @@ from app.database import Resources
 from app.errors import AppError
 from app.image_limits import MAX_IMAGE_BYTES
 from app.knowledge.routes import router as knowledge_router
+from app.learning.lessons import router as lesson_router
 from app.learning.routes import router as learning_router
 from app.learning.teaching import router as teaching_router
 from app.learning.textbooks import router as learning_textbooks_router
@@ -84,6 +85,7 @@ def create_app(
     app.include_router(knowledge_router)
     app.include_router(learning_router)
     app.include_router(teaching_router)
+    app.include_router(lesson_router)
     app.include_router(learning_textbooks_router)
 
     @app.exception_handler(AppError)
