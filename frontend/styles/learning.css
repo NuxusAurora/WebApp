@@ -75,6 +75,7 @@
   padding: var(--space-4); background: var(--surface-secondary); color: light-dark(#345f29, #bde7a4);
   border: 1px solid var(--line-soft); border-radius: var(--radius-card);
 }
+.lesson-problem-card :is(h1, h2, h3) { color: inherit; }
 .lesson-problem-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .lesson-problem-header h2, .lesson-step-number { font-size: var(--font-caption); }
 .lesson-step-number { color: var(--text-secondary); }
