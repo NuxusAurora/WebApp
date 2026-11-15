@@ -2,7 +2,7 @@
 
 ## Learning Protocol 2.0 · 联调与发布验收
 
-从项目根运行 `node scripts/phase0.mjs verify`，它会用隔离 Compose 栈跑旧回归和 `scripts/learning-acceptance.mjs`，并清理专用容器与卷。生产构建版本应配套 Alembic `0014_teaching_turn_question`。在目标环境备份并验证可恢复性后，从当前后端候选显式执行 `alembic upgrade 0014_teaching_turn_question`。先核对修订、旧数据和 health/ready，再启用新前端。已有计划或题目归属时保留新 Schema，回退应用版本时不要强制降级。
+从项目根运行 `node scripts/phase0.mjs verify`，它会用隔离 Compose 栈跑旧回归和 `scripts/learning-acceptance.mjs`，并清理专用容器与卷。生产构建版本应配套 Alembic `0015_teaching_threads`。在目标环境备份并验证可恢复性后，从当前后端候选显式执行 `alembic upgrade 0015_teaching_threads`。先核对修订、旧问答和 health/ready，再启用新前端。已有新对话记录时，可回退前端并保留支持分组的后端及当前数据库迁移。
 
 教学模型调用使用独立的每账户 24 次／10 分钟额度。超时或中断后客户端重新读取服务端快照。修订保存已发布内容与同请求重放结果，辅窗历史在独立表中。真实模型和设备覆盖见 [交接](HANDOFF.md)。
 
@@ -39,11 +39,11 @@
 
 视口宽度达到 768px 时，展开左侧目录后讲解和提问仍保持并排。更窄的视口打开提问时使用全宽，关闭后返回讲解。
 
-在「模型设置」启用一个已保存的模型，再在左侧教材目录选中知识点。「开始学习」「开始下一题」及刷新页面后，主界面只显示题面。没有编号的题目只有一个详情，点「开始讲解」进入并读取已保存的步骤、提示和回答，点「返回题目」回到题面。在题目详情可用「随时提问」打开独立问答窗，Enter 发送，Shift+Enter 换行。
+在「模型设置」启用一个已保存的模型，再在左侧教材目录选中知识点。「开始学习」「开始下一题」及刷新页面后，主界面只显示题面。没有编号的题目只有一个详情，点左下「开始讲解」进入并读取已保存的步骤、提示和回答，点「返回题目」回到题面。在题目详情点右下「不打断模型提问」打开独立问答窗。点「新开对话」从空白窗口开始，收到首条回复后可跨刷新在「切换对话」中找到。切换时每段对话分别保留草稿和进行中的回复。Enter 发送，Shift+Enter 换行。
 
 另起行并按「（1）」「（2）」连续编号的题目显示共用题干和小题列表。点编号或正文进入该小题，题干与小题固定在讲解上方。点「开始讲解」请求 `POST /api/v1/learning/conversations/{conversation_id}/lesson/task/subquestion`，服务器校验题目修订和小题编号，并为所选小题生成讲解。提问带上所选小题。点「查看全部小题」返回题面，当前页面再次进入同一小题可继续查看已生成的讲解。多小题题目可从题面直接开始下一题，此操作保留上一题原有的完成状态。
 
-`GET/POST /api/v1/learning/conversations/{conversation_id}/lesson` 读写主窗进度，`GET/POST …/turns` 单独读写辅窗问答。主窗快照表自 `0011_learning_lessons` 起使用，保留原问答表；应用回滚可以保留该表，含教学记录时迁移拒绝降级。
+`GET/POST /api/v1/learning/conversations/{conversation_id}/lesson` 读写主窗进度，`GET/POST …/turns` 单独读写辅窗问答。`0015_teaching_threads` 将现有记录保留在「原对话」，新对话按 `thread_id` 独立读取、追加和进入模型上下文。用 `GET …/turns/threads` 读取已保存的新对话列表。
 
 验收时在同一知识点发送问题和追问，刷新确认记录恢复，再切换知识点检查隔离。后端回归入口是 `uv run pytest -q tests/test_learning_teaching.py`。
 

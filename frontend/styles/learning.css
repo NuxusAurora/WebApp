@@ -29,11 +29,17 @@
   grid-row: 2; min-height: 0; min-width: 0; display: grid;
 }
 .lesson-main { grid-template-rows: minmax(0, 1fr) auto; }
-.teaching-chat { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+.teaching-chat { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.teaching-thread-pane {
+  min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+}
+.teaching-thread-pane[hidden] { display: none; }
 .teaching-chat-header {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
   min-height: 68px; padding: 12px 20px; border-bottom: 1px solid var(--line-soft);
 }
+.teaching-chat-actions { display: flex; gap: var(--space-2); margin-inline-start: auto; }
+.teaching-thread-select { flex-basis: 100%; min-width: 0; }
 .lesson-header {
   grid-column: 1 / -1; display: flex; align-items: center; min-height: 56px;
   padding: var(--space-2) clamp(var(--space-4), 2vw, var(--space-12));
@@ -126,8 +132,9 @@
 }
 .lesson-footer > p { margin: 0 auto; }
 .lesson-footer > button, .lesson-check button { justify-self: start; width: auto; }
-.lesson-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lesson-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .lesson-primary-action { margin-inline-start: auto; }
+.lesson-ask-action { margin-inline-start: auto; }
 .lesson-secondary-actions, .lesson-actions-menu > div { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .lesson-actions-menu { display: none; }
 .lesson-actions-menu summary { cursor: pointer; padding-block: var(--space-3); }

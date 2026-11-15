@@ -54,10 +54,31 @@ def test_teaching_resumes_and_uses_only_the_current_conversation(account_app):
     ]
     assert client.get(path).json()["data"]["turns"] == [saved, second]
     assert client.get(path, params={"before": 2}).json()["data"]["turns"] == [saved]
+    thread_id = str(uuid4())
+    assert client.get(path, params={"thread_id": thread_id}).json()["data"]["turns"] == []
+    other_question = {
+        "request_id": str(uuid4()),
+        "thread_id": thread_id,
+        "after": 0,
+        "question": "定义域是什么？",
+    }
+    other = client.post(path, json=other_question).json()["data"]
+    assert other["position"] == 1
+    assert client.post(path, json=other_question).json()["data"] == other
+    assert client.post(path, json=other_question | {"thread_id": str(uuid4())}).status_code == 409
+    assert [(message.role, message.content) for message in calls[-1][1:]] == [
+        ("user", other_question["question"]),
+    ]
+    assert client.get(path, params={"thread_id": thread_id}).json()["data"]["turns"] == [other]
+    assert client.get(path).json()["data"]["turns"] == [saved, second]
+    assert client.get(path + "/threads").json()["data"] == [
+        {"id": thread_id, "title": other_question["question"]},
+    ]
     assert client.get(knowledge).json()["data"]["knowledge_points"][0]["status"] == "NOT_STARTED"
 
     authenticate(client, app, "other@example.com")
     assert client.get(path).status_code == 404
+    assert client.get(path + "/threads").status_code == 404
     assert client.post(path, json=followup).status_code == 404
     client.cookies.set("learning_session", cookie)
     assert (

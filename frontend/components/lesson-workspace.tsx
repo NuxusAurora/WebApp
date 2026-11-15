@@ -6,7 +6,7 @@ import { readLessonTask, requestSubquestionExplanation, runLessonCommand,
   type LessonCommand, type LessonTask, type SubquestionExplanation } from '../lib/lesson-task';
 import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
 import { actionLabels, LessonActions, LessonSupport, UnderstandingCheck } from './lesson-actions';
-import { TeachingChat } from './teaching-chat';
+import { TeachingChat, teachingChatLabel } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
 
@@ -313,24 +313,24 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         {((!progress && error) || stale) ? <button type="button" className="button secondary"
           disabled={Boolean(busy)} onClick={() => void load()}>重新加载进度</button> : null}
         <div className="lesson-actions">
-          {insideDetail ? <button ref={launch} type="button" className="button secondary" aria-expanded={questionsOpen}
-            aria-controls={questions === null ? undefined : 'teaching-questions'}
-            onClick={() => {
-              if (questionsOpen) closeQuestions();
-              else { rememberReadingPosition(); setQuestions(true); }
-            }}>随时提问</button> : null}
           {activeSubquestion !== undefined && !focusedExplanation ?
-            <button type="button" className="button primary lesson-primary-action" disabled={blocked}
+            <button type="button" className="button primary" disabled={blocked}
               onClick={() => void explainSelection()}>开始讲解</button> : null}
           {singleDetail && progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
             run={action => void act(action)} /> : null}
           {!insideDetail && openSingle ? <button ref={detailEntry} type="button"
-            className={overviewAction ? 'button secondary' : 'button primary lesson-primary-action'}
+            className={overviewAction ? 'button secondary' : 'button primary'}
             onClick={openSingleDetail}>开始讲解</button> : null}
           {!insideDetail && overviewAction ? <button type="button" className="button primary lesson-primary-action"
             disabled={blocked} onClick={() => void act(overviewAction)}>
             {legacy ? actionLabels['next-question'] : actionLabels[overviewAction]}
           </button> : null}
+          {insideDetail ? <button ref={launch} type="button" className="button secondary lesson-ask-action"
+            aria-expanded={questionsOpen} aria-controls={questions === null ? undefined : 'teaching-questions'}
+            onClick={() => {
+              if (questionsOpen) closeQuestions();
+              else { rememberReadingPosition(); setQuestions(true); }
+            }}>{teachingChatLabel}</button> : null}
         </div>
       </footer> : null}
     </section>

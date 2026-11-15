@@ -6,6 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models import Base, Record
 
+DEFAULT_TEACHING_THREAD_ID = UUID(int=0)
+
 
 class LearningProject(Record, Base):
     __tablename__ = "learning_projects"
@@ -41,12 +43,17 @@ class LearningConversation(Record, Base):
 class LearningTurn(Record, Base):
     __tablename__ = "learning_turns"
     __table_args__ = (
-        UniqueConstraint("conversation_id", "position", name="uq_learning_turn_position"),
+        UniqueConstraint(
+            "conversation_id", "thread_id", "position", name="uq_learning_turn_position"
+        ),
         UniqueConstraint("conversation_id", "request_id", name="uq_learning_turn_request"),
     )
 
     conversation_id: Mapped[UUID] = mapped_column(
         ForeignKey("learning_conversations.id", ondelete="CASCADE")
+    )
+    thread_id: Mapped[UUID] = mapped_column(
+        default=DEFAULT_TEACHING_THREAD_ID, server_default=str(DEFAULT_TEACHING_THREAD_ID)
     )
     position: Mapped[int]
     request_id: Mapped[UUID]

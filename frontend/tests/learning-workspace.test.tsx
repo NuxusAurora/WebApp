@@ -53,9 +53,9 @@ it('keeps the lesson header to its title and searches the loaded outline without
   expect(await screen.findByText('已有题目')).toBeVisible();
   expect(heading.closest('header')).toHaveTextContent(/^行列式定义$/);
   expect(screen.queryByRole('navigation', { name: '面包屑' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '随时提问' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '不打断模型提问' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
-  const question = screen.getByRole('button', { name: '随时提问' });
+  const question = screen.getByRole('button', { name: '不打断模型提问' });
   expect(question.closest('footer')).toContainElement(screen.getByRole('button', { name: '开始下一题' }));
   expect(question).toHaveAttribute('aria-expanded', 'false');
   expect(api).not.toHaveBeenCalledWith('courses/course/curriculum', expect.anything());
@@ -178,7 +178,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   expect(screen.queryByText('旧的整题提示')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '开始讲解' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '随时提问' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '不打断模型提问' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '开始下一题' })).toBeEnabled();
   fireEvent.click(third);
   expect(screen.queryByText('第二小题')).not.toBeInTheDocument();
@@ -200,4 +200,56 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   fireEvent.click(screen.getByRole('button', { name: '第（3）问' }));
   expect(screen.getByRole('heading', { name: '第三问的讲解' })).toBeVisible();
   expect(selectedRequests).toHaveLength(2);
+});
+
+it('opens a fresh question thread while the original conversation keeps answering', async () => {
+  const turnsPath = 'learning/conversations/' + firstId + '/turns';
+  const fallback = vi.mocked(api).getMockImplementation()!;
+  let finishOriginal: (result: object) => void = () => {};
+  let newThread: string | undefined;
+  vi.mocked(api).mockImplementation(async (path, init) => {
+    if (path === turnsPath + '/threads') return [];
+    if (path === turnsPath && init?.method !== 'POST') return {
+      turns: [{ id: 'previous', position: 1, question: '以前的提问', answer: '原有回答' }], before: null,
+    };
+    if (path === turnsPath && init?.method === 'POST') {
+      const payload = JSON.parse(String(init.body));
+      if (payload.question === '原对话追问') {
+        expect(payload.after).toBe(1);
+        return new Promise(resolve => { finishOriginal = resolve; });
+      }
+      expect(payload.after).toBe(0);
+      newThread = payload.thread_id;
+      return { id: 'new-answer', position: 1, question: payload.question, answer: '新对话回答' };
+    }
+    return fallback(path, init);
+  });
+
+  render(<Workspace />);
+  fireEvent.click(await screen.findByRole('button', { name: '开始讲解' }));
+  fireEvent.click(screen.getByRole('button', { name: '不打断模型提问' }));
+  fireEvent.change(await screen.findByRole('textbox', { name: '提问' }), { target: { value: '原对话追问' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送' }));
+  expect(screen.getByText('正在回答…')).toBeVisible();
+
+  fireEvent.click(screen.getByRole('button', { name: '新开对话' }));
+  const newInput = screen.getByRole('textbox', { name: '提问' });
+  expect(newInput).toHaveFocus();
+  expect(newInput).toHaveValue('');
+  expect(screen.getByText('原有回答')).not.toBeVisible();
+  expect(screen.getByText('继续阅读')).toBeVisible();
+  fireEvent.change(newInput, { target: { value: '新对话问题' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送' }));
+  expect(await screen.findByText('新对话回答')).toBeVisible();
+  expect(newThread).toMatch(/^[0-9a-f-]{36}$/);
+
+  await act(async () => finishOriginal({
+    id: 'original-answer', position: 2, question: '原对话追问', answer: '原对话继续生成的回答',
+  }));
+  const switcher = screen.getByRole('combobox', { name: '切换对话' });
+  fireEvent.change(switcher, { target: { value: '' } });
+  expect(screen.getByText('原对话继续生成的回答')).toBeVisible();
+  expect(screen.getByText('新对话回答')).not.toBeVisible();
+  fireEvent.change(switcher, { target: { value: newThread } });
+  expect(screen.getByText('新对话回答')).toBeVisible();
 });

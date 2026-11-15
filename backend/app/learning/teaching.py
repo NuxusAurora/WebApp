@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
 from pydantic import Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.ai.contracts import AIError, Call, Message
 from app.ai.service import prepare, public_error
@@ -15,7 +15,7 @@ from app.learning.context import conversation_context, learning_material, teachi
 from app.learning.contracts import LessonOperation, model_output_schema, validate_model_output
 from app.learning.lesson_snapshots import legacy_view
 from app.learning.lesson_state import current_lesson
-from app.learning.models import LearningTurn
+from app.learning.models import DEFAULT_TEACHING_THREAD_ID, LearningTurn
 from app.learning.problem_parts import selected_subquestion
 
 router = APIRouter(prefix="/api/v1/learning/conversations/{conversation_id}/turns")
@@ -32,6 +32,7 @@ PROTOCOL_PROMPT = (
 
 class Question(Input):
     request_id: UUID
+    thread_id: UUID = DEFAULT_TEACHING_THREAD_ID
     after: int = Field(ge=0)
     question: str = Field(min_length=1, max_length=4000, pattern=r"\S")
     subquestion: int | None = Field(default=None, ge=1, le=99, strict=True)
@@ -67,7 +68,9 @@ async def find_retry(db, conversation_id, body):
         turn_query(conversation_id).where(LearningTurn.request_id == body.request_id)
     )
     if turn is not None and (
-        turn.question != body.question.strip() or turn.position != body.after + 1
+        turn.thread_id != body.thread_id
+        or turn.question != body.question.strip()
+        or turn.position != body.after + 1
     ):
         raise AppError("TURN_CONFLICT", "这条提问已发送，请重新加载对话", 409)
     return turn
@@ -130,10 +133,14 @@ def teaching_call(
 
 @router.get("")
 async def history(
-    conversation_id: UUID, db: DB, actor: Actor, before: int | None = Query(default=None, gt=0)
+    conversation_id: UUID,
+    db: DB,
+    actor: Actor,
+    before: int | None = Query(default=None, gt=0),
+    thread_id: UUID = DEFAULT_TEACHING_THREAD_ID,
 ):
     await conversation_context(db, conversation_id, actor.id)
-    query = turn_query(conversation_id)
+    query = turn_query(conversation_id).where(LearningTurn.thread_id == thread_id)
     if before is not None:
         query = query.where(LearningTurn.position < before)
     query = query.order_by(LearningTurn.position.desc()).limit(PAGE_SIZE + 1)
@@ -153,13 +160,33 @@ async def history(
     )
 
 
+@router.get("/threads")
+async def list_threads(conversation_id: UUID, db: DB, actor: Actor):
+    await conversation_context(db, conversation_id, actor.id)
+    statement = (
+        select(LearningTurn.thread_id, func.substr(LearningTurn.question, 1, 60))
+        .where(
+            LearningTurn.conversation_id == conversation_id,
+            LearningTurn.thread_id != DEFAULT_TEACHING_THREAD_ID,
+            LearningTurn.position == 1,
+        )
+        .order_by(LearningTurn.created_at.desc(), LearningTurn.thread_id)
+    )
+    rows = await db.execute(statement)
+    return ok([{"id": thread_id, "title": title} for thread_id, title in rows])
+
+
 @router.post("")
 async def ask(conversation_id: UUID, body: Question, request: Request, db: DB, actor: Actor):
     actor_id = actor.id
     course, section, point = await conversation_context(db, conversation_id, actor_id)
     if existing := await find_retry(db, conversation_id, body):
         return ok(turn_data(existing))
-    latest = turn_query(conversation_id).order_by(LearningTurn.position.desc())
+    latest = (
+        turn_query(conversation_id)
+        .where(LearningTurn.thread_id == body.thread_id)
+        .order_by(LearningTurn.position.desc())
+    )
     require_current(body.after, await db.scalar(latest.limit(1)))
     lesson = await current_lesson(db, conversation_id)
     if body.subquestion is not None and (lesson is None or body.lesson_revision != lesson.revision):
@@ -212,6 +239,7 @@ async def ask(conversation_id: UUID, body: Question, request: Request, db: DB, a
     require_current(body.after, await db.scalar(latest.limit(1)))
     turn = LearningTurn(
         conversation_id=conversation_id,
+        thread_id=body.thread_id,
         position=body.after + 1,
         request_id=body.request_id,
         question=question,

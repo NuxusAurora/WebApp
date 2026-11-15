@@ -4,6 +4,23 @@ import { proxyBusiness } from '../lib/business-proxy.server';
 
 const environment = { BACKEND_INTERNAL_URL: 'http://backend:8000' };
 describe('authenticated same-origin proxy', () => {
+  it('forwards the teaching thread index and selected transcript', async () => {
+    const path = 'learning/conversations/11111111-1111-1111-1111-111111111111/turns';
+    const thread = '22222222-2222-4222-8222-222222222222';
+    const upstream = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ success: true, data: [] }));
+    const fetchPath = (suffix: string, query = '') => proxyBusiness(
+      new Request('http://localhost/api/v1/' + path + suffix + query, { headers: { Cookie: 'learning_session=existing' } }),
+      (path + suffix).split('/'), upstream, environment,
+    );
+    expect((await fetchPath('/threads')).status).toBe(200);
+    expect((await fetchPath('', '?thread_id=' + thread + '&before=3')).status).toBe(200);
+    expect((upstream.mock.calls[0][0] as URL).pathname).toBe('/api/v1/' + path + '/threads');
+    const [url, options] = upstream.mock.calls[1];
+    expect((url as URL).searchParams.get('thread_id')).toBe(thread);
+    expect((url as URL).searchParams.get('before')).toBe('3');
+    expect(new Headers(options?.headers).get('Cookie')).toBe('learning_session=existing');
+  });
+
   it('forwards the selected subquestion explanation through the authenticated teaching path', async () => {
     const path = 'learning/conversations/11111111-1111-1111-1111-111111111111/lesson/task/subquestion';
     const upstream = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ success: true, data: {} }));

@@ -11,10 +11,11 @@ export type LearningProject = {
 };
 type LearningPoint = { id: string; title: string };
 export type TeachingTurn = { id: string; position: number; question: string; answer: string };
+export type TeachingThread = { id: string; title: string };
 export type TeachingHistory = { turns: TeachingTurn[]; before: number | null;
   context?: { question_id: string; step_index: number } | null };
 export type TeachingQuestion = { request_id: string; after: number; question: string;
-  subquestion?: number; lesson_revision?: number };
+  subquestion?: number; lesson_revision?: number; thread_id?: string };
 export type LearningTextbook = { id: string; title: string };
 export type LearningSelection = { courseId: string; chapterId: string; sectionId: string; pointId?: string };
 export type LearningOutline = { chapters: {
@@ -31,8 +32,15 @@ const projectsPath = 'learning/projects';
 const textbooksPath = projectsPath + '/textbooks';
 const turnsPath = (id: string) => `learning/conversations/${id}/turns`;
 
-export function getTeachingHistory(id: string, signal: AbortSignal, before?: number) {
-  return api<TeachingHistory>(turnsPath(id) + (before ? '?before=' + before : ''), { signal });
+export function getTeachingHistory(id: string, signal: AbortSignal, before?: number, threadId?: string) {
+  const query = new URLSearchParams();
+  if (before) query.set('before', String(before));
+  if (threadId) query.set('thread_id', threadId);
+  return api<TeachingHistory>(turnsPath(id) + (query.size ? '?' + query : ''), { signal });
+}
+
+export function getTeachingThreads(id: string, signal: AbortSignal) {
+  return api<TeachingThread[]>(turnsPath(id) + '/threads', { signal });
 }
 
 export function askTeachingQuestion(id: string, body: TeachingQuestion, signal: AbortSignal) {

@@ -16,7 +16,12 @@ from app.learning.contracts import LessonOperation
 from app.learning.lesson_snapshots import snapshot
 from app.learning.lesson_state import current_lesson, lesson_query
 from app.learning.lesson_support import apply_support, require_input
-from app.learning.models import LearningLessonPlan, LearningLessonRevision, LearningTurn
+from app.learning.models import (
+    DEFAULT_TEACHING_THREAD_ID,
+    LearningLessonPlan,
+    LearningLessonRevision,
+    LearningTurn,
+)
 from app.learning.plans import PlanSourceChanged, insert_plan, read_plan
 from app.learning.problem_parts import require_subquestion, selected_subquestion, split_problem
 
@@ -218,6 +223,7 @@ async def execute(db, conversation_id, actor_id, command, generator):
             select(LearningTurn)
             .where(
                 LearningTurn.conversation_id == conversation_id,
+                LearningTurn.thread_id == DEFAULT_TEACHING_THREAD_ID,
                 LearningTurn.question_id == UUID(previous["question_id"]),
             )
             .order_by(LearningTurn.position.desc())
