@@ -47,7 +47,8 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
 
   const timeline = progress ? [...(progress.previous_questions ?? []), progress]
-    .filter(task => task.question?.problem || task.legacy?.problem) : [];
+    .filter(task => task.question?.problem || task.legacy?.problem)
+    .sort((a, b) => (a.question_order ?? a.revision) - (b.question_order ?? b.revision)) : [];
   const selectedQuestion = selection && timeline.find(task => questionKey(task) === selection.questionId);
   const selectedPart = selectedQuestion ? selection?.part : undefined;
   const currentDetail = Boolean(selectedQuestion && selectedQuestion === progress);
@@ -318,7 +319,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
               {!(selected && pinProblem) ? <ProblemCard
                 text={task.question?.problem ?? task.legacy?.problem ?? ''}
                 format={task.question?.format} parts={task.problem_parts}
-                label={`题目 ${index + 1}${label ? ' · ' + label : ''}`}
+                label={`题目 ${index + 1}${label ? ' · ' + label : ''}`} isCurrent={task === progress}
                 onSelect={number => selectSubquestion(task, number)}
                 onReturn={showSingleDetail ? () => returnFromSingleDetail(task) : undefined}
                 onExplain={!task.problem_parts && !showSingleDetail ? () => openSingleDetail(task) : undefined} /> : null}
@@ -356,7 +357,8 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       {showFooter ? <footer className="lesson-footer">
         {busyNavigation ? <p className="muted" role="status">
           {busy === 'load' ? '正在读取教学进度…' : busy === 'complete' || busy === 'master-type' || busy === 'finish' ? '正在保存完成记录…'
-            : busy === 'next' ? '正在生成下一步…' : '正在准备题目和教学步骤…'}
+            : busy === 'next' ? '正在生成下一步…'
+              : busy === 'select-type' ? '正在打开所选题型…' : '正在准备题目和教学步骤…'}
         </p> : null}
         {explainingSubquestion ? <p className="muted" role="status">正在准备第（{activeSubquestion}）问的讲解…</p> : null}
         {activeSubquestion !== undefined && subquestionError ? <p className="notice error" role="alert">{subquestionError}</p> : null}

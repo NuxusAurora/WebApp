@@ -192,6 +192,45 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   expect(commands).toEqual(['start', 'complete', 'select-type', 'complete', 'finish']);
 });
 
+it('reveals a previously generated question at its original position when its type is selected', async () => {
+  const lessonPath = 'learning/conversations/' + secondId + '/lesson/task';
+  history.replaceState({}, '', secondHref);
+  const fallback = vi.mocked(api).getMockImplementation()!;
+  const practice = {
+    types: [{ title: '定义判断', objective: '应用定义' }, { title: '构造反例', objective: '识别反例' }],
+    current: 1, mastered: [0], finished: false,
+  };
+  const saved: LessonTask = {
+    revision: 4, question_order: 1, status: 'completed', actions: [],
+    question: { question_id: 'first', problem: '保存的第一题' },
+    practice: { ...practice, current: 0 },
+    current_step: { index: 2, title: '已经保存的步骤', content: '已经保存的讲解' },
+  };
+  const current: LessonTask = {
+    revision: 5, question_order: 5, status: 'teaching', actions: ['select-type'],
+    question: { question_id: 'second', problem: '当前第二题' }, practice,
+  };
+  vi.mocked(api).mockImplementation(async (path, init) => {
+    if (path !== lessonPath) return fallback(path, init);
+    if (init?.method !== 'POST') return { ...current, previous_questions: [saved] };
+    expect(JSON.parse(String(init.body))).toMatchObject({ action: 'select-type', type_index: 0 });
+    return { ...saved, revision: 6, actions: ['select-type'], previous_questions: [{ ...current, actions: [] }] };
+  });
+  render(<Workspace />);
+  const firstCard = await screen.findByRole('region', { name: '题目 1' });
+  fireEvent.click(within(firstCard).getByRole('button', { name: '收起题目' }));
+  expect(screen.getByText('保存的第一题')).not.toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '题目类型 2/2' }));
+  fireEvent.click(screen.getByRole('button', { name: /定义判断/ }));
+  await screen.findByRole('button', { name: '题目类型 1/2' });
+  const firstHeading = screen.getByRole('heading', { name: '题目 1' });
+  expect(firstHeading).toHaveFocus();
+  expect(within(firstCard).getByText('保存的第一题')).toBeVisible();
+  expect(within(screen.getByRole('region', { name: '题目 2' })).getByText('当前第二题')).toBeVisible();
+  fireEvent.click(within(firstCard).getByRole('button', { name: '开始讲解' }));
+  expect(screen.getByText('已经保存的讲解')).toBeVisible();
+});
+
 it('submits custom question requirements and keeps the draft when generation fails', async () => {
   const lessonPath = 'learning/conversations/' + firstId + '/lesson/task';
   const fallback = vi.mocked(api).getMockImplementation()!;

@@ -2,9 +2,9 @@
 
 ## 知识点题型练习
 
-从「学习对话」打开知识点并开始学习。后端先拟定有序题型清单，再按当前题型出题，清单与首题一起保存。题目总览中，「题目类型 m/n」显示当前题型的序号及题型总数，点击展开题型列表。选择其他题型后，模型为所选题型生成新题，已掌握类型也可选来复习。「自定义题目」展开出题要求输入框，填写后点「生成题目」，模型结合当前知识点和题型出题。进入整题讲解或编号小题时隐藏这两个入口，返回题面后恢复。跳过的题型可以在后续轮次练习。单题完成最后一步或在多小题题目上点击「掌握本题型」会记录本人的掌握确认。全部类型确认后可点击「完结」。
+从「学习对话」打开知识点并开始学习。后端先拟定有序题型清单，再按当前题型出题，清单与首题一起保存。题目总览中，「题目类型 m/n」显示当前题型的序号及题型总数，点击展开题型列表。选择已有题目的题型时，跳到该题型最近一道题并恢复已保存的进度。首次选择该题型时调用模型出题。「自定义题目」展开出题要求输入框，填写后点「生成题目」，模型结合当前知识点和题型出题。进入整题讲解或编号小题时隐藏这两个入口，返回题面后恢复。跳过的题型可以在后续轮次练习。单题完成最后一步或在多小题题目上点击「掌握本题型」会记录本人的掌握确认。全部类型确认后可点击「完结」。
 
-题面按生成顺序保留在同一对话。选中编号小题时置顶该小题并隐藏其他题目，「返回全部题目」恢复完整对话及原来的阅读位置。刷新读回最近题和历史。既有教学记录可继续阅读，首次切题时补建尚未保存的题型清单。功能沿用 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task`、现有教学修订表和当前数据库版本，无新增迁移。自定义出题提交 `custom-question` 命令和 `question_request`（最多 1000 字符），沿用原有题面与讲解生成流程。题型选择提交 `select-type` 和从 0 开始的 `type_index`，按当前教学修订校验。定向验收见 `frontend/tests/learning-workspace.test.tsx` 和 `backend/tests/test_learning_protocol.py`。
+题面按生成顺序保留在同一对话。选中编号小题时置顶该小题并隐藏其他题目，「返回全部题目」恢复完整对话及原来的阅读位置。刷新读回最近题和历史。既有教学记录可继续阅读，首次切题时补建尚未保存的题型清单。功能沿用 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task`、现有教学修订表和当前数据库版本，无新增迁移。自定义出题提交 `custom-question` 命令和 `question_request`（最多 1000 字符），沿用原有题面与讲解生成流程。题型选择提交 `select-type` 和从 0 开始的 `type_index`，按当前教学修订校验，同一版本的已有题目沿用原题和讲解。定向验收见 `frontend/tests/learning-workspace.test.tsx` 和 `backend/tests/test_learning_protocol.py`。
 
 核心实现为 `backend/app/learning/lesson_protocol.py`、`practice.py` 和 `frontend/components/lesson-workspace.tsx`。定向回归为后端 `uv run pytest -q tests/test_learning_protocol.py tests/test_learning_legacy_reads.py` 和前端 `npm test -- tests/learning-workspace.test.tsx tests/lesson-reading.test.tsx`。
 

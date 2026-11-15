@@ -128,7 +128,25 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert send(start)["data"] == first
     assert client.get(url).json()["data"] == following
     send(command("finish", following), 400)
-    final = send(command("next", following))["data"]
+    call_count = len(generated)
+    revisit = command("select-type", following, type_index=0)
+    resumed = send(revisit)["data"]
+    for key in ("task_id", "question", "plan", "status", "current_step", "question_order"):
+        assert resumed[key] == customized[key]
+    assert resumed["practice"]["mastered"] == [0]
+    assert resumed["practice"]["current"] == 0
+    assert [entry["question"] for entry in resumed["previous_questions"]] == [
+        first["question"],
+        following["question"],
+    ]
+    assert resumed["question_order"] < resumed["previous_questions"][-1]["question_order"]
+    assert client.get(url).json()["data"] == resumed
+    assert send(revisit)["data"] == resumed
+    returned = send(command("select-type", resumed, type_index=1))["data"]
+    assert returned["question"] == following["question"]
+    assert returned["current_step"] == following["current_step"]
+    assert len(generated) == call_count
+    final = send(command("next", returned))["data"]
     mastered = send(command("complete", final))["data"]
     assert mastered["actions"] == ["finish"]
     finish = command("finish", mastered)

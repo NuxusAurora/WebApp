@@ -1,4 +1,4 @@
-from app.learning.lesson_state import earlier_questions, legacy_state_data
+from app.learning.lesson_state import legacy_state_data, question_timeline
 from app.learning.lesson_support import available
 from app.learning.practice import practice_actions
 from app.learning.problem_parts import problem_fields
@@ -52,11 +52,20 @@ def snapshot(conversation_id, row):
 async def conversation_snapshot(db, conversation_id, row):
     result = snapshot(conversation_id, row)
     if row is not None and row.revision > 1:
-        history = await earlier_questions(db, conversation_id, row.revision)
-        if history:
-            result["previous_questions"] = [
-                {**snapshot(conversation_id, entry), "actions": []} for entry in history
-            ]
+        timeline = await question_timeline(db, conversation_id, row.revision)
+        if len(timeline) > 1:
+            result["previous_questions"] = []
+            for entry, first_revision in timeline:
+                if entry.revision == row.revision:
+                    result["question_order"] = first_revision
+                else:
+                    result["previous_questions"].append(
+                        {
+                            **snapshot(conversation_id, entry),
+                            "actions": [],
+                            "question_order": first_revision,
+                        }
+                    )
     return result
 
 

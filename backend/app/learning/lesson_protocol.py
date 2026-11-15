@@ -14,7 +14,12 @@ from app.errors import AppError
 from app.learning.context import conversation_context, learning_material
 from app.learning.contracts import LessonOperation
 from app.learning.lesson_snapshots import conversation_snapshot, snapshot
-from app.learning.lesson_state import current_lesson, earlier_questions, lesson_query
+from app.learning.lesson_state import (
+    current_lesson,
+    lesson_query,
+    question_timeline,
+    saved_question_for_type,
+)
 from app.learning.lesson_support import apply_support, require_input
 from app.learning.models import (
     DEFAULT_TEACHING_THREAD_ID,
@@ -271,14 +276,6 @@ async def execute(db, conversation_id, actor_id, command, generator):
     previous = latest.state if latest else {}
     practice = previous.get("practice")
     first_problem = previous.get("problem")
-    previous_problems = []
-    if command.action in QUESTION_ACTIONS and latest is not None:
-        history = await earlier_questions(db, conversation_id, latest.revision)
-        previous_problems = [
-            entry.state["problem"] for entry in history if entry.state.get("problem")
-        ]
-        if first_problem:
-            previous_problems.append(first_problem)
     subquestion = selected_subquestion(previous.get("problem") or "", command.subquestion)
     plan_id = latest.plan_id if latest else None
     plan = None
@@ -308,6 +305,18 @@ async def execute(db, conversation_id, actor_id, command, generator):
                 command.action == "next" and len(plan.steps) <= previous["steps"][-1]["index"]
             ):
                 raise AppError("INVALID_TRANSITION", "计划中没有下一步")
+    restored = None
+    previous_problems = []
+    if command.action in QUESTION_ACTIONS and latest is not None:
+        timeline = await question_timeline(db, conversation_id, latest.revision)
+        if command.action == "select-type":
+            restored = await saved_question_for_type(
+                db, timeline, practice, command.type_index, version
+            )
+        if restored is None:
+            previous_problems = [
+                entry.state["problem"] for entry, _ in timeline if entry.state.get("problem")
+            ]
     material = learning_material(course, section, point)
     if command.action == "next":
         recent = await db.scalars(
@@ -333,9 +342,10 @@ async def execute(db, conversation_id, actor_id, command, generator):
     support_changes = None
     draft = step = None
     if command.action in QUESTION_ACTIONS:
-        practice, draft, step = await new_question(
-            generator, command, material, practice, first_problem, previous_problems
-        )
+        if restored is None:
+            practice, draft, step = await new_question(
+                generator, command, material, practice, first_problem, previous_problems
+            )
     elif command.action == "next":
         steps = previous["steps"]
         step = await render(generator, material, plan, steps[-1]["index"] + 1, steps, subquestion)
@@ -353,7 +363,10 @@ async def execute(db, conversation_id, actor_id, command, generator):
         if point.content_version_id != version:
             raise conflict(conversation_id, latest)
 
-        if draft is not None:
+        if restored is not None:
+            plan_id, saved_state = restored
+            state = {**saved_state, "practice": {**practice, "current": command.type_index}}
+        elif draft is not None:
             plan = await insert_plan(
                 db,
                 conversation_id=conversation_id,

@@ -20,9 +20,9 @@ export function LessonContent({ text, format }: { text: string; format?: Content
   </div>;
 }
 
-export function ProblemCard({ text, format, parts, active, label = '题目', onSelect, onReturn, onExplain }: {
+export function ProblemCard({ text, format, parts, active, label = '题目', isCurrent, onSelect, onReturn, onExplain }: {
   text: string; format?: ContentFormat; parts?: LessonProblemParts;
-  active?: number; label?: string; onSelect?: (number?: number) => void;
+  active?: number; label?: string; isCurrent?: boolean; onSelect?: (number?: number) => void;
   onReturn?: () => void; onExplain?: () => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -31,6 +31,9 @@ export function ProblemCard({ text, format, parts, active, label = '题目', onS
   const body = useRef<HTMLDivElement>(null);
   const returnPart = useRef<number | undefined>(undefined);
   const visibleParts = active === undefined ? parts?.parts : parts?.parts.filter(part => part.number === active);
+  useLayoutEffect(() => {
+    if (isCurrent) setOpen(true);
+  }, [isCurrent]);
   useLayoutEffect(() => {
     if (!open || active === undefined || !body.current) return;
     const panel = body.current;
