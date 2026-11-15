@@ -9,7 +9,7 @@
 .application-shell.workspace-shell {
   transition: grid-template-columns var(--motion-panel) var(--motion-ease);
 }
-.sidebar-submenu-chevron > svg, .subject-toggle > svg:last-child,
+.sidebar-submenu-chevron > svg, .learning-tree-row[aria-expanded] > svg:first-child, .subject-toggle > svg:last-child,
 .archive-toggle > svg {
   transition: transform var(--motion-panel) var(--motion-ease);
 }
@@ -96,6 +96,6 @@
   .application-shell.workspace-shell { transition: none; }
   .motion-disclosure, .workspace-main details::details-content,
   .sidebar-user-menu, .workspace-sidebar, .workspace-sidebar::backdrop,
-  .sidebar-submenu-chevron > svg, .subject-toggle > svg:last-child,
+  .sidebar-submenu-chevron > svg, .learning-tree-row[aria-expanded] > svg:first-child, .subject-toggle > svg:last-child,
   .archive-toggle > svg { transition: none; }
 }

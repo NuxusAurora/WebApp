@@ -25,7 +25,9 @@ function Folder({ title, kind, active, children, textbookId, action }: {
     </button>;
   return <li data-textbook-id={textbookId}>
     {action ? <div className="learning-textbook-actions">{toggle}{action}</div> : toggle}
-    <ul id={id} className="learning-tree-children" hidden={!open}>{children(open)}</ul>
+    <ul id={id} className="learning-tree-children motion-disclosure" hidden={!open} inert={!open} aria-hidden={!open}>
+      {children(open)}
+    </ul>
   </li>;
 }
 
