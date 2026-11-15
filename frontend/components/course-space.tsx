@@ -258,8 +258,8 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
       <Icon name="alert" size={18} />{error}</p> : null}
     <Toast notification={notification} onDismiss={dismiss} />
     {!showingDetail ? <section className="course-index" aria-label="学习中的课程" aria-busy={loading}>
-    <p className="course-index-note">已添加到对话的课程可在左侧「学习对话」中查看。</p>
     <div className="library-toolbar">
+      <p className="course-index-note">已添加到对话的课程可在左侧「学习对话」中查看。</p>
       <div className="search-field"><Icon name="search" size={18} />
         <label className="visually-hidden" htmlFor="course-search">搜索当前页课程</label>
         <input id="course-search" type="search" value={query} disabled={busy} onChange={event => searchCourses(event.target.value)}
