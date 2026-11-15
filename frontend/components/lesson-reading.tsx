@@ -38,7 +38,7 @@ export function LessonStep({ title, step, total, current = true }: {
 }) {
   return <section className="lesson-block lesson-reading-step" aria-label={`第 ${step.index} 步`}>
     {current ? <>
-      {total ? <p className="lesson-step-number">第 {step.index} 步 / 共 {total} 步</p> : null}
+      {total ? <p className="lesson-step-number">（{step.index}） / 共 {total} 步</p> : null}
       <h2 id="lesson-step" tabIndex={-1}>{total ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}</h2>
     </> : <h3>第 {step.index} 步：{title}</h3>}
     {step.objective ? <p className="lesson-objective"><strong>本步目标</strong> {step.objective}</p> : null}
