@@ -7,6 +7,28 @@ import { LessonContent, ProblemCard } from '../components/lesson-reading';
 
 afterEach(cleanup);
 
+it('typesets TeX-delimited inline formulas and a matrix within a Markdown list', () => {
+  const text = String.raw`- **\(A\) 是一个三阶方阵**
+  \[
+  A=\begin{pmatrix}2&-1&0\\4&3&5\\1&6&-2\end{pmatrix}.
+  \]
+- \(\det(A)\) 也可记作 \(|A|\)。
+
+${'`'}\(literal\)${'`'}
+
+~~~
+\[not math\]
+~~~`;
+  const { container } = render(<LessonContent text={text} format="markdown" />);
+
+  expect(container.querySelectorAll('li .katex:not(.katex-display .katex)')).toHaveLength(3);
+  expect(container.querySelectorAll('li .katex-display mtr')).toHaveLength(3);
+  expect(container.querySelectorAll('li .katex-display mtd')).toHaveLength(9);
+  expect(container.querySelector('.katex-error')).toBeNull();
+  expect(container.querySelector('p > code')).toHaveTextContent(String.raw`\(literal\)`);
+  expect(container.querySelector('pre > code')).toHaveTextContent(String.raw`\[not math\]`);
+});
+
 it('keeps old content literal and typesets only advertised Markdown without active HTML or remote images', () => {
   const text = '$a+b$\n\n<script>alert(1)</script>\n\n![图](https://example.invalid/a.png)';
   const { container, rerender } = render(<LessonContent text={text} />);

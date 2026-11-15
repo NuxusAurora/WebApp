@@ -5,6 +5,7 @@ import { ApiError } from '../lib/api';
 import { askTeachingQuestion, getTeachingHistory, getTeachingThreads,
   type TeachingQuestion, type TeachingThread, type TeachingTurn } from '../lib/learning';
 import { Icon } from './icon';
+import { LessonContent } from './lesson-reading';
 
 export const teachingChatLabel = '不打断模型提问';
 type Subquestion = { number: number; revision: number };
@@ -239,7 +240,10 @@ function TeachingThreadPane({ conversationId, threadId, active, open, fresh, sub
         onClick={() => void load(before)}>查看更早的对话</button> : null}
       {turns?.map(turn => <div key={turn.id} className="teaching-turn">
         <p className="teaching-question"><strong>你</strong>{turn.question}</p>
-        <p className="teaching-answer"><strong>助手</strong>{turn.answer}</p>
+        <div className="teaching-answer">
+          <strong>助手</strong>
+          <LessonContent text={turn.answer} format="markdown" />
+        </div>
       </div>)}
       {busy === 'send' ? <div className="teaching-turn">
         <p className="teaching-question"><span className="visually-hidden">你：</span>{question.trim()}</p>

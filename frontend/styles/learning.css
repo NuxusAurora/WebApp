@@ -119,6 +119,7 @@
 .lesson-history summary { cursor: pointer; width: fit-content; }
 .lesson-history section { margin-block: var(--space-4); }
 .lesson-rich > * + * { margin-block-start: var(--space-3); }
+.lesson-rich .katex { color: var(--accent); }
 .lesson-rich pre, .lesson-rich .lesson-wide, .lesson-rich .katex-display {
   max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain;
 }
@@ -159,8 +160,10 @@
 .teaching-transcript { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 12px; }
 .teaching-transcript:focus-visible { outline-offset: -2px; }
 .teaching-turn { display: flex; flex-direction: column; gap: 12px; padding-block: 12px; }
-.teaching-turn strong { display: block; font-size: var(--font-caption); font-weight: 600; margin-bottom: var(--space-1); }
-.teaching-chat .teaching-turn p { margin: 0; white-space: pre-wrap; }
+.teaching-turn :is(.teaching-question, .teaching-answer) > strong {
+  display: block; font-size: var(--font-caption); font-weight: 600; margin-bottom: var(--space-1);
+}
+.teaching-chat .teaching-question { margin: 0; white-space: pre-wrap; }
 .teaching-question {
   padding: var(--space-2) var(--space-3);
   border-inline-start: 2px solid var(--line); background: var(--surface-secondary);
