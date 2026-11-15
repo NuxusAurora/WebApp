@@ -20,12 +20,16 @@
   display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
   container-type: inline-size; overflow: hidden; padding: 0;
 }
-.lesson-workspace[data-questions-open="true"] { grid-template-columns: minmax(0, 1fr) clamp(360px, 30%, 400px); }
+@media (width >= 768px) {
+  .lesson-workspace[data-questions-open="true"] {
+    grid-template-columns: minmax(0, 1fr) clamp(min(360px, 50%), 30%, 400px);
+  }
+}
 .lesson-main, .teaching-chat {
   grid-row: 2; min-height: 0; min-width: 0; display: grid;
 }
 .lesson-main { grid-template-rows: minmax(0, 1fr) auto; }
-.teaching-chat { grid-template-rows: auto minmax(0, 1fr) auto; }
+.teaching-chat { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
 .teaching-chat-header {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
   min-height: 68px; padding: 12px 20px; border-bottom: 1px solid var(--line-soft);
@@ -153,7 +157,10 @@
 .teaching-chat .teaching-context { flex-basis: 100%; font-size: var(--font-caption); color: var(--text-secondary); margin: 0; }
 .teaching-chat .teaching-empty { color: var(--text-secondary); margin-block: var(--space-5); }
 .teaching-answer { line-height: 1.75; }
-.teaching-composer { display: grid; gap: 8px; padding: 8px 16px max(16px, env(safe-area-inset-bottom)); }
+.teaching-composer {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px;
+  padding: 8px 16px max(16px, env(safe-area-inset-bottom));
+}
 .teaching-composer .notice { margin: 0; }
 .teaching-composer > button { justify-self: start; }
 .teaching-input-row { display: flex; align-items: flex-end; gap: 8px; }
@@ -163,8 +170,6 @@
   .learning-conversation-main { min-height: 144px; }
 }
 @container (width < 960px) {
-  .lesson-workspace[data-questions-open="true"] > .lesson-main { display: none; }
-  .teaching-chat { grid-column: 1 / -1; border: 0; }
   .teaching-chat-header { padding-inline: var(--space-4); }
 }
 @container (width < 640px) {
@@ -177,7 +182,9 @@
   .learning-conversation { padding-block-start: 44px; }
   .lesson-header { padding-inline-start: 64px; }
   .lesson-workspace[data-questions-open="true"] > .lesson-header,
+  .lesson-workspace[data-questions-open="true"] > .lesson-main,
   .learning-shell:has(.lesson-workspace[data-questions-open="true"]) .sidebar-mobile-trigger { display: none; }
+  .teaching-chat { border-inline-start: 0; }
   .lesson-actions .button, .teaching-chat-header button, .teaching-composer .text-button,
   .lesson-actions-menu summary { min-block-size: var(--touch-target); }
   .teaching-chat-header { padding-block-start: max(var(--space-3), env(safe-area-inset-top)); }
