@@ -18,6 +18,7 @@ from app.learning.lesson_state import current_lesson, lesson_query
 from app.learning.lesson_support import apply_support, require_input
 from app.learning.models import LearningLessonPlan, LearningLessonRevision, LearningTurn
 from app.learning.plans import PlanSourceChanged, insert_plan, read_plan
+from app.learning.problem_parts import selected_subquestion
 
 
 class LessonCommand(Input):
@@ -38,18 +39,22 @@ class LessonCommand(Input):
     expected_plan_id: UUID | None = None
     expected_step_index: int | None = Field(default=None, ge=1, strict=True)
     check_id: UUID | None = None
+    subquestion: int | None = Field(default=None, ge=1, le=99, strict=True)
     answer: str = Field(default="", max_length=1000, pattern=r"^[^\x00]*$")
 
     def receipt(self):
-        result = self.model_dump(mode="json", exclude={"check_id", "answer"})
+        result = self.model_dump(mode="json", exclude={"check_id", "answer", "subquestion"})
         if self.check_id is not None:
             result["check_id"] = str(self.check_id)
         if self.answer:
             result["answer"] = self.answer
+        if self.subquestion is not None:
+            result["subquestion"] = self.subquestion
         return result
 
 
 CORE_ACTIONS = {"start", "next", "complete", "next-question"}
+SCOPED_ACTIONS = {"next", "hint", "rephrase", "check-question"}
 
 
 def conflict(conversation_id, latest):
@@ -74,6 +79,8 @@ def require(conversation_id, latest, command):
         raise conflict(conversation_id, latest)
     if command.action not in snapshot(conversation_id, latest)["actions"]:
         raise AppError("INVALID_TRANSITION", "当前教学状态无法执行此操作")
+    if command.subquestion is not None and command.action not in SCOPED_ACTIONS:
+        raise AppError("INVALID_TRANSITION", "当前操作无需选择小题")
     require_input(command, latest.state if latest else {})
 
 
@@ -90,7 +97,7 @@ def comparable_problem(value):
     return re.sub(r"[\W\d_]", "", unicodedata.normalize("NFKC", value).casefold())
 
 
-async def render(generator, material, draft, index, history):
+async def render(generator, material, draft, index, history, subquestion=None):
     step = draft.steps[index - 1]
     context = {
         "material": material,
@@ -99,6 +106,8 @@ async def render(generator, material, draft, index, history):
         "step": step.model_dump(mode="json"),
         "history": [{**entry, "content": entry["content"][:280]} for entry in history[-6:]],
     }
+    if subquestion is not None:
+        context["active_subquestion"] = subquestion
     for retry in range(2):
         if retry:
             context["repair"] = "讲解要覆盖本步目标，避免重复与提前剧透。"
@@ -126,12 +135,14 @@ async def render(generator, material, draft, index, history):
     }
 
 
-async def candidate(generator, action, material, previous, plan):
+async def candidate(generator, action, material, previous, plan, subquestion=None):
     if action == "complete":
         return None, None
     if action == "next":
         steps = previous["steps"]
-        return None, await render(generator, material, plan, steps[-1]["index"] + 1, steps)
+        return None, await render(
+            generator, material, plan, steps[-1]["index"] + 1, steps, subquestion
+        )
     old_problem = previous.get("problem")
     for _ in range(2):
         draft = await generator.generate(
@@ -156,6 +167,7 @@ async def execute(db, conversation_id, actor_id, command, generator):
 
     course_id, point_id, version = course.id, point.id, point.content_version_id
     previous = latest.state if latest else {}
+    subquestion = selected_subquestion(previous.get("problem") or "", command.subquestion)
     plan_id = latest.plan_id if latest else None
     plan = None
     if plan_id is not None:
@@ -194,9 +206,13 @@ async def execute(db, conversation_id, actor_id, command, generator):
     support_changes = None
     draft = step = None
     if command.action in CORE_ACTIONS:
-        draft, step = await candidate(generator, command.action, material, previous, plan)
+        draft, step = await candidate(
+            generator, command.action, material, previous, plan, subquestion
+        )
     else:
-        support_changes = await apply_support(generator, command, previous, plan, material)
+        support_changes = await apply_support(
+            generator, command, previous, plan, material, subquestion
+        )
     try:
         await owned_by_id(db, course_id, actor_id)
         _, _, point = await conversation_context(db, conversation_id, actor_id)

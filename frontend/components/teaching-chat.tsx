@@ -5,9 +5,10 @@ import { ApiError } from '../lib/api';
 import { askTeachingQuestion, getTeachingHistory, type TeachingHistory, type TeachingQuestion, type TeachingTurn } from '../lib/learning';
 import { Icon } from './icon';
 
-export function TeachingChat({ conversationId, open, activeStep, onClose, onSessionExpired }: {
+export function TeachingChat({ conversationId, open, activeStep, subquestion, onClose, onSessionExpired }: {
   conversationId: string; open: boolean; onClose: () => void; onSessionExpired: () => void;
   activeStep?: number;
+  subquestion?: { number: number; revision: number };
 }) {
   const [turns, setTurns] = useState<TeachingTurn[] | null>(null);
   const [context, setContext] = useState<TeachingHistory['context']>();
@@ -130,8 +131,11 @@ export function TeachingChat({ conversationId, open, activeStep, onClose, onSess
     if (!content || !turns || request.current || reloadNeeded) return;
     const task = new AbortController();
     request.current = task;
-    const body = retry.current?.question === content ? retry.current : {
+    const previous = retry.current;
+    const body = previous?.question === content && previous.subquestion === subquestion?.number &&
+      previous.lesson_revision === subquestion?.revision ? previous : {
       request_id: crypto.randomUUID(), after: turns.at(-1)?.position ?? 0, question: content,
+      subquestion: subquestion?.number, lesson_revision: subquestion?.revision,
     };
     retry.current = body;
     scrollToEnd.current = nearEnd();
@@ -163,7 +167,8 @@ export function TeachingChat({ conversationId, open, activeStep, onClose, onSess
     <header className="teaching-chat-header">
       <h2 ref={heading} id="teaching-questions-title" tabIndex={-1}>随时提问</h2>
       <button type="button" className="text-button" onClick={onClose} aria-label="关闭提问窗">关闭</button>
-      {activeStep || context ? <p className="teaching-context">正在参考：当前题目 · 第 {activeStep ?? context?.step_index} 步</p> : null}
+      {subquestion ? <p className="teaching-context">正在参考：第（{subquestion.number}）问</p> :
+        activeStep || context ? <p className="teaching-context">正在参考：当前题目 · 第 {activeStep ?? context?.step_index} 步</p> : null}
     </header>
     <div className="teaching-transcript" ref={transcript} role="region" aria-label="问答记录" tabIndex={0}
       onScroll={() => { if (unread && nearEnd()) setUnread(false); }}>

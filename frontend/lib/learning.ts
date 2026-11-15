@@ -13,7 +13,8 @@ type LearningPoint = { id: string; title: string };
 export type TeachingTurn = { id: string; position: number; question: string; answer: string };
 export type TeachingHistory = { turns: TeachingTurn[]; before: number | null;
   context?: { question_id: string; step_index: number } | null };
-export type TeachingQuestion = { request_id: string; after: number; question: string };
+export type TeachingQuestion = { request_id: string; after: number; question: string;
+  subquestion?: number; lesson_revision?: number };
 export type LearningTextbook = { id: string; title: string };
 export type LearningSelection = { courseId: string; chapterId: string; sectionId: string; pointId?: string };
 export type LearningOutline = { chapters: {

@@ -1,5 +1,6 @@
 from app.learning.lesson_state import legacy_state_data
 from app.learning.lesson_support import available
+from app.learning.problem_parts import problem_fields
 
 
 def snapshot(conversation_id, row):
@@ -10,6 +11,7 @@ def snapshot(conversation_id, row):
             "status": "legacy" if row else "not_started",
             "legacy": legacy_state_data(row) if row else None,
             "actions": ["start"],
+            **problem_fields(row.state.get("problem") if row else None),
         }
     state = row.state
     steps = state["steps"]
@@ -22,6 +24,7 @@ def snapshot(conversation_id, row):
             "problem": state["problem"],
             "format": "markdown",
         },
+        **problem_fields(state["problem"]),
         "plan": {"plan_id": str(row.plan_id), **state["plan"]},
         "current_step": steps[-1],
         "completed_steps": steps if status == "completed" else steps[:-1],

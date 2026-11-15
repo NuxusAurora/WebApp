@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import type { ContentFormat, PublishedStep } from '../lib/lesson-task';
+import type { ContentFormat, LessonProblemParts, PublishedStep } from '../lib/lesson-task';
 
 export function LessonContent({ text, format }: { text: string; format?: ContentFormat }) {
   if (format !== 'markdown') return <p>{text}</p>;
@@ -20,16 +20,48 @@ export function LessonContent({ text, format }: { text: string; format?: Content
   </div>;
 }
 
-export function ProblemCard({ text, format }: { text: string; format?: ContentFormat }) {
+export function ProblemCard({ text, format, parts, active, onSelect }: {
+  text: string; format?: ContentFormat; parts?: LessonProblemParts;
+  active?: number; onSelect?: (number?: number) => void;
+}) {
   const [open, setOpen] = useState(true);
-  const long = text.length > 220 || text.split('\n').length > 5;
+  const body = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef<number | undefined>(undefined);
+  const visibleParts = active === undefined ? parts?.parts : parts?.parts.filter(part => part.number === active);
+  useLayoutEffect(() => {
+    if (active !== undefined || restoreFocus.current === undefined) return;
+    body.current?.querySelector<HTMLButtonElement>(`[data-part="${restoreFocus.current}"]`)?.focus();
+    restoreFocus.current = undefined;
+  }, [active]);
   return <section className="lesson-block lesson-problem-card" aria-labelledby="lesson-problem">
     <div className="lesson-problem-header">
       <h2 id="lesson-problem" tabIndex={-1}>题目</h2>
-      {long ? <button type="button" className="text-button" aria-expanded={open} aria-controls="lesson-problem-text"
-        onClick={() => setOpen(!open)}>{open ? '收起题目' : '展开题目'}</button> : null}
+      <div className="lesson-problem-controls">
+        {open && active !== undefined ? <button type="button" className="text-button" onClick={() => {
+          restoreFocus.current = active;
+          onSelect?.();
+        }}>查看全部小题</button> : null}
+        <button type="button" className="text-button" aria-expanded={open} aria-controls="lesson-problem-text"
+          onClick={() => setOpen(!open)}>{open ? '收起题目' : '展开题目'}</button>
+      </div>
     </div>
-    <div id="lesson-problem-text" hidden={long && !open}><LessonContent text={text} format={format} /></div>
+    <div id="lesson-problem-text" ref={body} hidden={!open} tabIndex={0} role="region" aria-label="题面">
+      {parts && visibleParts?.length && onSelect ? <>
+        {parts.statement ? <LessonContent text={parts.statement} format={format} /> : null}
+        <div className="lesson-problem-parts">
+          {visibleParts.map(part => <div key={part.number} className="lesson-problem-part"
+            data-active={part.number === active} onClick={event => {
+              if (active === undefined && event.target instanceof Element &&
+                !event.target.closest('button, a, [tabindex]') && !window.getSelection()?.toString()) onSelect(part.number);
+            }}>
+            <button type="button" className="text-button lesson-part-number" data-part={part.number}
+              aria-label={`第（${part.number}）问`} aria-pressed={part.number === active}
+              onClick={() => onSelect(part.number === active ? undefined : part.number)}>（{part.number}）</button>
+            <LessonContent text={part.text} format={format} />
+          </div>)}
+        </div>
+      </> : <LessonContent text={text} format={format} />}
+    </div>
   </section>;
 }
 

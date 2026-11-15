@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from app.errors import AppError
 from app.learning.contracts import LessonOperation
+from app.learning.problem_parts import selected_subquestion
 
 OPERATIONS = {
     "hint": LessonOperation.HINT,
@@ -38,7 +39,7 @@ def require_input(command, state):
         raise AppError("INVALID_TRANSITION", "请检查作答内容")
 
 
-async def apply_support(generator, command, state, plan, material):
+async def apply_support(generator, command, state, plan, material, subquestion=None):
     action = command.action
     support = dict(state.get("support") or {})
     check = dict(state.get("check") or {})
@@ -65,6 +66,9 @@ async def apply_support(generator, command, state, plan, material):
         context.update(level=len(hints) + 1, previous_hints=hints)
     if action == "evaluate-check":
         context.update(check_question=check["question"], answer=check["answer"])
+        subquestion = selected_subquestion(state["problem"], check.get("subquestion"))
+    if subquestion is not None:
+        context["active_subquestion"] = subquestion
     for _ in range(2):
         output = await generator.generate(OPERATIONS[action], context)
         text = output.text
@@ -88,6 +92,7 @@ async def apply_support(generator, command, state, plan, material):
                     "status": "awaiting_answer",
                     "question": text,
                     "created_at": datetime.now(UTC).isoformat(),
+                    **({"subquestion": subquestion["number"]} if subquestion is not None else {}),
                 }
             }
         else:

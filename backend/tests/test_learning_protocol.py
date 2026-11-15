@@ -14,7 +14,8 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     url = f"/api/v1/learning/conversations/{conversation_id}/lesson/task"
     first_step = draft_data["steps"][0]
     draft_data["steps"] = [first_step, dict(first_step, index=2, objective="第二步目标")]
-    problems = iter(["求 f(2)", "求 f(3)", "说明函数与关系的区别"])
+    first_problem = "给定函数 f。\n（1）求 f(2)。\n（2）证明 f 单调。"
+    problems = iter([first_problem, first_problem.replace("f(2)", "f(3)"), "说明函数与关系的区别"])
     generated = []
 
     async def generate(self, operation, context):
@@ -48,16 +49,25 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert first["status"] == "teaching"
     assert first["plan"]["total_steps"] == 2
     assert first["current_step"]["index"] == 1
+    assert first["problem_parts"] == {
+        "statement": "给定函数 f。",
+        "parts": [{"number": 1, "text": "求 f(2)。"}, {"number": 2, "text": "证明 f 单调。"}],
+    }
     assert "reference_answer" not in str(first)
     assert "第二步目标" not in str(first)
     assert send(start)["data"] == first
     assert len(generated) == 2
     send(command("complete", first), 400)
-    second = send(command("next", first))["data"]
+    send(command("next", first, subquestion=3), 400)
+    next_step = command("next", first, subquestion=2)
+    second = send(next_step)["data"]
+    assert send(next_step)["data"] == second
+    send(next_step | {"subquestion": 1}, 409)
     assert second["question"] == first["question"]
     assert second["status"] == "final_step"
     assert second["completed_steps"] == [first["current_step"]]
     assert generated[-1][1]["step"]["objective"] == "第二步目标"
+    assert generated[-1][1]["active_subquestion"] == {"number": 2, "text": "证明 f 单调。"}
     assert send(command("next", first), 409)["error"]["details"]["snapshot"] == second
     done = send(command("complete", second))["data"]
     assert done["status"] == "completed"
@@ -105,6 +115,7 @@ def test_check_reply_is_saved_before_evaluation_and_support_keeps_step(
     _, client, conversation_id = example_conversation
     url = f"/api/v1/learning/conversations/{conversation_id}/lesson/task"
     evaluation_fails = True
+    draft_data["problem"] = "给定函数。\n（1）求定义域。\n（2）讨论单调性。"
 
     async def generate(self, operation, context):
         if operation == LessonOperation.PLAN:
@@ -115,6 +126,8 @@ def test_check_reply_is_saved_before_evaluation_and_support_keeps_step(
             assert context["answer"] == "这是学生答案"
             if evaluation_fails:
                 raise AppError("MODEL_TIMEOUT", "模型响应超时", 502)
+        if operation in {LessonOperation.CHECK_QUESTION, LessonOperation.CHECK_FEEDBACK}:
+            assert context["active_subquestion"] == {"number": 2, "text": "讨论单调性。"}
         text = f"提示 {context['level']}" if operation == LessonOperation.HINT else "简短内容"
         return validate_model_output(operation, {"text": text})
 
@@ -144,7 +157,7 @@ def test_check_reply_is_saved_before_evaluation_and_support_keeps_step(
     assert [hint["level"] for hint in state["support"]["hints"]] == [1, 2, 3]
     post("rephrase")
     assert len(state["support"]["hints"]) == 3
-    post("check-question")
+    post("check-question", subquestion=2)
     check_id = state["check"]["check_id"]
     post("check-answer", check_id=check_id, answer="这是学生答案")
     post("evaluate-check", 502, check_id=check_id)

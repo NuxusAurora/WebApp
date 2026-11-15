@@ -16,6 +16,7 @@ from app.learning.contracts import LessonOperation, model_output_schema, validat
 from app.learning.lesson_snapshots import legacy_view
 from app.learning.lesson_state import current_lesson
 from app.learning.models import LearningTurn
+from app.learning.problem_parts import selected_subquestion
 
 router = APIRouter(prefix="/api/v1/learning/conversations/{conversation_id}/turns")
 PAGE_SIZE = 30
@@ -33,6 +34,8 @@ class Question(Input):
     request_id: UUID
     after: int = Field(ge=0)
     question: str = Field(min_length=1, max_length=4000, pattern=r"\S")
+    subquestion: int | None = Field(default=None, ge=1, le=99, strict=True)
+    lesson_revision: int | None = Field(default=None, ge=1, strict=True)
 
 
 def turn_data(turn):
@@ -75,7 +78,9 @@ def require_current(after, latest):
         raise AppError("TURN_CONFLICT", "对话已更新，请加载最新消息后再发送", 409)
 
 
-def teaching_call(course, section, point, history, question, context_size, lesson=None):
+def teaching_call(
+    course, section, point, history, question, context_size, lesson=None, subquestion=None
+):
     # Bound the supplied context without dropping the user's current question.
     output = min(2048, max(64, context_size // 4))
     budget = min(16000, max(512, context_size - output))
@@ -94,6 +99,9 @@ def teaching_call(course, section, point, history, question, context_size, lesso
             steps = lesson.state["steps"]
             snapshot["本步目标"] = steps[-1]["objective"]
             snapshot["已讲解"] = [entry["objective"] for entry in steps[:-1][-6:]]
+        if subquestion is not None:
+            snapshot["当前小题"] = {**subquestion, "text": subquestion["text"][:900]}
+            context += "\n优先围绕当前小题回答，继续遵守教学范围。"
         context += "\n主窗只读内容：\n" + json.dumps(snapshot, ensure_ascii=False)
     instruction = Message(role="system", content=context)
     remaining = budget - len(instruction.content) - len(question)
@@ -154,6 +162,9 @@ async def ask(conversation_id: UUID, body: Question, request: Request, db: DB, a
     latest = turn_query(conversation_id).order_by(LearningTurn.position.desc())
     require_current(body.after, await db.scalar(latest.limit(1)))
     lesson = await current_lesson(db, conversation_id)
+    if body.subquestion is not None and (lesson is None or body.lesson_revision != lesson.revision):
+        raise AppError("TURN_CONFLICT", "题目已更新，请重新选择小题", 409)
+    subquestion = selected_subquestion(lesson.state["problem"] if lesson else "", body.subquestion)
     question_id = lesson_question(lesson)
     scoped = latest.where(LearningTurn.question_id == question_id).limit(CONTEXT_TURNS)
     recent = (await db.scalars(scoped)).all()
@@ -169,6 +180,7 @@ async def ask(conversation_id: UUID, body: Question, request: Request, db: DB, a
         question,
         capabilities.get("max_context_tokens", 4096),
         lesson,
+        subquestion,
     )
     await limit(request, "ai", str(actor_id))
     target, sink, _ = await prepare(request, db, actor_id, provider_id, model_id, call)
@@ -192,10 +204,11 @@ async def ask(conversation_id: UUID, body: Question, request: Request, db: DB, a
     _, _, current_point = await conversation_context(db, conversation_id, actor_id)
     if existing := await find_retry(db, conversation_id, body):
         return ok(turn_data(existing))
-    if current_point.content_version_id != point_version or question_id != lesson_question(
-        await current_lesson(db, conversation_id)
-    ):
+    current = await current_lesson(db, conversation_id)
+    if current_point.content_version_id != point_version or question_id != lesson_question(current):
         raise AppError("TURN_CONFLICT", "知识点已更新，请重新发送问题", 409)
+    if subquestion is not None and (current is None or current.revision != body.lesson_revision):
+        raise AppError("TURN_CONFLICT", "题目已更新，请重新选择小题", 409)
     require_current(body.after, await db.scalar(latest.limit(1)))
     turn = LearningTurn(
         conversation_id=conversation_id,

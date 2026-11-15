@@ -31,13 +31,17 @@ class LessonGenerator:
         provider, model, _ = await teaching_model(self.db, self.actor_id)
         await limit(self.request, "lesson-ai", str(self.actor_id), maximum=24)
         prompt = PROMPTS[operation]
+        instructions = (PROMPT_DIRECTORY / f"{prompt}.md").read_text("utf-8")
+        if "active_subquestion" in context:
+            instructions += (
+                "\nactive_subquestion 是学生当前选中的小题。"
+                "优先围绕该题，在既定步骤和禁止项范围内讲解。"
+            )
         call = Call(
             task_type="knowledge_lesson",
             prompt_version=prompt,
             messages=[
-                Message(
-                    role="system", content=(PROMPT_DIRECTORY / f"{prompt}.md").read_text("utf-8")
-                ),
+                Message(role="system", content=instructions),
                 Message(role="user", content=json.dumps(context, ensure_ascii=False)),
             ],
             timeout=55,

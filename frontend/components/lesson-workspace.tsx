@@ -8,6 +8,7 @@ import { LessonActions, LessonSupport, UnderstandingCheck } from './lesson-actio
 import { TeachingChat } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
+const subquestionActions = new Set<LessonCommand>(['next', 'hint', 'rephrase', 'check-question']);
 
 // Generated lessons can already contain step labels. Keep the server's index as the visible label.
 function withoutStepLabels(text: string) {
@@ -27,6 +28,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const [failedAction, setFailedAction] = useState<LessonCommand | null>(null);
   const [stale, setStale] = useState(false);
   const [questions, setQuestions] = useState<boolean | null>(null);
+  const [selection, setSelection] = useState<{ questionId: string; number: number } | null>(null);
   const revealStorageKey = 'learning:revealed-question:' + conversationId;
   const [revealedQuestion, setRevealedQuestion] = useState<string | null>(() => {
     try { return sessionStorage.getItem(revealStorageKey); } catch { return null; }
@@ -34,6 +36,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const request = useRef<AbortController | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const launch = useRef<HTMLButtonElement>(null);
+  const problemDock = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const focusStep = useRef(false);
   const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
@@ -43,6 +46,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const problem = progress?.question?.problem ?? legacy?.problem;
   const complete = progress?.status === 'completed' || legacy?.complete;
   const questionId = progress?.question?.question_id ?? 'legacy';
+  const activeSubquestion = selection?.questionId === questionId ? selection.number : undefined;
   const hasStepActivity = progress?.check || progress?.support?.hints?.length || progress?.support?.rephrase ||
     legacy?.check || legacy?.support;
   const previewingProblem = Boolean(problem) && step?.index === 1 && !complete && !hasStepActivity &&
@@ -88,9 +92,10 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     const panel = content.current;
     if (!panel?.clientHeight) return;
     if (focusStep.current) {
-      const target = panel.querySelector<HTMLElement>(previewingProblem ? '#lesson-problem' : '#lesson-step');
+      const target = previewingProblem ? problemDock.current?.querySelector<HTMLElement>('#lesson-problem') :
+        panel.querySelector<HTMLElement>('#lesson-step');
       target?.focus({ preventScroll: true });
-      target?.scrollIntoView?.({ block: 'start' });
+      if (!previewingProblem) target?.scrollIntoView?.({ block: 'start' });
       focusStep.current = false;
     } else if (readingAnchor.current) {
       const { node, top } = readingAnchor.current;
@@ -109,7 +114,9 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     setFailedAction(null);
     setBusy(action);
     try {
-      let result = await runLessonCommand(conversationId, progress, action, task.signal, fields);
+      let result = await runLessonCommand(conversationId, progress, action, task.signal, {
+        ...fields, subquestion: subquestionActions.has(action) ? activeSubquestion : undefined,
+      });
       if (task.signal.aborted) return;
       if (action === 'check-answer' && result.check) {
         setProgress(result);
@@ -178,36 +185,42 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
     </header>
     <section className="lesson-main" aria-labelledby="learning-point-title">
-      <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
-        <div className="lesson-body">
-          {problem ? <ProblemCard key={questionId} text={problem} format={progress?.question?.format} /> :
-            progress ? <p className="muted">从一道题开始，一次学一步。</p> : null}
-          {progress && step && problem && !previewingProblem ? <>
-            <LessonStep title={withoutStepLabels(step.title)} total={progress.plan?.total_steps}
-              step={{ ...step, content: withoutStepLabels(step.content) }} />
-            {Boolean(progress.completed_steps?.length) ? <details className="lesson-history">
-              <summary>已完成步骤（{progress.completed_steps?.length}）</summary>
-              {progress.completed_steps?.map(entry => <LessonStep key={entry.step_id}
-                title={withoutStepLabels(entry.title)} step={entry} current={false} />)}
-            </details> : null}
-            {legacy?.check ? <section className="lesson-block"><h2>理解检测</h2><p>{legacy.check}</p></section> : null}
-            {legacy?.support ? <section className="lesson-block" aria-live="polite">
-              <h2>{supportLabels[legacy.support.kind]}</h2>
-              <LessonContent text={legacy.support.text} />
+      <div className="lesson-reading-pane">
+        {problem ? <div className="lesson-problem-dock" ref={problemDock}>
+          <ProblemCard key={questionId} text={problem} format={progress?.question?.format}
+            parts={progress?.problem_parts} active={activeSubquestion}
+            onSelect={number => setSelection(number === undefined ? null : { questionId, number })} />
+        </div> : null}
+        <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
+          <div className="lesson-body">
+            {!problem && progress ? <p className="muted">从一道题开始，一次学一步。</p> : null}
+            {progress && step && problem && !previewingProblem ? <>
+              <LessonStep title={withoutStepLabels(step.title)} total={progress.plan?.total_steps}
+                step={{ ...step, content: withoutStepLabels(step.content) }} />
+              {Boolean(progress.completed_steps?.length) ? <details className="lesson-history">
+                <summary>已完成步骤（{progress.completed_steps?.length}）</summary>
+                {progress.completed_steps?.map(entry => <LessonStep key={entry.step_id}
+                  title={withoutStepLabels(entry.title)} step={entry} current={false} />)}
+              </details> : null}
+              {legacy?.check ? <section className="lesson-block"><h2>理解检测</h2><p>{legacy.check}</p></section> : null}
+              {legacy?.support ? <section className="lesson-block" aria-live="polite">
+                <h2>{supportLabels[legacy.support.kind]}</h2>
+                <LessonContent text={legacy.support.text} />
+              </section> : null}
+              <LessonSupport key={progress.current_step?.step_id ?? 'legacy-support'} support={progress.support} />
+              {busy === 'hint' || busy === 'rephrase' || busy === 'check-question' ? <p role="status">
+                {busy === 'check-question' ? '正在准备检测题…' : '正在生成辅助讲解…'}
+              </p> : null}
+              {error && localAction ? <p className="notice error" role="alert">{error}</p> : null}
+              {progress.check ? <UnderstandingCheck key={progress.check.check_id} check={progress.check}
+                busy={busy} disabled={blocked || progress.status === 'completed'}
+                error={checkError ? error : ''} submit={(action, fields) => void act(action, fields)} /> : null}
+            </> : null}
+            {complete ? <section className="lesson-completion" role="status">
+              <strong>本题已完成</strong>
+              {progress?.completion && progress.plan ? <p>你确认完成了 {progress.plan.total_steps} 个教学步骤。</p> : null}
             </section> : null}
-            <LessonSupport key={progress.current_step?.step_id ?? 'legacy-support'} support={progress.support} />
-            {busy === 'hint' || busy === 'rephrase' || busy === 'check-question' ? <p role="status">
-              {busy === 'check-question' ? '正在准备检测题…' : '正在生成辅助讲解…'}
-            </p> : null}
-            {error && localAction ? <p className="notice error" role="alert">{error}</p> : null}
-            {progress.check ? <UnderstandingCheck key={progress.check.check_id} check={progress.check}
-              busy={busy} disabled={blocked || progress.status === 'completed'}
-              error={checkError ? error : ''} submit={(action, fields) => void act(action, fields)} /> : null}
-          </> : null}
-          {complete ? <section className="lesson-completion" role="status">
-            <strong>本题已完成</strong>
-            {progress?.completion && progress.plan ? <p>你确认完成了 {progress.plan.total_steps} 个教学步骤。</p> : null}
-          </section> : null}
+          </div>
         </div>
       </div>
       <footer className="lesson-footer">
@@ -234,6 +247,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     </section>
     {questions !== null ? <TeachingChat conversationId={conversationId} open={questions}
       activeStep={progress?.current_step?.index}
+      subquestion={progress && activeSubquestion !== undefined ? { number: activeSubquestion, revision: progress.revision } : undefined}
       onClose={closeQuestions} onSessionExpired={onSessionExpired} /> : null}
   </section>;
 }

@@ -28,9 +28,10 @@ def test_lesson_advances_only_on_confirmation_and_questions_stay_separate(accoun
     )
     actions = []
     questions = []
+    problem = "给定函数 f。\n（1）计算 f(2)。\n（2）解释代入含义。"
     outputs = {
         "start": {
-            "problem": "计算 f(2)。",
+            "problem": problem,
             "title": "明确输入",
             "content": "输入是 2。",
             "final": False,
@@ -80,25 +81,36 @@ def test_lesson_advances_only_on_confirmation_and_questions_stay_separate(accoun
     assert actions == []
     start = payload("start", 0)
     first = post(start).json()["data"]
-    assert (first["problem"], first["step"]["index"]) == ("计算 f(2)。", 1)
+    assert (first["problem"], first["step"]["index"]) == (problem, 1)
     assert post(start).json()["data"] == first
     assert actions == ["start"]
     assert post(payload("next", 0)).status_code == 409
     assert post(payload("evaluate", 1, response="2")).status_code == 400
 
+    scoped = {"request_id": str(uuid4()), "after": 0, "question": "解释一下。", "subquestion": 2}
+    assert client.post(path + "/turns", json=scoped | {"lesson_revision": 2}).status_code == 409
+    assert (
+        client.post(
+            path + "/turns", json=scoped | {"lesson_revision": 1, "subquestion": 3}
+        ).status_code
+        == 400
+    )
     for position, question in enumerate(("2 代表什么？", "为什么不是输出？"), 1):
+        focus = {"subquestion": 2, "lesson_revision": 1} if position == 2 else {}
         result = client.post(
             path + "/turns",
             json={
                 "request_id": str(uuid4()),
                 "after": position - 1,
                 "question": question,
-            },
+            }
+            | focus,
         )
         assert result.json()["data"]["position"] == position
     assert "明确输入" in questions[0][0]["content"]
     assert "求输出" not in questions[1][0]["content"]
     assert questions[1][1]["content"] == "2 代表什么？"
+    assert '"当前小题": {"number": 2, "text": "解释代入含义。"}' in questions[1][0]["content"]
     assert get_lesson() == first
 
     for revision, action in enumerate(("explain", "hint", "check", "evaluate"), 1):
