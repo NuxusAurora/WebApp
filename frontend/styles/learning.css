@@ -74,6 +74,7 @@
 .lesson-body, .lesson-problem-card, .lesson-footer > * { width: 100%; max-width: var(--container-standard); margin-inline: auto; }
 .lesson-body, .lesson-question { display: grid; gap: 24px; min-width: 0; }
 .lesson-question { scroll-margin-block-start: var(--space-4); }
+.lesson-question[hidden] { display: none; }
 .lesson-question:last-child:not(:empty) { min-block-size: 100cqh; align-content: start; }
 .lesson-question:empty { margin-block-end: -24px; }
 .lesson-block { display: grid; gap: 8px; }

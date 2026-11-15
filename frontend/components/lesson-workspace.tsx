@@ -39,8 +39,10 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const launch = useRef<HTMLButtonElement>(null);
   const problemDock = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
+  const overviewScrollTop = useRef(0);
   const focusDestination = useRef<{
     questionId: string; selector: string; showQuestion?: boolean; scrollOnly?: boolean;
+    restoreScrollTop?: number;
   } | 'step' | 'dock' | null>(null);
   const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
 
@@ -116,9 +118,14 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       const target = destination === 'step' ? slot?.querySelector<HTMLElement>('#lesson-step') :
         destination === 'dock' ? problemDock.current?.querySelector<HTMLElement>('[data-problem-heading]') :
           slot?.querySelector<HTMLElement>(destination.selector);
-      if (destination === 'dock' || (typeof destination !== 'string' && destination.showQuestion)) {
+      if (destination === 'dock') {
+        if (panel) panel.scrollTop = 0;
+      } else if (typeof destination !== 'string' && destination.showQuestion) {
         slot?.scrollIntoView?.({ block: 'start' });
       } else {
+        if (panel && typeof destination !== 'string' && destination.restoreScrollTop !== undefined) {
+          panel.scrollTop = destination.restoreScrollTop;
+        }
         target?.scrollIntoView?.({ block: 'nearest' });
       }
       if (typeof destination === 'string' || !destination.scrollOnly) target?.focus({ preventScroll: true });
@@ -227,9 +234,14 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   function selectSubquestion(task: LessonTask, number?: number) {
     cancelSubquestion();
     if (number === undefined) {
-      focusDestination.current = { questionId: questionKey(task), selector: `[data-part="${activeSubquestion}"]` };
+      focusDestination.current = {
+        questionId: questionKey(task),
+        selector: `[data-part="${activeSubquestion}"]`,
+        restoreScrollTop: overviewScrollTop.current,
+      };
       leaveDetail();
     } else {
+      if (!pinProblem) overviewScrollTop.current = content.current?.scrollTop ?? 0;
       setQuestions(previous => previous === null ? null : false);
       focusDestination.current = 'dock';
       setSelection({ questionId: questionKey(task), part: number });
@@ -302,7 +314,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
             const selected = task === selectedQuestion;
             const showSingleDetail = selected && singleDetail;
             const label = task.question?.type_title;
-            return <div className="lesson-question" key={key} data-lesson-question={key}>
+            return <div className="lesson-question" key={key} data-lesson-question={key} hidden={pinProblem && !selected}>
               {!(selected && pinProblem) ? <ProblemCard
                 text={task.question?.problem ?? task.legacy?.problem ?? ''}
                 format={task.question?.format} parts={task.problem_parts}

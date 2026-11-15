@@ -4,7 +4,7 @@
 
 从「学习对话」打开知识点并开始学习。后端先拟定有序题型清单，再按当前题型出题，清单与首题一起保存。「相似题目」沿用当前题型，「下一个类型题目」跳到下一个待掌握题型。跳过的题型可以在后续轮次练习。单题完成最后一步或在多小题题目上点击「掌握本题型」会记录本人的掌握确认。全部类型确认后可点击「完结」。
 
-题面按生成顺序保留在同一对话。只有选中编号小题时才置顶，退出选择后题面回到对话原位。刷新读回最近题和历史。既有教学记录可继续阅读，首次切题时补建尚未保存的题型清单。功能沿用 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task`、现有教学修订表和当前数据库版本，无新增迁移。
+题面按生成顺序保留在同一对话。选中编号小题时置顶该小题并隐藏其他题目，「查看全部小题」恢复完整对话及原来的阅读位置。刷新读回最近题和历史。既有教学记录可继续阅读，首次切题时补建尚未保存的题型清单。功能沿用 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task`、现有教学修订表和当前数据库版本，无新增迁移。
 
 核心实现为 `backend/app/learning/lesson_protocol.py`、`practice.py` 和 `frontend/components/lesson-workspace.tsx`。定向回归为后端 `uv run pytest -q tests/test_learning_protocol.py tests/test_learning_legacy_reads.py` 和前端 `npm test -- tests/learning-workspace.test.tsx tests/lesson-reading.test.tsx`。
 

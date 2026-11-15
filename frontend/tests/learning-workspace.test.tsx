@@ -182,6 +182,13 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   const selectedRequests: object[] = [];
   const lesson: LessonTask = {
     revision: 7, status: 'teaching', actions: ['next', 'similar-question', 'next-type', 'hint'],
+    previous_questions: [{
+      revision: 3, status: 'completed', actions: [],
+      question: { question_id: 'earlier', problem: '已练习题' },
+      problem_parts: { statement: '历史题干', parts: [
+        { number: 1, text: '历史第一问' }, { number: 2, text: '历史第二问' },
+      ] },
+    }],
     question: { question_id: 'multi-part', problem: '一道三问的题目' },
     problem_parts: { statement: '共用题干', parts: [
       { number: 1, text: '第一小题' }, { number: 2, text: '第二小题' }, { number: 3, text: '第三小题' },
@@ -201,13 +208,19 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   });
   render(<Workspace />);
   const third = await screen.findByRole('button', { name: '第（3）问' });
+  const conversation = screen.getByRole('region', { name: '练习对话' });
+  expect(screen.getByText('历史题干')).toBeVisible();
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   expect(screen.queryByText('旧的整题提示')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '开始讲解' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '不打断模型提问' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '相似题目' })).toBeEnabled();
   expect(third.closest('.lesson-problem-dock')).toBeNull();
+  conversation.scrollTop = 180;
   fireEvent.click(third);
+  expect(conversation.scrollTop).toBe(0);
+  expect(screen.queryByRole('region', { name: '题目 1' })).not.toBeInTheDocument();
+  expect(screen.getByText('历史题干')).not.toBeVisible();
   expect(screen.getByRole('button', { name: '查看全部小题' }).closest('.lesson-problem-dock')).not.toBeNull();
   expect(screen.queryByText('第二小题')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
@@ -220,6 +233,8 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(selectedRequests).toEqual([{ expected_revision: 7, subquestion: 3 }, { expected_revision: 7, subquestion: 3 }]);
 
   fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  expect(conversation.scrollTop).toBe(180);
+  expect(screen.getByText('历史题干')).toBeVisible();
   expect(screen.getByText('第二小题')).toBeVisible();
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   expect(screen.queryByText('直接用第三问的数据求解。')).not.toBeInTheDocument();
@@ -228,6 +243,16 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   fireEvent.click(screen.getByRole('button', { name: '第（3）问' }));
   expect(screen.getByRole('heading', { name: '第三问的讲解' })).toBeVisible();
   expect(selectedRequests).toHaveLength(2);
+  fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  const earlier = within(screen.getByRole('region', { name: '题目 1' }));
+  fireEvent.click(earlier.getByRole('button', { name: '第（2）问' }));
+  expect(screen.getByText('历史第二问')).toBeVisible();
+  expect(screen.getByText('共用题干')).not.toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  expect(screen.getByText('共用题干')).toBeVisible();
+  expect(screen.getByText('历史第一问')).toBeVisible();
+  expect(within(screen.getByRole('region', { name: '题目 1' }))
+    .getByRole('button', { name: '第（2）问' })).toHaveFocus();
 });
 
 it('opens a fresh question thread while the original conversation keeps answering', async () => {
