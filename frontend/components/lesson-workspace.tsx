@@ -13,9 +13,10 @@ import { TeachingChat, teachingChatLabel } from './teaching-chat';
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
 const questionActions: LessonCommand[] = ['start', 'custom-question', 'select-type'];
 const questionKey = (task: LessonTask) => task.question?.question_id ?? 'legacy:' + task.revision;
+const questionNumberLabel = (index: number) => `题目 ${index + 1}`;
 function questionLabel(task: LessonTask, index: number) {
   const type = task.question?.type_title;
-  return `题目 ${index + 1}${type ? ' · ' + type : ''}`;
+  return type ? `${questionNumberLabel(index)} · ${type}` : questionNumberLabel(index);
 }
 type FocusTransition = {
   motion: NonNullable<ReturnType<typeof createLessonFocusMotion>>;
@@ -416,7 +417,8 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
                 onSelect={number => selectSubquestion(task, number)}
                 onReturn={showSingleDetail ? () => returnFromSingleDetail(task) : undefined}
                 onExplain={!task.problem_parts && !showSingleDetail ? () => openSingleDetail(task) : undefined} /> : null}
-              {selected && focusedExplanation ? <LessonStep title={focusedExplanation.title} subquestion={focusedExplanation.number}
+              {selected && focusedExplanation ? <LessonStep
+                title={`${questionNumberLabel(index)} · ${focusedExplanation.title}`} subquestion={focusedExplanation.number}
                 step={{ ...focusedExplanation, index: focusedExplanation.number, format: 'markdown' }} /> : null}
               {showSingleDetail && step ? <>
                 <LessonStep title={withoutStepLabels(step.title)}

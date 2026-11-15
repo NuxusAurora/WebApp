@@ -8,7 +8,7 @@
 
 核心实现为 `backend/app/learning/lesson_protocol.py`、`practice.py` 和 `frontend/components/lesson-workspace.tsx`。定向回归为后端 `uv run pytest -q tests/test_learning_protocol.py tests/test_learning_legacy_reads.py` 和前端 `npm test -- tests/learning-workspace.test.tsx tests/lesson-reading.test.tsx`。
 
-小题进出动画由 `frontend/lib/lesson-focus-motion.ts` 执行。进入时依次核对题面移到阅读区顶部、其他内容淡出、选中小题移到题干下方。置顶卡片沿用对话中的大题题号和题型。点击「返回全部题目」时，小题先归位，其他内容淡入，随后滚到原阅读位置并恢复焦点。开启减少动态效果时直接切换。
+小题进出动画由 `frontend/lib/lesson-focus-motion.ts` 执行。进入时依次核对题面移到阅读区顶部、其他内容淡出、选中小题移到题干下方。题面标题在过渡期间保持可见，小题讲解标题同时显示大题题号和讲解主题。点击「返回全部题目」时，小题先归位，其他内容淡入，随后滚到原阅读位置并恢复焦点。开启减少动态效果时直接切换。
 
 ## Learning Protocol 2.0 · 联调与发布验收
 

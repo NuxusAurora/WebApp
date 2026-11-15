@@ -304,7 +304,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
     if (path === lessonPath + '/subquestion' && init?.method === 'POST') {
       selectedRequests.push(JSON.parse(String(init.body)));
       if (selectedRequests.length === 1) throw new Error('模型暂不可用');
-      return { number: 3, title: '第三问的讲解', content: '直接用第三问的数据求解。' };
+      return { number: 3, title: '判断对应关系', content: '直接用第三问的数据求解。' };
     }
     return fallback(path, init);
   });
@@ -335,7 +335,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(await screen.findByRole('alert')).toHaveTextContent('模型暂不可用');
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
-  expect(await screen.findByRole('heading', { name: '第三问的讲解' })).toBeVisible();
+  expect(await screen.findByRole('heading', { name: '题目 2 · 判断对应关系' })).toBeVisible();
   expect(screen.queryByText('解第（3）问：')).not.toBeInTheDocument();
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   expect(selectedRequests).toEqual([{ expected_revision: 7, subquestion: 3 }, { expected_revision: 7, subquestion: 3 }]);
@@ -351,7 +351,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(screen.queryByRole('button', { name: '开始讲解' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '第（3）问' })).toHaveFocus();
   fireEvent.click(screen.getByRole('button', { name: '第（3）问' }));
-  expect(screen.getByRole('heading', { name: '第三问的讲解' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: '题目 2 · 判断对应关系' })).toBeVisible();
   expect(selectedRequests).toHaveLength(2);
   fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   const earlier = within(screen.getByRole('region', { name: '题目 1' }));

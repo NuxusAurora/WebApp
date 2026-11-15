@@ -20,8 +20,8 @@ function surroundingContent(panel: HTMLElement, slot: HTMLElement, card: HTMLEle
     .filter(node => node !== slot);
   const otherParts = Array.from(card.querySelectorAll<HTMLElement>('.lesson-problem-part'))
     .filter(node => node !== part);
-  const header = card.querySelector<HTMLElement>('.lesson-problem-header');
-  return header ? [...siblings, ...otherParts, header] : [...siblings, ...otherParts];
+  const controls = card.querySelector<HTMLElement>('.lesson-problem-controls');
+  return controls ? [...siblings, ...otherParts, controls] : [...siblings, ...otherParts];
 }
 
 function inView(panel: HTMLElement, nodes: HTMLElement[]) {
@@ -113,7 +113,7 @@ export function createLessonFocusMotion(panel: HTMLElement) {
       const bounds = card.getBoundingClientRect();
       const startHeight = Math.max(bounds.height, origin.height);
       const offset = origin.partOffset - (part.getBoundingClientRect().top - bounds.top);
-      const header = card.querySelector<HTMLElement>('.lesson-problem-header');
+      const controls = card.querySelector<HTMLElement>('.lesson-problem-controls');
       const arrivals = [
         play(card, [
           { height: `${startHeight}px`, maxHeight: `${startHeight}px`, transform: `translateY(${origin.top - bounds.top}px)` },
@@ -125,7 +125,7 @@ export function createLessonFocusMotion(panel: HTMLElement) {
         ], settleTime),
         scrollTo(body, targetScroll, settleTime, controller.signal),
       ];
-      if (header) arrivals.push(play(header, [{ opacity: 0 }, { opacity: 1 }], settleTime));
+      if (controls) arrivals.push(play(controls, [{ opacity: 0 }, { opacity: 1 }], settleTime));
       if (explanation) arrivals.push(play(explanation, [{ opacity: 0 }, { opacity: 1 }], settleTime));
       await Promise.all(arrivals);
       if (!controller.signal.aborted) body.scrollTop = targetScroll;
@@ -136,7 +136,7 @@ export function createLessonFocusMotion(panel: HTMLElement) {
       const part = card && partRow(card, number);
       const body = card?.querySelector<HTMLElement>('.lesson-problem-text');
       if (!card || !part || !body) return null;
-      const controls = card.querySelector<HTMLElement>('.lesson-problem-header');
+      const controls = card.querySelector<HTMLElement>('.lesson-problem-controls');
       const leaving = [controls, explanation].filter((node): node is HTMLElement => Boolean(node));
       await Promise.all(leaving.map(node => play(node, [{ opacity: 1 }, { opacity: 0 }], 100)));
       if (controller.signal.aborted || !part.isConnected) return null;
