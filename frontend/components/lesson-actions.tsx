@@ -124,13 +124,14 @@ function PracticeNavigation({ task, disabled, run }: {
         const mastered = practice.mastered.includes(index);
         const hasQuestion = task.generated_type_indices?.includes(index);
         return <li key={title}>
-          <button type="button" className="button secondary lesson-type-option" disabled={disabled || current}
+          <button type="button" className="button secondary lesson-type-option" data-mastered={mastered || undefined}
+            disabled={disabled || current}
             aria-current={current || undefined} onClick={() => run('select-type', { type_index: index })}>
             <span>{index + 1}. {title}</span>
-            {current ? <span className="lesson-type-option-status">当前题型</span> :
-              mastered || hasQuestion !== undefined ? <span className="lesson-type-option-status">
+            {current || mastered || hasQuestion !== undefined ? <span className="lesson-type-option-status">
+                {current ? <span>当前题型</span> : null}
                 {mastered ? <span>已掌握</span> : null}
-                {hasQuestion !== undefined ? <span className="lesson-type-option-badge" data-new-question={!hasQuestion}>
+                {!current && hasQuestion !== undefined ? <span className="lesson-type-option-badge" data-new-question={!hasQuestion}>
                   {hasQuestion ? '回原题' : 'AI 出题'}
                 </span> : null}
               </span> : null}

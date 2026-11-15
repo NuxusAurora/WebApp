@@ -137,6 +137,15 @@
 .lesson-type-option.button {
   justify-content: space-between; width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: start;
 }
+.lesson-type-option.button[data-mastered],
+.lesson-practice-status li[data-mastered] {
+  color: var(--success);
+  color: light-dark(var(--success), #bde7a4);
+}
+.lesson-type-option.button[data-mastered] { background: var(--success-bg); }
+.lesson-type-option.button[data-mastered]:is(:hover, :active):enabled {
+  background: color-mix(in srgb, var(--success-bg) 90%, currentColor);
+}
 .lesson-type-option-status {
   display: inline-flex; align-items: center; gap: var(--space-2); flex-shrink: 0;
   font-size: var(--font-caption); white-space: nowrap;

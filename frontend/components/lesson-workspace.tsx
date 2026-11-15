@@ -463,9 +463,12 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         {practice?.finished ? <p className="lesson-practice-status" role="status">知识点已完结</p> :
           practice ? <details className="lesson-practice-status">
             <summary><span role="status">已掌握 {practice.mastered.length} / {practice.types.length} 种题型</span></summary>
-            <ol>{practice.types.map(({ title }, index) => <li key={title}>
-              {title} · {practice.mastered.includes(index) ? '已掌握' : index === practice.current ? '当前题型' : '待掌握'}
-            </li>)}</ol>
+            <ol>{practice.types.map(({ title }, index) => {
+              const mastered = practice.mastered.includes(index);
+              return <li key={title} data-mastered={mastered || undefined}>
+                {title} · {mastered ? '已掌握' : index === practice.current ? '当前题型' : '待掌握'}
+              </li>;
+            })}</ol>
           </details> : null}
         <div className="lesson-actions">
           {activeSubquestion !== undefined && !focusedExplanation ?
