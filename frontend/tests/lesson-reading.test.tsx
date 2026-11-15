@@ -58,6 +58,36 @@ it('can collapse and reopen even a short problem', () => {
   expect(screen.getByText('短题面')).toBeVisible();
 });
 
+it('typesets inline math and matrices in both the common statement and numbered parts', () => {
+  const statement = String.raw`已知矩阵 $A=(a_{ij})$：
+
+$$
+A=\begin{bmatrix}2 & -1 \\ 5 & 3\end{bmatrix}
+$$`;
+  const parts = [
+    { number: 1, text: String.raw`求 $a_{21}$ 和 $\det(A)$。` },
+    { number: 2, text: String.raw`已知
+
+$$
+B=\begin{pmatrix}1 & 0 \\ 0 & 2\end{pmatrix}
+$$
+
+求 $b_{22}$。` },
+  ];
+  const { container } = render(<ProblemCard text={statement} format="markdown" parts={{ statement, parts }} onSelect={() => {}} />);
+  const body = screen.getByRole('region', { name: '题面' });
+  const stem = body.querySelector(':scope > .lesson-rich');
+  const [first, second] = body.querySelectorAll('.lesson-problem-part');
+
+  expect(stem?.querySelector('msub')).toHaveTextContent('aij');
+  expect(stem?.querySelectorAll('.katex-display mtr')).toHaveLength(2);
+  expect(first?.querySelector('msub')).toHaveTextContent('a21');
+  expect(first?.querySelectorAll('.katex')).toHaveLength(2);
+  expect(second?.querySelector('msub')).toHaveTextContent('b22');
+  expect(second?.querySelectorAll('.katex-display mtd')).toHaveLength(4);
+  expect(container.querySelector('.katex-error')).toBeNull();
+});
+
 it.each([
   ['编号', () => screen.getByRole('button', { name: '第（2）问' })],
   ['正文', () => screen.getByText('第二小题')],
