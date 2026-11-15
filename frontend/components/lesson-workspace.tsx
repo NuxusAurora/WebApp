@@ -6,7 +6,6 @@ import { readLessonTask, runLessonCommand, type LessonCommand, type LessonTask }
 import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
 import { LessonActions, LessonSupport, UnderstandingCheck } from './lesson-actions';
 import { TeachingChat } from './teaching-chat';
-import { LearningContextPath } from './learning-context-path';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
 
@@ -18,8 +17,8 @@ function withoutStepLabels(text: string) {
   ).trim();
 }
 
-export function LessonWorkspace({ conversationId, title, path, onQuestionsChange, onSessionExpired }: {
-  conversationId: string; title: string; path: (string | undefined)[];
+export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSessionExpired }: {
+  conversationId: string; title: string;
   onQuestionsChange: (open: boolean) => void; onSessionExpired: () => void;
 }) {
   const [progress, setProgress] = useState<LessonTask | null>(null);
@@ -156,28 +155,12 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
   const blocked = Boolean(busy) || stale;
   const checkError = failedAction === 'check-answer' || failedAction === 'evaluate-check';
   const localAction = failedAction === 'hint' || failedAction === 'rephrase' || failedAction === 'check-question';
-  const contextStatus = stale ? '进度已变化' : busy === 'load' ? '正在读取进度' :
-    busy === 'start' ? (complete ? '正在准备下一题' : '正在准备教学') :
-      complete ? '本题已完成' : step ? (progress?.status === 'final_step' || legacy?.step?.final ? '最后一步' : '学习中') :
-        progress ? '未开始' : error ? '无法读取进度' : '';
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
     aria-label={title} data-questions-open={Boolean(questions)}>
     <section className="lesson-main" aria-labelledby="learning-point-title">
       <header className="lesson-header">
-        <div className="lesson-header-copy">
-          <LearningContextPath labels={path} />
-          <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
-        </div>
-        <p className="lesson-context-status" role="status">
-          {contextStatus}
-        </p>
-        <button ref={launch} type="button" className="button secondary" aria-expanded={Boolean(questions)}
-          aria-controls={questions === null ? undefined : 'teaching-questions'}
-          onClick={() => {
-            if (questions) closeQuestions();
-            else { rememberReadingPosition(); setQuestions(true); onQuestionsChange(true); }
-          }}>随时提问</button>
+        <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
       </header>
       <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
         <div className="lesson-body">
@@ -218,8 +201,16 @@ export function LessonWorkspace({ conversationId, title, path, onQuestionsChange
         {error && !localAction && !checkError ? <p className="notice error" role="alert">{error}</p> : null}
         {((!progress && error) || stale) ? <button type="button" className="button secondary"
           disabled={Boolean(busy)} onClick={() => void load()}>重新加载进度</button> : null}
-        {progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
-          run={action => void act(action)} /> : null}
+        <div className="lesson-actions">
+          <button ref={launch} type="button" className="button secondary" aria-expanded={Boolean(questions)}
+            aria-controls={questions === null ? undefined : 'teaching-questions'}
+            onClick={() => {
+              if (questions) closeQuestions();
+              else { rememberReadingPosition(); setQuestions(true); onQuestionsChange(true); }
+            }}>随时提问</button>
+          {progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
+            run={action => void act(action)} /> : null}
+        </div>
       </footer>
     </section>
     {questions !== null ? <TeachingChat conversationId={conversationId} open={questions}

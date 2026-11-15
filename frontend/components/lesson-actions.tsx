@@ -59,12 +59,12 @@ export function LessonActions({ task, primary, busy, disabled, run }: {
     disabled={disabled} onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); run(action); }}>
     {busy === action ? '正在生成…' : actionLabels[action]}
   </button>);
-  return <div className="lesson-actions">
+  return <>
     {supporting.length ? <>
       <div className="lesson-secondary-actions">{buttons}</div>
       <details className="lesson-actions-menu"><summary>更多操作</summary><div>{buttons}</div></details>
     </> : null}
     <button type="button" className="button primary lesson-primary-action" disabled={disabled || !task.actions.includes(primary)}
       onClick={() => run(primary)}>{task.status === 'legacy' ? '开始下一题' : actionLabels[primary]}</button>
-  </div>;
+  </>;
 }

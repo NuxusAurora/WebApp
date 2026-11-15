@@ -35,12 +35,10 @@
   min-height: 68px; padding: 12px 20px; border-bottom: 1px solid var(--line-soft);
 }
 .lesson-header {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: var(--space-3);
   padding: var(--space-4) clamp(var(--space-8), 4vw, var(--space-12));
   padding-inline-start: max(clamp(var(--space-8), 4vw, var(--space-12)), calc((100% - var(--container-standard)) / 2));
   border-bottom: 1px solid var(--line-soft);
 }
-.lesson-header-copy { min-width: 0; }
 .learning-context-path .breadcrumb { gap: var(--space-2); margin-bottom: var(--space-1); }
 .learning-context-path :is(span, svg) { flex-shrink: 0; }
 .learning-context-path span {
@@ -50,14 +48,9 @@
   margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 600; line-height: 1.3;
   overflow-wrap: anywhere;
 }
-.lesson-context-status {
-  align-self: end; margin: 0 0 var(--space-2); color: var(--text-secondary);
-  font-size: var(--font-caption); white-space: nowrap;
+.lesson-header h1:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 4px;
 }
-.lesson-header .button:focus-visible, .lesson-header h1:focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px;
-}
-.lesson-header h1:focus-visible { outline-offset: 4px; }
 .teaching-chat-header h2 { margin: 0; font-size: 16px; font-weight: var(--weight-emphasis); }
 .teaching-chat-header h2:focus { outline: none; }
 .lesson-content {
@@ -151,11 +144,7 @@
   .teaching-chat-header { padding-inline: var(--space-4); }
 }
 @container (width < 640px) {
-  .lesson-header { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1) var(--space-3); }
-  .lesson-header-copy { grid-column: 1; grid-row: 1; }
   .lesson-header h1 { font-size: 22px; }
-  .lesson-header .button { grid-column: 2; grid-row: 1 / span 2; min-height: var(--touch-target); }
-  .lesson-context-status { grid-column: 1; margin: 0; }
   .lesson-header, .lesson-footer { padding-inline: var(--space-4); }
   .lesson-content { padding: var(--space-5) var(--space-4) var(--space-6); scrollbar-gutter: auto; }
 }

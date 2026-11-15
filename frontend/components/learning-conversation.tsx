@@ -64,7 +64,7 @@ export function LearningConversation({ target, onOpened, onOutlineChanged, onQue
   const selectedPoint = project?.knowledge_points.find(point => point.id === project.conversation?.knowledge_point_id);
   const title = project?.section_title;
   const courseId = project?.course_id;
-  const chapterId = project?.chapter_id;
+  const chapterId = selectedPoint ? undefined : project?.chapter_id;
   useEffect(() => {
     if (!courseId || !chapterId) return;
     const task = new AbortController();
@@ -82,7 +82,7 @@ export function LearningConversation({ target, onOpened, onOutlineChanged, onQue
 
   const ancestors = project ? [project.course_title, chapter && chapter.id === chapterId ? chapter.title : undefined] : [];
   if (selectedPoint && project?.conversation) return <LessonWorkspace key={project.conversation.id}
-    conversationId={project.conversation.id} title={selectedPoint.title} path={[...ancestors, title]}
+    conversationId={project.conversation.id} title={selectedPoint.title}
     onQuestionsChange={onQuestionsChange} onSessionExpired={onSessionExpired} />;
 
   return <section className="learning-conversation" aria-label="学习对话">

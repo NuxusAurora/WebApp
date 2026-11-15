@@ -32,7 +32,6 @@ beforeEach(() => {
     if (path === 'users/me') return { id: 'student', display_name: '学生', email: 'student@example.com' };
     if (path === 'learning/projects/textbooks') return { items: [{ id: 'course', title: '线性代数教材' }], next_cursor: null };
     if (path === 'learning/projects/textbooks/course') return { chapters };
-    if (path === 'courses/course/curriculum') return { curriculum: { chapters } };
     if (path === 'learning/projects') return project(JSON.parse(String(init?.body)).knowledge_point_id);
     if (path === 'learning/projects/' + projectId + '/open') return project(firstId);
     if (path === 'learning/conversations/' + firstId + '/lesson/task') {
@@ -45,13 +44,17 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); history.replaceState({}, '', '/'); });
 
-it('reads the deep link, shows real context and searches the loaded outline without rewriting navigation', async () => {
+it('keeps the lesson header to its title and searches the loaded outline without rewriting navigation', async () => {
   render(<Workspace />);
   const heading = await screen.findByRole('heading', { name: '行列式定义' });
   expect(heading).toHaveFocus();
-  expect(await screen.findByText('最后一步', { selector: '.lesson-context-status' })).toBeVisible();
-  const path = screen.getByRole('navigation', { name: '面包屑' });
-  for (const label of ['高等数学', '行列式', '基本概念']) expect(await within(path).findByText(label)).toBeVisible();
+  expect(await screen.findByText('已有题目')).toBeVisible();
+  expect(heading.closest('header')).toHaveTextContent(/^行列式定义$/);
+  expect(screen.queryByRole('navigation', { name: '面包屑' })).not.toBeInTheDocument();
+  const question = screen.getByRole('button', { name: '随时提问' });
+  expect(question.closest('footer')).toContainElement(screen.getByRole('button', { name: '开始下一题' }));
+  expect(question).toHaveAttribute('aria-expanded', 'false');
+  expect(api).not.toHaveBeenCalledWith('courses/course/curriculum', expect.anything());
   const selected = await screen.findByRole('link', { name: /行列式定义/ });
   expect(selected).toHaveAttribute('aria-current', 'page');
   expect(selected).toHaveAttribute('href', firstHref);
@@ -62,7 +65,7 @@ it('reads the deep link, shows real context and searches the loaded outline with
   fireEvent.click(within(results).getByRole('link', { name: '排列与逆序数' }));
   expect(await screen.findByRole('heading', { name: '排列与逆序数' })).toBeVisible();
   expect(location.pathname + location.search).toBe(secondHref);
-  expect(await screen.findByText('未开始', { selector: '.lesson-context-status' })).toBeVisible();
+  expect(await screen.findByRole('button', { name: '开始学习' })).toBeVisible();
   await act(async () => {
     const navigated = new Promise(resolve => window.addEventListener('popstate', resolve, { once: true }));
     history.back();
