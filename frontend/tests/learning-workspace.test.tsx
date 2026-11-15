@@ -221,7 +221,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(conversation.scrollTop).toBe(0);
   expect(screen.queryByRole('region', { name: '题目 1' })).not.toBeInTheDocument();
   expect(screen.getByText('历史题干')).not.toBeVisible();
-  expect(screen.getByRole('button', { name: '查看全部小题' }).closest('.lesson-problem-dock')).not.toBeNull();
+  expect(screen.getByRole('button', { name: '返回全部题目' }).closest('.lesson-problem-dock')).not.toBeNull();
   expect(screen.queryByText('第二小题')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('模型暂不可用');
@@ -232,7 +232,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   expect(selectedRequests).toEqual([{ expected_revision: 7, subquestion: 3 }, { expected_revision: 7, subquestion: 3 }]);
 
-  fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   expect(conversation.scrollTop).toBe(180);
   expect(screen.getByText('历史题干')).toBeVisible();
   expect(screen.getByText('第二小题')).toBeVisible();
@@ -243,12 +243,12 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   fireEvent.click(screen.getByRole('button', { name: '第（3）问' }));
   expect(screen.getByRole('heading', { name: '第三问的讲解' })).toBeVisible();
   expect(selectedRequests).toHaveLength(2);
-  fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   const earlier = within(screen.getByRole('region', { name: '题目 1' }));
   fireEvent.click(earlier.getByRole('button', { name: '第（2）问' }));
   expect(screen.getByText('历史第二问')).toBeVisible();
   expect(screen.getByText('共用题干')).not.toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   expect(screen.getByText('共用题干')).toBeVisible();
   expect(screen.getByText('历史第一问')).toBeVisible();
   expect(within(screen.getByRole('region', { name: '题目 1' }))

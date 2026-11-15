@@ -4,7 +4,7 @@
 
 从「学习对话」打开知识点并开始学习。后端先拟定有序题型清单，再按当前题型出题，清单与首题一起保存。「相似题目」沿用当前题型，「下一个类型题目」跳到下一个待掌握题型。跳过的题型可以在后续轮次练习。单题完成最后一步或在多小题题目上点击「掌握本题型」会记录本人的掌握确认。全部类型确认后可点击「完结」。
 
-题面按生成顺序保留在同一对话。选中编号小题时置顶该小题并隐藏其他题目，「查看全部小题」恢复完整对话及原来的阅读位置。刷新读回最近题和历史。既有教学记录可继续阅读，首次切题时补建尚未保存的题型清单。功能沿用 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task`、现有教学修订表和当前数据库版本，无新增迁移。
+题面按生成顺序保留在同一对话。选中编号小题时置顶该小题并隐藏其他题目，「返回全部题目」恢复完整对话及原来的阅读位置。刷新读回最近题和历史。既有教学记录可继续阅读，首次切题时补建尚未保存的题型清单。功能沿用 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task`、现有教学修订表和当前数据库版本，无新增迁移。
 
 核心实现为 `backend/app/learning/lesson_protocol.py`、`practice.py` 和 `frontend/components/lesson-workspace.tsx`。定向回归为后端 `uv run pytest -q tests/test_learning_protocol.py tests/test_learning_legacy_reads.py` 和前端 `npm test -- tests/learning-workspace.test.tsx tests/lesson-reading.test.tsx`。
 
@@ -49,7 +49,7 @@
 
 在「模型设置」启用一个已保存的模型，再在左侧教材目录选中知识点。「开始学习」「开始下一题」及刷新页面后，主界面只显示题面。没有编号的题目只有一个详情，点左下「开始讲解」进入并读取已保存的步骤、提示和回答，点「返回题目」回到题面。在题目详情点右下「不打断模型提问」打开独立问答窗。点「新开对话」从空白窗口开始，收到首条回复后可跨刷新在「切换对话」中找到。切换时每段对话分别保留草稿和进行中的回复。Enter 发送，Shift+Enter 换行。
 
-另起行并按「（1）」「（2）」连续编号的题目显示共用题干和小题列表。点编号或正文进入该小题，题干与小题固定在讲解上方。点「开始讲解」请求 `POST /api/v1/learning/conversations/{conversation_id}/lesson/task/subquestion`，服务器校验题目修订和小题编号，并为所选小题生成讲解。提问带上所选小题。点「查看全部小题」返回题面，当前页面再次进入同一小题可继续查看已生成的讲解。多小题题目可从题面直接开始下一题，此操作保留上一题原有的完成状态。
+另起行并按「（1）」「（2）」连续编号的题目显示共用题干和小题列表。点编号或正文进入该小题，题干与小题固定在讲解上方。点「开始讲解」请求 `POST /api/v1/learning/conversations/{conversation_id}/lesson/task/subquestion`，服务器校验题目修订和小题编号，并为所选小题生成讲解。提问带上所选小题。点「返回全部题目」恢复完整对话及原来的阅读位置，当前页面再次进入同一小题可继续查看已生成的讲解。多小题题目可从题面直接开始下一题，此操作保留上一题原有的完成状态。
 
 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson` 读写主窗进度，`GET/POST …/turns` 单独读写辅窗问答。`0015_teaching_threads` 将现有记录保留在「原对话」，新对话按 `thread_id` 独立读取、追加和进入模型上下文。用 `GET …/turns/threads` 读取已保存的新对话列表。
 

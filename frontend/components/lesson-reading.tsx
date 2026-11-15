@@ -57,7 +57,7 @@ export function ProblemCard({ text, format, parts, active, label = '题目', onS
         {onExplain ? <button type="button" className="text-button" data-detail-entry
           onClick={onExplain}>开始讲解</button> : null}
         {active !== undefined ? <button type="button" className="text-button"
-          onClick={clearPart}>查看全部小题</button> : null}
+          onClick={clearPart}>返回全部题目</button> : null}
         <button type="button" className="text-button" aria-expanded={open} aria-controls={bodyId}
           onClick={() => setOpen(!open)}>{open ? '收起题目' : '展开题目'}</button>
       </div>

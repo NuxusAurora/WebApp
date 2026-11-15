@@ -69,7 +69,7 @@ it.each([
   fireEvent.click(screen.getByRole('button', { name: '收起题目' }));
   fireEvent.click(screen.getByRole('button', { name: '展开题目' }));
   expect(screen.queryByText('第一小题')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   expect(screen.getByText('第一小题')).toBeVisible();
   expect(screen.getByRole('button', { name: '第（2）问' })).toHaveFocus();
 });
