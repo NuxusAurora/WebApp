@@ -138,3 +138,45 @@ it('shows each new question before its explanation and remembers the reveal in t
   expect(screen.getByRole('button', { name: '开始讲解' })).toBeVisible();
   expect(commands).toEqual(['start', 'complete', 'next-question']);
 });
+
+it('starts the selected subquestion instead of revealing the first whole-question step', async () => {
+  history.replaceState({}, '', secondHref);
+  const lessonPath = 'learning/conversations/' + secondId + '/lesson/task';
+  const fallback = vi.mocked(api).getMockImplementation()!;
+  const selectedRequests: object[] = [];
+  const lesson: LessonTask = {
+    revision: 7, status: 'teaching', actions: ['next'],
+    question: { question_id: 'multi-part', problem: '一道三问的题目' },
+    problem_parts: { statement: '共用题干', parts: [
+      { number: 1, text: '第一小题' }, { number: 2, text: '第二小题' }, { number: 3, text: '第三小题' },
+    ] },
+    current_step: { step_id: 'first-step', index: 1, title: '第一问的讲解', content: '本来会显示的整题讲解' },
+    plan: { plan_id: 'whole-plan', plan_version: 1, learning_objective: '目标', total_steps: 3 },
+  };
+  vi.mocked(api).mockImplementation(async (path, init) => {
+    if (path === lessonPath && init?.method !== 'POST') return lesson;
+    if (path === lessonPath + '/subquestion' && init?.method === 'POST') {
+      selectedRequests.push(JSON.parse(String(init.body)));
+      if (selectedRequests.length === 1) throw new Error('模型暂不可用');
+      return { number: 3, title: '第三问的讲解', content: '直接用第三问的数据求解。' };
+    }
+    return fallback(path, init);
+  });
+  render(<Workspace />);
+  fireEvent.click(await screen.findByRole('button', { name: '第（3）问' }));
+  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('模型暂不可用');
+  expect(screen.queryByText('本来会显示的整题讲解')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
+  expect(await screen.findByRole('heading', { name: '第三问的讲解' })).toBeVisible();
+  expect(screen.getByText('解第（3）问：')).toBeVisible();
+  expect(screen.queryByText('本来会显示的整题讲解')).not.toBeInTheDocument();
+  expect(selectedRequests).toEqual([{ expected_revision: 7, subquestion: 3 }, { expected_revision: 7, subquestion: 3 }]);
+
+  fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
+  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
+  expect(await screen.findByText('本来会显示的整题讲解')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '第（3）问' }));
+  expect(screen.getByRole('heading', { name: '第三问的讲解' })).toBeVisible();
+  expect(selectedRequests).toHaveLength(2);
+});

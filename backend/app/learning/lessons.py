@@ -15,7 +15,13 @@ from app.courses import owned_by_id
 from app.errors import AppError, ok
 from app.learning.context import conversation_context, learning_material, teaching_model
 from app.learning.lesson_generation import LessonGenerator
-from app.learning.lesson_protocol import LessonCommand, execute, read_snapshot
+from app.learning.lesson_protocol import (
+    LessonCommand,
+    SubquestionRequest,
+    execute,
+    explain_subquestion,
+    read_snapshot,
+)
 from app.learning.lesson_snapshots import legacy_view
 from app.learning.lesson_state import current_lesson, legacy_state_data, lesson_query
 from app.learning.models import LearningLessonRevision
@@ -129,21 +135,17 @@ async def get_task(conversation_id: UUID, db: DB, actor: Actor):
     return ok(await read_snapshot(db, conversation_id, actor.id))
 
 
-@router.post("/task")
-async def task_command(
-    conversation_id: UUID, body: LessonCommand, request: Request, db: DB, actor: Actor
-):
+async def until_disconnect(request, work):
     async def wait_for_disconnect():
         while (await request.receive())["type"] != "http.disconnect":
             pass
 
-    generator = LessonGenerator(db, request, actor.id)
-    operation = asyncio.create_task(execute(db, conversation_id, actor.id, body, generator))
+    operation = asyncio.create_task(work)
     disconnect = asyncio.create_task(wait_for_disconnect())
     try:
         await asyncio.wait({operation, disconnect}, return_when=asyncio.FIRST_COMPLETED)
         if operation.done():
-            return ok(operation.result())
+            return operation.result()
         raise AppError("REQUEST_CANCELLED", "请求已取消，请重新读取教学进度", 499)
     finally:
         for task in (operation, disconnect):
@@ -151,6 +153,25 @@ async def task_command(
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
+
+
+@router.post("/task")
+async def task_command(
+    conversation_id: UUID, body: LessonCommand, request: Request, db: DB, actor: Actor
+):
+    generator = LessonGenerator(db, request, actor.id)
+    return ok(
+        await until_disconnect(request, execute(db, conversation_id, actor.id, body, generator))
+    )
+
+
+@router.post("/task/subquestion")
+async def task_subquestion(
+    conversation_id: UUID, body: SubquestionRequest, request: Request, db: DB, actor: Actor
+):
+    generator = LessonGenerator(db, request, actor.id)
+    work = explain_subquestion(db, conversation_id, actor.id, body, generator)
+    return ok(await until_disconnect(request, work))
 
 
 @router.post("")

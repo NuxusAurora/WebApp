@@ -66,13 +66,15 @@ export function ProblemCard({ text, format, parts, active, onSelect }: {
   </section>;
 }
 
-export function LessonStep({ title, step, total, current = true }: {
-  title: string; step: PublishedStep; total?: number; current?: boolean;
+export function LessonStep({ title, step, total, subquestion, current = true }: {
+  title: string; step: PublishedStep; total?: number; subquestion?: number; current?: boolean;
 }) {
-  return <section className="lesson-block lesson-reading-step" aria-label={`第 ${step.index} 步`}>
+  const shownNumber = subquestion ?? (total ? step.index : undefined);
+  return <section className="lesson-block lesson-reading-step"
+    aria-label={subquestion === undefined ? `第 ${step.index} 步` : `第（${subquestion}）问讲解`}>
     {current ? <>
-      {total ? <p className="lesson-step-number">解第（{step.index}）问：</p> : null}
-      <h2 id="lesson-step" tabIndex={-1}>{total ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}</h2>
+      {shownNumber !== undefined ? <p className="lesson-step-number">解第（{shownNumber}）问：</p> : null}
+      <h2 id="lesson-step" tabIndex={-1}>{shownNumber !== undefined ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}</h2>
     </> : <h3>第 {step.index} 步：{title}</h3>}
     {step.objective ? <p className="lesson-objective"><strong>本步目标</strong> {step.objective}</p> : null}
     <LessonContent text={step.content} format={step.format} />

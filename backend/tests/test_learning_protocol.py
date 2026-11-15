@@ -1,5 +1,7 @@
+import json
 from uuid import uuid4
 
+from app.ai.contracts import Result
 from app.errors import AppError
 from app.learning.contracts import LessonOperation, validate_model_output
 from app.learning.lesson_generation import LessonGenerator
@@ -107,6 +109,60 @@ def test_first_step_failure_leaves_no_plan(example_conversation, draft_data, mon
         == 502
     )
     assert client.get(url).json()["data"] == empty
+
+
+def test_explains_only_the_requested_subquestion_without_advancing_the_lesson(
+    example_conversation, draft_data, monkeypatch
+):
+    app, client, conversation_id = example_conversation
+    url = f"/api/v1/learning/conversations/{conversation_id}/lesson/task"
+    draft_data["problem"] = "给定函数 f。\n（1）求值。\n（2）求定义域。\n（3）讨论单调性。"
+    provider = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "local", "base_url": "http://localhost:1234/v1"},
+    ).json()["data"]
+    assert (
+        client.post(
+            f"/api/v1/ai/providers/{provider['id']}/models",
+            json={"model_name": "subquestion-fixture"},
+        ).status_code
+        == 201
+    )
+    calls = []
+    output = {"title": "判断单调性", "content": "比较两个输入对应的函数值。"}
+    actual_generate = LessonGenerator.generate
+
+    async def generate(self, operation, context):
+        if operation == LessonOperation.PLAN:
+            return validate_model_output(operation, draft_data)
+        if operation == LessonOperation.NEXT:
+            return validate_model_output(operation, {"title": "第一问", "content": "先求值。"})
+        return await actual_generate(self, operation, context)
+
+    async def gateway(target, call, sink):
+        calls.append(call)
+        return Result(text="", structured=output)
+
+    monkeypatch.setattr(LessonGenerator, "generate", generate)
+    monkeypatch.setattr(app.state.ai_gateway, "execute", gateway)
+    initial = client.post(
+        url, json={"action": "start", "request_id": str(uuid4()), "expected_revision": 0}
+    ).json()["data"]
+    explain_url = url + "/subquestion"
+    body = {"expected_revision": initial["revision"], "subquestion": 3}
+    assert client.post(explain_url, json=body | {"expected_revision": 2}).status_code == 409
+    assert client.post(explain_url, json=body | {"subquestion": 4}).status_code == 400
+    response = client.post(explain_url, json=body)
+    assert response.status_code == 200
+    assert response.json()["data"] == {"number": 3, **output}
+    assert client.get(url).json()["data"] == initial
+    assert len(calls) == 1
+    assert calls[0].prompt_version == "explain-subquestion-v1"
+    prompt_input = json.loads(calls[0].messages[-1].content)
+    assert prompt_input["statement"] == "给定函数 f。"
+    assert prompt_input["active_subquestion"] == {"number": 3, "text": "讨论单调性。"}
+    assert "求定义域" not in calls[0].messages[-1].content
+    assert "先求值" not in calls[0].messages[-1].content
 
 
 def test_check_reply_is_saved_before_evaluation_and_support_keeps_step(

@@ -18,7 +18,7 @@ from app.learning.lesson_state import current_lesson, lesson_query
 from app.learning.lesson_support import apply_support, require_input
 from app.learning.models import LearningLessonPlan, LearningLessonRevision, LearningTurn
 from app.learning.plans import PlanSourceChanged, insert_plan, read_plan
-from app.learning.problem_parts import selected_subquestion
+from app.learning.problem_parts import require_subquestion, selected_subquestion, split_problem
 
 
 class LessonCommand(Input):
@@ -55,6 +55,11 @@ class LessonCommand(Input):
 
 CORE_ACTIONS = {"start", "next", "complete", "next-question"}
 SCOPED_ACTIONS = {"next", "hint", "rephrase", "check-question"}
+
+
+class SubquestionRequest(Input):
+    expected_revision: int = Field(ge=1, strict=True)
+    subquestion: int = Field(ge=1, le=99, strict=True)
 
 
 def conflict(conversation_id, latest):
@@ -156,6 +161,31 @@ async def candidate(generator, action, material, previous, plan, subquestion=Non
 async def read_snapshot(db, conversation_id, actor_id):
     await conversation_context(db, conversation_id, actor_id)
     return snapshot(conversation_id, await current_lesson(db, conversation_id))
+
+
+async def explain_subquestion(db, conversation_id, actor_id, body, generator):
+    course, section, point = await conversation_context(db, conversation_id, actor_id)
+    latest = await current_lesson(db, conversation_id)
+    if latest is None or latest.revision != body.expected_revision:
+        raise conflict(conversation_id, latest)
+    parts = split_problem(latest.state.get("problem") or "")
+    part = require_subquestion(parts, body.subquestion)
+    point_version = point.content_version_id
+    material = learning_material(course, section, point)
+    await db.rollback()
+    output = await generator.generate(
+        LessonOperation.EXPLAIN_SUBQUESTION,
+        {"material": material, "statement": parts["statement"], "active_subquestion": part},
+    )
+    _, _, point = await conversation_context(db, conversation_id, actor_id)
+    current = await current_lesson(db, conversation_id)
+    if (
+        current is None
+        or current.revision != body.expected_revision
+        or point.content_version_id != point_version
+    ):
+        raise conflict(conversation_id, current)
+    return {"number": part["number"], "title": output.title, "content": output.content}
 
 
 async def execute(db, conversation_id, actor_id, command, generator):

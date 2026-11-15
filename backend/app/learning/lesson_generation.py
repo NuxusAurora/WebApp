@@ -14,6 +14,7 @@ PROMPT_DIRECTORY = Path(__file__).resolve().parents[2] / "prompts" / "learning"
 PROMPTS = {
     LessonOperation.PLAN: "plan-v1",
     LessonOperation.NEXT: "step-v1",
+    LessonOperation.EXPLAIN_SUBQUESTION: "explain-subquestion-v1",
     LessonOperation.HINT: "hint-v1",
     LessonOperation.REPHRASE: "rephrase-v1",
     LessonOperation.CHECK_QUESTION: "check-question-v1",
@@ -32,7 +33,7 @@ class LessonGenerator:
         await limit(self.request, "lesson-ai", str(self.actor_id), maximum=24)
         prompt = PROMPTS[operation]
         instructions = (PROMPT_DIRECTORY / f"{prompt}.md").read_text("utf-8")
-        if "active_subquestion" in context:
+        if operation != LessonOperation.EXPLAIN_SUBQUESTION and "active_subquestion" in context:
             instructions += (
                 "\nactive_subquestion 是学生当前选中的小题。"
                 "优先围绕该题，在既定步骤和禁止项范围内讲解。"

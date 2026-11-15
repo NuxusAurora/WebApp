@@ -4,6 +4,19 @@ import { proxyBusiness } from '../lib/business-proxy.server';
 
 const environment = { BACKEND_INTERNAL_URL: 'http://backend:8000' };
 describe('authenticated same-origin proxy', () => {
+  it('forwards the selected subquestion explanation through the authenticated teaching path', async () => {
+    const path = 'learning/conversations/11111111-1111-1111-1111-111111111111/lesson/task/subquestion';
+    const upstream = vi.fn<typeof fetch>().mockImplementation(async () => Response.json({ success: true, data: {} }));
+    const request = (origin: string) => new Request('http://localhost/api/v1/' + path, {
+      method: 'POST', body: '{"expected_revision":7,"subquestion":3}',
+      headers: { 'X-Requested-With': 'structured-learning', Cookie: 'learning_session=existing', Origin: origin },
+    });
+    expect((await proxyBusiness(request('http://elsewhere'), path.split('/'), upstream, environment)).status).toBe(403);
+    expect((await proxyBusiness(request('http://localhost'), path.split('/'), upstream, environment)).status).toBe(200);
+    const [url, options] = upstream.mock.calls[0];
+    expect((url as URL).pathname).toBe('/api/v1/' + path);
+    expect(new Headers(options?.headers).get('Cookie')).toBe('learning_session=existing');
+  });
   it('forwards textbook pagination and outline reads through the learning proxy', async () => {
     const path = 'learning/projects/textbooks';
     const detail = path + '/11111111-1111-1111-1111-111111111111';

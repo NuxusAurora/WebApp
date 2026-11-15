@@ -3,7 +3,7 @@ import { MAX_IMAGE_BYTES } from './image-limits';
 const allowed = /^(auth\/(register|login|test-login|logout|verify-email|resend-verification|forgot-password|reset-password|change-password)|users\/me|ai\/(options|providers(?:\/[0-9a-f-]{36}(?:\/(key|models|discovery|activate))?)?|models\/[0-9a-f-]{36}(?:\/test)?|calls(?:\/stream)?)|courses(?:\/[0-9a-f-]{36}(?:\/uploads(?:\/[0-9a-f-]{36}(?:\/download)?)?)?)?)$/;
 const curriculumAllowed = /^courses\/[0-9a-f-]{36}\/curriculum(?:\/(images|ocr|parse|drafts|confirm))?$/;
 const learningAllowed = /^learning\/projects(?:\/[0-9a-f-]{36}\/open)?$/;
-const teachingAllowed = /^learning\/conversations\/[0-9a-f-]{36}\/(?:turns|lesson(?:\/task)?)$/;
+const teachingAllowed = /^learning\/conversations\/[0-9a-f-]{36}\/(?:turns|lesson(?:\/task(?:\/subquestion)?)?)$/;
 const textbookAllowed = /^learning\/projects\/textbooks(?:\/[0-9a-f-]{36})?$/;
 const textbookPath = 'learning/projects/textbooks';
 const knowledgeAllowed = /^sections\/[0-9a-f-]{36}\/knowledge-points(?:\/(generate|drafts|confirm))?$/;

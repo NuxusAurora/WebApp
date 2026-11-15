@@ -46,7 +46,10 @@ def problem_fields(problem):
 def selected_subquestion(problem, number):
     if number is None:
         return None
-    parsed = split_problem(problem)
+    return require_subquestion(split_problem(problem), number)
+
+
+def require_subquestion(parsed, number):
     if parsed is None or not 1 <= number <= len(parsed["parts"]):
         raise AppError("INVALID_SUBQUESTION", "小题已变化，请重新选择")
     return parsed["parts"][number - 1]

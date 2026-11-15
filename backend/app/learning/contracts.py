@@ -90,6 +90,7 @@ class LessonOperation(StrEnum):
     PLAN = "plan"
     START = "start"
     NEXT = "next"
+    EXPLAIN_SUBQUESTION = "explain_subquestion"
     COMPLETE = "complete"
     NEXT_QUESTION = "next_question"
     REPHRASE = "rephrase"
@@ -103,6 +104,7 @@ _OUTPUTS = {
     LessonOperation.PLAN: LessonPlanDraft,
     LessonOperation.START: NewQuestionOutput,
     LessonOperation.NEXT: StepOutput,
+    LessonOperation.EXPLAIN_SUBQUESTION: StepOutput,
     LessonOperation.COMPLETE: CompletionOutput,
     LessonOperation.NEXT_QUESTION: NewQuestionOutput,
     LessonOperation.REPHRASE: TextOutput,

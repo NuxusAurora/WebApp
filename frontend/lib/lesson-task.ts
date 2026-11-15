@@ -3,6 +3,7 @@ import type { LessonProgress } from './learning';
 
 export type ContentFormat = 'markdown' | 'text';
 export type LessonProblemParts = { statement: string; parts: { number: number; text: string }[] };
+export type SubquestionExplanation = { number: number; title: string; content: string };
 export type PublishedStep = {
   step_id?: string; index: number; title: string; content: string; objective?: string;
   takeaway?: string; is_final_step?: boolean; format?: ContentFormat;
@@ -37,6 +38,12 @@ export type LessonTask = {
 
 const path = (id: string) => `learning/conversations/${id}/lesson/task`;
 export const readLessonTask = (id: string, signal: AbortSignal) => api<LessonTask>(path(id), { signal });
+
+export function requestSubquestionExplanation(id: string, revision: number, number: number, signal: AbortSignal) {
+  return api<SubquestionExplanation>(path(id) + '/subquestion', { method: 'POST', signal,
+    body: JSON.stringify({ expected_revision: revision, subquestion: number }),
+  });
+}
 
 export function runLessonCommand(id: string, lesson: LessonTask, action: LessonCommand,
   signal: AbortSignal, fields?: { check_id?: string; answer?: string; subquestion?: number }) {
