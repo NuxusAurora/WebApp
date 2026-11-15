@@ -87,6 +87,7 @@
 }
 .lesson-problem-part[data-active="false"] { cursor: pointer; }
 .lesson-problem-part .lesson-part-number { color: inherit; }
+.lesson-problem-part .lesson-part-number:focus-visible { outline-offset: -2px; }
 @media (prefers-reduced-motion: no-preference) {
   .lesson-problem-part[data-active="true"] { animation: lesson-part-selected 220ms ease-out; }
   @keyframes lesson-part-selected {
