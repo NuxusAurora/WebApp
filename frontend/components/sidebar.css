@@ -147,13 +147,17 @@
 }
 .learning-tree .learning-tree-label {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-  overflow: hidden; overflow-wrap: anywhere; color: inherit;
+  overflow: hidden; overflow-wrap: anywhere; color: var(--learning-tree-title-color, inherit);
 }
 .learning-tree .learning-tree-textbook { font-weight: 600; }
-.learning-tree .learning-tree-chapter { font-weight: 500; }
-.learning-tree .learning-tree-section { font-weight: var(--weight-emphasis); }
-.learning-tree .learning-tree-point { color: var(--sidebar-secondary); }
+.learning-tree .learning-tree-chapter { --learning-tree-title-color: var(--chapter-title); font-weight: 500; }
+.learning-tree .learning-tree-section { --learning-tree-title-color: var(--section-title); font-weight: var(--weight-emphasis); }
+.learning-tree .learning-tree-point { --learning-tree-title-color: var(--knowledge-title-color); }
+.learning-tree .learning-tree-point.is-studied { --learning-tree-title-color: var(--studied-knowledge-title); }
 .learning-tree .learning-tree-row.is-current { color: var(--sidebar-text); font-weight: 600; background: var(--sidebar-active); }
+.learning-tree .learning-tree-point.is-current:not(.is-studied) {
+  background: light-dark(color-mix(in srgb, var(--sidebar-active) 65%, var(--sidebar-bg)), var(--sidebar-active));
+}
 .learning-tree .learning-tree-row.is-current::before {
   content: ''; position: absolute; inset-block: var(--space-2); inset-inline-start: 0; width: 1px;
   background: var(--sidebar-icon-active);

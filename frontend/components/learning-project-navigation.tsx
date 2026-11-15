@@ -36,7 +36,7 @@ function LearningLink({ title, sectionId, pointId, studied, current, onSelect }:
   const target = { sectionId, pointId };
   return <li><a href={workspaceHref('learning', target)} title={title}
     className={'sidebar-item learning-tree-row ' + (pointId ? 'learning-tree-point' : 'learning-tree-section') +
-      (current ? ' is-current' : '')}
+      (studied ? ' is-studied' : '') + (current ? ' is-current' : '')}
     aria-current={current ? 'page' : undefined} onClick={event => onSelect(event, target)}>
     {pointId ? <span className="learning-tree-mark" aria-hidden="true">{studied ? <Icon name="check" size={12} /> : null}</span> : <Icon name="file" size={13} />}
     <span className="learning-tree-label">{title}</span>
