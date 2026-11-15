@@ -59,14 +59,14 @@
 }
 .teaching-chat-header h2 { margin: 0; font-size: 16px; font-weight: var(--weight-emphasis); }
 .teaching-chat-header h2:focus { outline: none; }
-.lesson-reading-pane { display: flex; flex-direction: column; min-height: 0; }
+.lesson-reading-pane { --lesson-dock-top: var(--space-6); display: flex; flex-direction: column; min-height: 0; }
 .lesson-problem-dock, .lesson-content {
-  padding-inline: clamp(var(--space-8), 4vw, var(--space-12));
+  padding-inline: clamp(var(--space-8), 4vw, var(--space-12)); scrollbar-gutter: stable both-edges;
 }
-.lesson-problem-dock { padding-block-start: var(--space-6); }
+.lesson-problem-dock { flex: none; padding-block-start: var(--lesson-dock-top); overflow: hidden; }
 .lesson-content {
   flex: 1; container-type: size;
-  min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges;
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding-block: var(--space-8) var(--space-6);
 }
 .lesson-problem-dock + .lesson-content { padding-block-start: var(--space-4); }
@@ -102,13 +102,6 @@
 .lesson-problem-part[data-active="false"] { cursor: pointer; }
 .lesson-problem-part .lesson-part-number { color: inherit; }
 .lesson-problem-part .lesson-part-number:focus-visible { outline-offset: -2px; }
-@media (prefers-reduced-motion: no-preference) {
-  .lesson-problem-part[data-active="true"] { animation: lesson-part-selected 220ms ease-out; }
-  @keyframes lesson-part-selected {
-    from { opacity: 0.35; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-}
 .lesson-problem-header h2, .lesson-step-number { font-size: var(--font-caption); }
 .lesson-step-number { color: var(--text-secondary); }
 .lesson-workspace .lesson-reading-step { font-size: 16px; color: var(--text-primary); }
@@ -204,7 +197,8 @@
 }
 @container (width < 640px) {
   .lesson-footer { padding-inline: var(--space-4); }
-  .lesson-problem-dock { padding: var(--space-4) var(--space-4) 0; }
+  .lesson-reading-pane { --lesson-dock-top: var(--space-4); }
+  .lesson-problem-dock { padding-inline: var(--space-4); scrollbar-gutter: auto; }
   .lesson-content { padding: var(--space-5) var(--space-4) var(--space-6); scrollbar-gutter: auto; }
 }
 @media (width < 768px) {

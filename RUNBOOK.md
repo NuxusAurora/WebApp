@@ -8,6 +8,8 @@
 
 核心实现为 `backend/app/learning/lesson_protocol.py`、`practice.py` 和 `frontend/components/lesson-workspace.tsx`。定向回归为后端 `uv run pytest -q tests/test_learning_protocol.py tests/test_learning_legacy_reads.py` 和前端 `npm test -- tests/learning-workspace.test.tsx tests/lesson-reading.test.tsx`。
 
+小题选中动画由 `frontend/lib/lesson-focus-motion.ts` 执行。依次核对题面移到阅读区顶部、其他内容淡出、选中小题移到题干下方。开启减少动态效果时直接显示选中的小题。点击「返回全部题目」恢复原滚动位置及焦点。
+
 ## Learning Protocol 2.0 · 联调与发布验收
 
 从项目根运行 `node scripts/phase0.mjs verify`，它会用隔离 Compose 栈跑旧回归和 `scripts/learning-acceptance.mjs`，并清理专用容器与卷。生产构建版本应配套 Alembic `0015_teaching_threads`。在目标环境备份并验证可恢复性后，从当前后端候选显式执行 `alembic upgrade 0015_teaching_threads`。先核对修订、旧问答和 health/ready，再启用新前端。已有新对话记录时，可回退前端并保留支持分组的后端及当前数据库迁移。
