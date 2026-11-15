@@ -71,7 +71,7 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert len(generated) == 3
     assert first["practice"]["types"] == PRACTICE_TYPES["types"]
     assert first["question"]["type_title"] == PRACTICE_TYPES["types"][0]["title"]
-    assert {"similar-question", "next-type"}.issubset(first["actions"])
+    assert {"custom-question", "similar-question", "next-type"}.issubset(first["actions"])
     send(command("finish", first), 400)
     send(command("complete", first), 400)
     send(command("next", first, subquestion=3), 400)
@@ -90,10 +90,20 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert done["completion"]["completed_at"]
     assert len(generated) == 4
     assert done["practice"]["mastered"] == [0]
-    similar = send(command("similar-question", done))["data"]
-    assert similar["question"]["type_title"] == first["question"]["type_title"]
-    assert similar["question"]["problem"] == "判断学生与学号的对应是否为函数"
-    following = send(command("next-type", similar))["data"]
+    send(command("custom-question", done, question_request="  "), 400)
+    send(command("custom-question", done, question_request="练" * 1001), 422)
+    send(command("next-type", done, question_request="学校场景"), 400)
+    assert len(generated) == 4
+    custom = command("custom-question", done, question_request="  用学校场景出题  ")
+    customized = send(custom)["data"]
+    assert customized["question"]["type_title"] == first["question"]["type_title"]
+    assert customized["question"]["problem"] == "判断学生与学号的对应是否为函数"
+    assert customized["practice"] == done["practice"]
+    plan_calls = [context for operation, context in generated if operation == LessonOperation.PLAN]
+    assert plan_calls[-1]["question_request"] == "用学校场景出题"
+    assert send(custom)["data"] == customized
+    send(custom | {"question_request": "改用交通场景"}, 409)
+    following = send(command("next-type", customized))["data"]
     assert following["question"]["problem"] == "说明函数与关系的区别"
     for key in ("task_id", "question", "plan"):
         assert following[key] != first[key]
@@ -101,7 +111,7 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert following["practice"]["mastered"] == [0]
     assert [question["question"] for question in following["previous_questions"]] == [
         first["question"],
-        similar["question"],
+        customized["question"],
     ]
     assert following["previous_questions"][0]["status"] == "completed"
     assert following["previous_questions"][1]["actions"] == []

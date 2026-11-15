@@ -135,7 +135,10 @@
 .lesson-footer > p { margin: 0 auto; }
 .lesson-footer > button, .lesson-check button { justify-self: start; width: auto; }
 .lesson-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
-.lesson-practice-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }
+.lesson-practice-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-inline-start: auto; }
+.lesson-custom-question { display: grid; gap: var(--space-2); flex-basis: 100%; }
+.lesson-custom-question textarea { max-block-size: 25vh; resize: vertical; font-size: max(16px, 1em); }
+.lesson-custom-question-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
 .lesson-practice-status { font-size: var(--font-caption); }
 .lesson-practice-status summary { cursor: pointer; }
 .lesson-practice-status ol { margin-block: var(--space-2); padding-inline-start: var(--space-6); }

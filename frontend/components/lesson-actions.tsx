@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import type { LessonCheck, LessonCommand, LessonTask } from '../lib/lesson-task';
+import { useEffect, useId, useRef, useState } from 'react';
+import type { LessonCheck, LessonCommand, LessonCommandFields, LessonTask } from '../lib/lesson-task';
 import { LessonContent } from './lesson-reading';
 
 export const actionLabels: Record<LessonCommand, string> = {
   start: '开始学习', next: '我理解了，下一步', complete: '我理解了，完成本题',
-  'similar-question': '相似题目', 'next-type': '下一个类型题目', 'master-type': '掌握本题型', finish: '完结',
+  'custom-question': '自定义题目', 'similar-question': '相似题目', 'next-type': '题目类型',
+  'master-type': '掌握本题型', finish: '完结',
   hint: '给我提示', rephrase: '换一种方式',
   'check-question': '验证一下', 'check-answer': '提交回答', 'evaluate-check': '重新评价',
 };
@@ -70,20 +71,71 @@ export function LessonActions({ task, primary, busy, disabled, run }: {
   </>;
 }
 
-export function PracticeActions({ task, disabled, allowMastery, run }: {
-  task: LessonTask; disabled: boolean; allowMastery: boolean; run: (action: LessonCommand) => void;
+function PracticeNavigation({ task, disabled, run }: {
+  task: LessonTask; disabled: boolean; run: (action: LessonCommand, fields?: LessonCommandFields) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const fieldId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (open) field.current?.focus();
+  }, [open]);
+
+  function close() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+
+  const { practice } = task;
+  const canCustomize = task.actions.includes('custom-question');
+  const canAdvance = task.actions.includes('next-type');
+  if (!canCustomize && !canAdvance) return null;
+  const typeLabel = practice
+    ? `${actionLabels['next-type']} ${practice.current + 1}/${practice.types.length}`
+    : actionLabels['next-type'];
+
+  return <>
+    <div className="lesson-practice-actions">
+      {canCustomize ? <button ref={trigger} type="button" className="button secondary" disabled={disabled}
+        aria-expanded={open} aria-controls={open ? fieldId + '-form' : undefined}
+        onClick={() => setOpen(!open)}>{actionLabels['custom-question']}</button> : null}
+      <button type="button" className="button primary" disabled={disabled || !canAdvance}
+        title={canAdvance ? '切换到下一个题型' : undefined}
+        onClick={() => run('next-type')}>{typeLabel}</button>
+    </div>
+    {canCustomize && open ? <form id={fieldId + '-form'} className="lesson-custom-question" onSubmit={event => {
+      event.preventDefault();
+      if (!disabled && draft.trim()) run('custom-question', { question_request: draft.trim() });
+    }} onKeyDown={event => {
+      if (event.key === 'Escape' && !disabled) {
+        event.preventDefault();
+        close();
+      }
+    }}>
+      <label htmlFor={fieldId}>出题要求</label>
+      <textarea ref={field} id={fieldId} className="ui-input" rows={2} maxLength={1000} required readOnly={disabled}
+        value={draft} onChange={event => setDraft(event.target.value)} placeholder="例如，用实际场景出一道有三小题的练习" />
+      <div className="lesson-custom-question-actions">
+        <button type="button" className="button secondary" disabled={disabled} onClick={close}>取消</button>
+        <button type="submit" className="button primary" disabled={disabled || !draft.trim()}>生成题目</button>
+      </div>
+    </form> : null}
+  </>;
+}
+
+export function PracticeActions({ task, disabled, allowMastery, showNavigation, run }: {
+  task: LessonTask; disabled: boolean; allowMastery: boolean; showNavigation: boolean;
+  run: (action: LessonCommand, fields?: LessonCommandFields) => void;
 }) {
   if (task.actions.includes('finish')) return <button type="button" className="button primary lesson-primary-action"
     disabled={disabled} onClick={() => run('finish')}>{actionLabels.finish}</button>;
-  if (!task.actions.includes('similar-question')) return null;
   return <>
     {allowMastery && task.actions.includes('master-type') ? <button type="button" className="button secondary"
       disabled={disabled} onClick={() => run('master-type')}>{actionLabels['master-type']}</button> : null}
-    <div className="lesson-practice-actions">
-      <button type="button" className="button secondary" disabled={disabled}
-        onClick={() => run('similar-question')}>{actionLabels['similar-question']}</button>
-      <button type="button" className="button primary" disabled={disabled || !task.actions.includes('next-type')}
-        onClick={() => run('next-type')}>{actionLabels['next-type']}</button>
-    </div>
+    {showNavigation ? <PracticeNavigation key={task.question?.question_id} task={task}
+      disabled={disabled} run={run} /> : null}
   </>;
 }

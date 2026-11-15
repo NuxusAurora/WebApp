@@ -1,4 +1,4 @@
-QUESTION_ACTIONS = {"start", "similar-question", "next-type", "next-question"}
+QUESTION_ACTIONS = {"start", "custom-question", "similar-question", "next-type", "next-question"}
 
 
 def next_type(practice):
@@ -13,7 +13,7 @@ def practice_actions(practice, status, has_parts):
         return []
     if practice and len(practice["mastered"]) == len(practice["types"]):
         return ["finish"]
-    actions = ["similar-question"]
+    actions = ["custom-question", "similar-question"]
     if not practice or next_type(practice) is not None:
         actions.append("next-type")
     if (

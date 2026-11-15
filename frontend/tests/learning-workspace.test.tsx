@@ -111,7 +111,7 @@ it('opens an unnumbered question as a detail and returns to the question on relo
     { title: '定义判断', objective: '按定义判断' }, { title: '构造反例', objective: '识别反例' },
   ], current: 0, mastered: [] as number[], finished: false };
   const firstQuestion: LessonTask = {
-    revision: 1, status: 'final_step', actions: ['complete', 'hint'],
+    revision: 1, status: 'final_step', actions: ['complete', 'hint', 'custom-question', 'next-type'],
     question: { question_id: 'question-one', problem: '第一道题' },
     current_step: { step_id: 'step-one', index: 1, title: '第一步讲解', content: '第一道题的解法' },
     practice,
@@ -126,11 +126,11 @@ it('opens an unnumbered question as a detail and returns to the question on relo
     else if (command === 'complete') {
       const last = lesson.practice?.current === 1;
       lesson = { ...lesson, revision: lesson.revision + 1, status: 'completed',
-        actions: last ? ['finish'] : ['similar-question', 'next-type'],
+        actions: last ? ['finish'] : ['custom-question', 'next-type'],
         practice: { ...practice, current: last ? 1 : 0, mastered: last ? [0, 1] : [0] } };
     }
     else if (command === 'next-type') lesson = { ...firstQuestion, revision: 3,
-      previous_questions: [{ ...lesson, actions: [] }],
+      previous_questions: [{ ...lesson, actions: [] }], actions: ['complete', 'hint', 'custom-question'],
       practice: { ...practice, current: 1, mastered: [0] },
       question: { question_id: 'question-two', problem: '第二道题' },
       current_step: { step_id: 'step-two', index: 1, title: '第二题讲解', content: '第二道题的解法' } };
@@ -155,10 +155,14 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByText('第一道题的解法')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '我理解了，完成本题' }));
-  expect(await screen.findByRole('button', { name: '相似题目' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: '下一个类型题目' }));
+  expect(screen.queryByRole('button', { name: '自定义题目' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /题目类型/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '返回题目' }));
+  expect(await screen.findByRole('button', { name: '自定义题目' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '题目类型 1/2' }));
   expect(await screen.findByText('第二道题')).toBeVisible();
   expect(screen.getByText('第一道题')).toBeVisible();
+  expect(screen.getByRole('button', { name: '题目类型 2/2' })).toBeDisabled();
   expect(screen.queryByText('第二道题的解法')).not.toBeInTheDocument();
   const conversation = screen.getByRole('region', { name: '练习对话' });
   expect(within(conversation).getAllByRole('button', { name: '开始讲解' })).toHaveLength(2);
@@ -175,13 +179,51 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   expect(commands).toEqual(['start', 'complete', 'next-type', 'complete', 'finish']);
 });
 
+it('submits custom question requirements and keeps the draft when generation fails', async () => {
+  const lessonPath = 'learning/conversations/' + firstId + '/lesson/task';
+  const fallback = vi.mocked(api).getMockImplementation()!;
+  const lesson: LessonTask = {
+    revision: 2, status: 'teaching', actions: ['custom-question', 'next-type'],
+    question: { question_id: 'initial', problem: '题面' },
+  };
+  const requests: object[] = [];
+  vi.mocked(api).mockImplementation(async (path, init) => {
+    if (path !== lessonPath) return fallback(path, init);
+    if (init?.method !== 'POST') return lesson;
+    requests.push(JSON.parse(String(init.body)));
+    if (requests.length === 1) throw new Error('生成失败，请重试');
+    return { ...lesson, revision: 3, previous_questions: [lesson],
+      question: { question_id: 'custom', problem: '按要求生成的题面' } };
+  });
+  render(<Workspace />);
+  const trigger = await screen.findByRole('button', { name: '自定义题目' });
+  fireEvent.click(trigger);
+  const field = screen.getByRole('textbox', { name: '出题要求' });
+  expect(field).toHaveFocus();
+  expect(screen.getByRole('button', { name: '生成题目' })).toBeDisabled();
+  fireEvent.keyDown(field, { key: 'Escape' });
+  expect(trigger).toHaveFocus();
+  fireEvent.click(trigger);
+  fireEvent.change(screen.getByRole('textbox', { name: '出题要求' }), { target: { value: '  用学校场景出题  ' } });
+  fireEvent.click(screen.getByRole('button', { name: '生成题目' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('生成失败，请重试');
+  expect(screen.getByRole('textbox', { name: '出题要求' })).toHaveValue('  用学校场景出题  ');
+  expect(requests[0]).toMatchObject({ action: 'custom-question', expected_revision: 2, question_request: '用学校场景出题' });
+  fireEvent.click(screen.getByRole('button', { name: '生成题目' }));
+  expect(await screen.findByText('按要求生成的题面')).toBeVisible();
+  expect(screen.queryByRole('textbox', { name: '出题要求' })).not.toBeInTheDocument();
+  expect(screen.getByText('题面')).toBeVisible();
+});
+
 it('keeps explanations inside the selected subquestion even when whole-question progress exists', async () => {
   history.replaceState({}, '', secondHref);
   const lessonPath = 'learning/conversations/' + secondId + '/lesson/task';
   const fallback = vi.mocked(api).getMockImplementation()!;
   const selectedRequests: object[] = [];
   const lesson: LessonTask = {
-    revision: 7, status: 'teaching', actions: ['next', 'similar-question', 'next-type', 'hint'],
+    revision: 7, status: 'teaching', actions: ['next', 'custom-question', 'next-type', 'hint'],
+    practice: { types: [{ title: '基础练习', objective: '应用定义' }, { title: '变式', objective: '变式应用' }],
+      current: 0, mastered: [], finished: false },
     previous_questions: [{
       revision: 3, status: 'completed', actions: [],
       question: { question_id: 'earlier', problem: '已练习题' },
@@ -214,11 +256,14 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(screen.queryByText('旧的整题提示')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '开始讲解' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '不打断模型提问' })).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '相似题目' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '自定义题目' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '题目类型 1/2' })).toBeEnabled();
   expect(third.closest('.lesson-problem-dock')).toBeNull();
   conversation.scrollTop = 180;
   fireEvent.click(third);
   expect(conversation.scrollTop).toBe(0);
+  expect(screen.queryByRole('button', { name: '自定义题目' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /题目类型/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('region', { name: '题目 1' })).not.toBeInTheDocument();
   expect(screen.getByText('历史题干')).not.toBeVisible();
   expect(screen.getByRole('button', { name: '返回全部题目' }).closest('.lesson-problem-dock')).not.toBeNull();
@@ -234,6 +279,8 @@ it('keeps explanations inside the selected subquestion even when whole-question 
 
   fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   expect(conversation.scrollTop).toBe(180);
+  expect(screen.getByRole('button', { name: '自定义题目' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '题目类型 1/2' })).toBeEnabled();
   expect(screen.getByText('历史题干')).toBeVisible();
   expect(screen.getByText('第二小题')).toBeVisible();
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
@@ -247,6 +294,8 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   const earlier = within(screen.getByRole('region', { name: '题目 1' }));
   fireEvent.click(earlier.getByRole('button', { name: '第（2）问' }));
   expect(screen.getByText('历史第二问')).toBeVisible();
+  expect(screen.queryByRole('button', { name: '自定义题目' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /题目类型/ })).not.toBeInTheDocument();
   expect(screen.getByText('共用题干')).not.toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   expect(screen.getByText('共用题干')).toBeVisible();

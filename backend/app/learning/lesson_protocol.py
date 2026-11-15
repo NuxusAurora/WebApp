@@ -34,6 +34,7 @@ class LessonCommand(Input):
         "complete",
         "next-question",
         "similar-question",
+        "custom-question",
         "next-type",
         "master-type",
         "finish",
@@ -51,15 +52,24 @@ class LessonCommand(Input):
     check_id: UUID | None = None
     subquestion: int | None = Field(default=None, ge=1, le=99, strict=True)
     answer: str = Field(default="", max_length=1000, pattern=r"^[^\x00]*$")
+    question_request: str = Field(default="", max_length=1000, pattern=r"^[^\x00]*$")
 
     def receipt(self):
-        result = self.model_dump(mode="json", exclude={"check_id", "answer", "subquestion"})
+        result = self.model_dump(
+            mode="json", exclude={"check_id", "answer", "subquestion", "question_request"}
+        )
         if self.check_id is not None:
             result["check_id"] = str(self.check_id)
         if self.answer:
             result["answer"] = self.answer
         if self.subquestion is not None:
             result["subquestion"] = self.subquestion
+        if self.question_request:
+            result["question_request"] = (
+                self.question_request.strip()
+                if self.action == "custom-question"
+                else self.question_request
+            )
         return result
 
 
@@ -100,6 +110,11 @@ def require(conversation_id, latest, command):
         raise AppError("INVALID_TRANSITION", "当前教学状态无法执行此操作")
     if command.subquestion is not None and command.action not in SCOPED_ACTIONS:
         raise AppError("INVALID_TRANSITION", "当前操作无需选择小题")
+    if command.action == "custom-question":
+        if not command.question_request.strip():
+            raise AppError("QUESTION_REQUEST_REQUIRED", "请输入出题要求")
+    elif command.question_request:
+        raise AppError("INVALID_TRANSITION", "只有自定义题目可以提交出题要求")
     require_input(command, latest.state if latest else {})
 
 
@@ -154,7 +169,9 @@ async def render(generator, material, draft, index, history, subquestion=None):
     }
 
 
-async def new_question(generator, action, material, practice, first_problem, previous_problems):
+async def new_question(
+    generator, action, material, practice, first_problem, previous_problems, *, question_request
+):
     if practice is None:
         design = await generator.generate(
             LessonOperation.PRACTICE_PLAN, {"material": material, "first_problem": first_problem}
@@ -177,6 +194,8 @@ async def new_question(generator, action, material, practice, first_problem, pre
         "practice_type": practice["types"][practice["current"]],
         "previous_problems": previous_problems[-6:],
     }
+    if question_request:
+        context["question_request"] = question_request
     used = {comparable_problem(problem) for problem in previous_problems}
     for _ in range(2):
         draft = await generator.generate(LessonOperation.PLAN, context)
@@ -299,7 +318,13 @@ async def execute(db, conversation_id, actor_id, command, generator):
     draft = step = None
     if command.action in QUESTION_ACTIONS:
         practice, draft, step = await new_question(
-            generator, command.action, material, practice, first_problem, previous_problems
+            generator,
+            command.action,
+            material,
+            practice,
+            first_problem,
+            previous_problems,
+            question_request=command.question_request.strip(),
         )
     elif command.action == "next":
         steps = previous["steps"]

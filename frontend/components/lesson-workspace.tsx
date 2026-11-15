@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '../lib/api';
 import { readLessonTask, requestSubquestionExplanation, runLessonCommand,
-  type LessonCommand, type LessonTask, type SubquestionExplanation } from '../lib/lesson-task';
+  type LessonCommand, type LessonCommandFields, type LessonTask, type SubquestionExplanation } from '../lib/lesson-task';
 import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
 import { actionLabels, LessonActions, LessonSupport, PracticeActions, UnderstandingCheck } from './lesson-actions';
 import { TeachingChat, teachingChatLabel } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
-const questionActions: LessonCommand[] = ['start', 'similar-question', 'next-type'];
+const questionActions: LessonCommand[] = ['start', 'custom-question', 'next-type'];
 const questionKey = (task: LessonTask) => task.question?.question_id ?? 'legacy:' + task.revision;
 
 // Generated lessons can already contain step labels. Keep the server's index as the visible label.
@@ -139,7 +139,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     readingAnchor.current = null;
   }, [progress, questionsOpen, selection, focusedExplanation]);
 
-  async function act(action: LessonCommand, fields?: { check_id: string; answer?: string }) {
+  async function act(action: LessonCommand, fields?: LessonCommandFields) {
     if (!progress?.actions.includes(action) || request.current || stale) return;
     const task = new AbortController();
     request.current = task;
@@ -293,7 +293,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const busyNavigation = busy && (questionActions.includes(busy as LessonCommand) ||
     ['load', 'next', 'complete', 'master-type', 'finish'].includes(busy));
   const showFooter = Boolean(busy || stale || explainingSubquestion || error || currentDetail ||
-    activeSubquestion !== undefined || canStart || practice || progress?.actions.includes('similar-question'));
+    activeSubquestion !== undefined || canStart || practice || progress?.actions.some(action => action === 'custom-question' || action === 'next-type'));
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
     aria-label={title} data-questions-open={questionsOpen}>
@@ -380,7 +380,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
           {canStart ? <button type="button" className="button primary lesson-primary-action"
             disabled={blocked} onClick={() => void act('start')}>{actionLabels.start}</button> : null}
           {progress ? <PracticeActions task={progress} disabled={blocked} allowMastery={!selectedQuestion || currentDetail}
-            run={action => void act(action)} /> : null}
+            showNavigation={!selectedQuestion} run={(action, fields) => void act(action, fields)} /> : null}
           {currentDetail ? <button ref={launch} type="button" className="button secondary lesson-ask-action"
             aria-expanded={questionsOpen} aria-controls={questions === null ? undefined : 'teaching-questions'}
             onClick={() => {

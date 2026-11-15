@@ -9,7 +9,7 @@ export type PublishedStep = {
   takeaway?: string; is_final_step?: boolean; format?: ContentFormat;
 };
 
-export type LessonCommand = 'start' | 'next' | 'complete' | 'similar-question' | 'next-type'
+export type LessonCommand = 'start' | 'next' | 'complete' | 'custom-question' | 'similar-question' | 'next-type'
   | 'master-type' | 'finish' | 'hint' | 'rephrase'
   | 'check-question' | 'check-answer' | 'evaluate-check';
 
@@ -49,8 +49,12 @@ export function requestSubquestionExplanation(id: string, revision: number, numb
   });
 }
 
+export type LessonCommandFields = {
+  check_id?: string; answer?: string; subquestion?: number; question_request?: string;
+};
+
 export function runLessonCommand(id: string, lesson: LessonTask, action: LessonCommand,
-  signal: AbortSignal, fields?: { check_id?: string; answer?: string; subquestion?: number }) {
+  signal: AbortSignal, fields?: LessonCommandFields) {
   return api<LessonTask>(path(id), { method: 'POST', signal, body: JSON.stringify({
     action,
     request_id: crypto.randomUUID(),
