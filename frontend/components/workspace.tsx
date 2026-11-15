@@ -124,14 +124,14 @@ export function Workspace({ accountNotice = '', systemView = false }: {
       learning={{ selection, revision: learningRevision, textbookAddedCount, onSelect: openLearning, onSessionExpired: expired }}
       questionsOpen={view === 'learning' && target !== null && target === questionTarget} />
     <div className="app-body">
-      <header className="workspace-topbar">
-        {view === 'learning' ? <span className="learning-app-title">学习对话</span> : <Breadcrumb>
+      {view !== 'learning' ? <header className="workspace-topbar">
+        <Breadcrumb>
           {view === 'courses' && courseCrumbs.length ? courseCrumbs.map((item, index) => <Fragment key={index}>
             {index ? <Icon name="chevron" size={14} /> : null}
             {item.onSelect ? <button type="button" disabled={item.disabled} onClick={item.onSelect} title={item.label}>{item.label}</button> :
               <strong aria-current={index === courseCrumbs.length - 1 ? 'page' : undefined} title={item.label}>{item.label}</strong>}
-          </Fragment>) : isModelSettings(view) ? <><span>模型设置</span><Icon name="chevron" size={14} /><strong aria-current="page">{modelSettingsItems.find(item => item.view === view)?.label}</strong></> : <strong aria-current="page">{workspaceLabels[view]}</strong>}</Breadcrumb>}
-      </header>
+          </Fragment>) : isModelSettings(view) ? <><span>模型设置</span><Icon name="chevron" size={14} /><strong aria-current="page">{modelSettingsItems.find(item => item.view === view)?.label}</strong></> : <strong aria-current="page">{workspaceLabels[view]}</strong>}</Breadcrumb>
+      </header> : null}
       <main ref={main} id="main-content" className={`workspace-main${isModelSettings(view) ? ' workspace-main-settings' : view === 'courses' ? ' workspace-main-courses' : view === 'system' ? ' workspace-main-status' : ''}`}>
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
         {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onCoursesChanged={refreshLearning} onPasswordChanged={() => {

@@ -174,10 +174,10 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
     aria-label={title} data-questions-open={Boolean(questions)}>
+    <header className="lesson-header">
+      <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
+    </header>
     <section className="lesson-main" aria-labelledby="learning-point-title">
-      <header className="lesson-header">
-        <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
-      </header>
       <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
         <div className="lesson-body">
           {problem ? <ProblemCard key={questionId} text={problem} format={progress?.question?.format} /> :

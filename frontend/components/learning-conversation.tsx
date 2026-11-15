@@ -86,11 +86,11 @@ export function LearningConversation({ target, onOpened, onOutlineChanged, onQue
     onQuestionsChange={onQuestionsChange} onSessionExpired={onSessionExpired} />;
 
   return <section className="learning-conversation" aria-label="学习对话">
-    <header className="learning-conversation-header">
+    {project ? <header className="learning-conversation-header">
       <LearningContextPath labels={ancestors} />
-      <h1 ref={heading} tabIndex={-1}>{title ?? '学习对话'}</h1>
-      {project ? <p className="muted">{project.textbook_title}</p> : null}
-    </header>
+      <h1 ref={heading} tabIndex={-1}>{title}</h1>
+      <p className="muted">{project.textbook_title}</p>
+    </header> : null}
     {!target ? <p className="learning-conversation-empty muted">从「我的课程」添加教材，再从左侧选择小节或知识点。</p> : null}
     {target && !project && busy ? <p role="status" className="learning-conversation-empty muted">正在打开对话…</p> : null}
     {error ? <div className="learning-conversation-error">
