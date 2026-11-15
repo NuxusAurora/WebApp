@@ -5,6 +5,7 @@ export type Course = {
   textbook: string;
   learning_goal: string;
   status: 'active' | 'archived';
+  added_to_learning?: boolean;
   created_at?: string;
   updated_at?: string;
 };

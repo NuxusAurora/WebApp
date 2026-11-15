@@ -4,9 +4,18 @@ from uuid import UUID
 from sqlalchemy import JSON, CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models import Base, Record
+from app.models import Base, Record, now
 
 DEFAULT_TEACHING_THREAD_ID = UUID(int=0)
+
+
+class LearningTextbook(Base):
+    __tablename__ = "learning_textbooks"
+
+    course_id: Mapped[UUID] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True
+    )
+    added_at: Mapped[datetime] = mapped_column(default=now)
 
 
 class LearningProject(Record, Base):

@@ -2,25 +2,16 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Query
-from sqlalchemy import ForeignKey, select, tuple_
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import select, tuple_
 
 from app.auth import DB, Actor
 from app.courses import owned_by_id
 from app.errors import AppError, ok
-from app.models import Base, Course, now
+from app.learning.models import LearningTextbook
+from app.models import Course, now
 
 router = APIRouter(prefix="/api/v1/learning/projects/textbooks")
 PAGE_SIZE = 6
-
-
-class LearningTextbook(Base):
-    __tablename__ = "learning_textbooks"
-
-    course_id: Mapped[UUID] = mapped_column(
-        ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True
-    )
-    added_at: Mapped[datetime] = mapped_column(default=now)
 
 
 def textbook_title(course):

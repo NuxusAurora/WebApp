@@ -5,7 +5,7 @@ import { api, ApiError } from '../lib/api';
 import type { Course } from '../lib/course-types';
 import { courseDate } from '../lib/course-types';
 import { learningGoalDescription } from '../lib/learning-goals';
-import { showLearningTextbook } from '../lib/learning';
+import { showLearningTextbook, type LearningTextbookChanges } from '../lib/learning';
 import { CourseEditor } from './course-editor';
 import { CurriculumEditor } from './curriculum';
 import { Icon } from './icon';
@@ -13,14 +13,19 @@ import { Toast, useToast } from './toast';
 import { PageContainer, type BreadcrumbItem } from './ui';
 import { usePageMotion } from '../lib/page-motion';
 
-export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange, onTextbookAdded, onCoursesChanged }: {
+export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChange, onTextbookAdded,
+  textbookChanges, onCoursesChanged }: {
   onDirtyChange?: (dirty: boolean) => void;
   onSessionExpired?: () => void;
   onBreadcrumbChange?: (items: BreadcrumbItem[]) => void;
-  onTextbookAdded?: () => void;
+  onTextbookAdded?: (courseId: string) => void;
+  textbookChanges?: LearningTextbookChanges;
   onCoursesChanged?: () => void;
 }) {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [readTextbookChanges, setReadTextbookChanges] = useState<LearningTextbookChanges>();
+  const latestTextbookChanges = useRef(textbookChanges);
+  latestTextbookChanges.current = textbookChanges;
   const [selected, setSelected] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -81,11 +86,13 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+    const initialTextbookChanges = latestTextbookChanges.current;
     setLoading(true); setLoadError('');
     api<Course[]>('courses?offset=' + offset, { signal: controller.signal })
       .then(rows => {
         if (!active) return;
         setCourses(rows);
+        setReadTextbookChanges(initialTextbookChanges);
       })
       .catch(error => { if (active) handleError(error, setLoadError); })
       .finally(() => { if (active) setLoading(false); });
@@ -161,7 +168,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
       if (!isNew) onCoursesChanged?.();
       setSelected(course.status === 'active' ? course : null); setEditing(null); setDirty(false);
       setCourses(previous => isNew ? [course, ...previous].slice(0, 100) :
-        previous.map(row => row.id === course.id ? course : row));
+        previous.map(row => row.id === course.id ? { ...row, ...course } : row));
       if (course.status === 'active') {
         const subject = course.subject.trim() || '未设置学科';
         setExpandedSubjects(previous => new Map(previous).set(subject, true));
@@ -193,7 +200,8 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
     try {
       await showLearningTextbook(courseId, task.signal);
       if (task.signal.aborted) return;
-      onTextbookAdded?.();
+      setCourses(previous => previous.map(row => row.id === courseId ? { ...row, added_to_learning: true } : row));
+      onTextbookAdded?.(courseId);
       setMessage('已添加到学习对话');
     } catch (reason) {
       if (!task.signal.aborted) handleError(reason, setError);
@@ -239,11 +247,18 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
   const showingDetail = Boolean(editing || selected);
   const pageSurface = usePageMotion<HTMLDivElement>(editing ?? selected?.id ?? 'directory', showingDetail ? 1 : -1);
 
+  function isAdded(course: Course) {
+    // A mutation confirmed after this page's read takes precedence over that snapshot.
+    const latest = textbookChanges?.get(course.id);
+    return latest && latest !== readTextbookChanges?.get(course.id) ? latest.added : course.added_to_learning;
+  }
+
   return <div ref={pageSurface} className={'course-space course-library' + (showingDetail ? ' showing-detail' : '')}>
     {error ? <p ref={errorElement} tabIndex={-1} className="notice error" role="alert">
       <Icon name="alert" size={18} />{error}</p> : null}
     <Toast notification={notification} onDismiss={dismiss} />
     {!showingDetail ? <section className="course-index" aria-label="学习中的课程" aria-busy={loading}>
+    <p className="course-index-note">已添加到对话的课程可在左侧「学习对话」中查看。</p>
     <div className="library-toolbar">
       <div className="search-field"><Icon name="search" size={18} />
         <label className="visually-hidden" htmlFor="course-search">搜索当前页课程</label>
@@ -285,6 +300,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                     aria-label={'进入' + course.title} onClick={() => openCourse(course)}>{course.title}</button></strong>
                   {course.textbook ? <span>{course.textbook}</span> : null}</span>
                 <div className="course-row-actions">
+                  {isAdded(course) ? <span className="course-added">已添加</span> : null}
                   <button type="button" className="icon-button" disabled={busy || Boolean(deleteTarget)}
                     aria-label={'添加到对话：' + course.title} title="添加到对话" onClick={() => void addTextbook(course.id)}>
                     <Icon name="chat" size={16} />

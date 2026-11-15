@@ -13,7 +13,7 @@ import { ConnectionStatus } from './connection-status';
 import { Breadcrumb, type BreadcrumbItem } from './ui';
 import { isModelSettings, modelSettingsItems, useWorkspaceNavigation, workspaceHref, workspaceLabels, type LearningTarget } from '../lib/workspace-navigation';
 import { api, ApiError } from '../lib/api';
-import type { LearningSelection } from '../lib/learning';
+import type { LearningSelection, LearningTextbookChanges } from '../lib/learning';
 import { usePageMotion } from '../lib/page-motion';
 
 export function Workspace({ accountNotice = '', systemView = false }: {
@@ -30,6 +30,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   const [courseCrumbs, setCourseCrumbs] = useState<BreadcrumbItem[]>([]);
   const [learningRevision, setLearningRevision] = useState(0);
   const [textbookAddedCount, setTextbookAddedCount] = useState(0);
+  const [textbookChanges, setTextbookChanges] = useState<LearningTextbookChanges>(() => new Map());
   const [openedLearning, setOpenedLearning] = useState<{ target: LearningTarget; selection: LearningSelection } | null>(null);
   const [questionTarget, setQuestionTarget] = useState<LearningTarget | null>(null);
   const { view, target, navigate } = useWorkspaceNavigation(systemView ? 'system' : 'courses', leaveEditor, () => setDirty(false));
@@ -37,10 +38,17 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   const href = workspaceHref(view, target ?? undefined);
   const main = usePageMotion<HTMLElement>(`${user?.id ?? 'guest'}:${href}`);
   const refreshLearning = useCallback(() => setLearningRevision(value => value + 1), []);
-  const textbookAdded = useCallback(() => {
+  const recordTextbookChange = useCallback((courseId: string, added: boolean) => {
+    setTextbookChanges(previous => new Map(previous).set(courseId, { added }));
+  }, []);
+  const textbookAdded = useCallback((courseId: string) => {
+    recordTextbookChange(courseId, true);
     setTextbookAddedCount(value => value + 1);
     refreshLearning();
-  }, [refreshLearning]);
+  }, [recordTextbookChange, refreshLearning]);
+  const textbookRemoved = useCallback((courseId: string) => {
+    recordTextbookChange(courseId, false);
+  }, [recordTextbookChange]);
   const learningOpened = useCallback((target: LearningTarget, selection: LearningSelection) => {
     setOpenedLearning({ target, selection });
   }, []);
@@ -84,6 +92,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
     setNotice('');
     try {
       await api('auth/logout', { method: 'POST' });
+      setTextbookChanges(new Map());
       setUser(null);
       navigate('courses', true);
       setDirty(false);
@@ -93,6 +102,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   }
 
   const expired = useCallback(() => {
+    setTextbookChanges(new Map());
     setUser(null);
     setDirty(false);
     navigate('courses', true);
@@ -121,7 +131,8 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   return <div className={`application-shell workspace-shell${view === 'learning' ? ' learning-shell' : ''}`}>
     <a href="#main-content" className="skip-link">跳到主要内容</a>
     <AppSidebar user={user} loading={loading} view={view} busy={busy} error={notice} navigate={navigate} logout={logout}
-      learning={{ selection, revision: learningRevision, textbookAddedCount, onSelect: openLearning, onSessionExpired: expired }}
+      learning={{ selection, revision: learningRevision, textbookAddedCount,
+        onSelect: openLearning, onSessionExpired: expired, onTextbookRemoved: textbookRemoved }}
       questionsOpen={view === 'learning' && target !== null && target === questionTarget} />
     <div className="app-body">
       {view !== 'learning' ? <header className="workspace-topbar">
@@ -139,7 +150,8 @@ export function Workspace({ accountNotice = '', systemView = false }: {
         }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + href} target={target}
           onOpened={learningOpened} onOutlineChanged={refreshLearning} onQuestionsChange={questionsChanged}
           onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
-          onBreadcrumbChange={setCourseCrumbs} onTextbookAdded={textbookAdded} onCoursesChanged={refreshLearning} />)}
+          onBreadcrumbChange={setCourseCrumbs} onTextbookAdded={textbookAdded}
+          textbookChanges={textbookChanges} onCoursesChanged={refreshLearning} />)}
       </main>
     </div>
   </div>;

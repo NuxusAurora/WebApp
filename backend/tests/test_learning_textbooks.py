@@ -42,6 +42,7 @@ def test_visibility_is_independent_of_archive_and_saved_conversations(account_ap
 
     authenticate(client, app, "other@example.com")
     assert textbook_items(client) == []
+    assert client.get(COURSES).json()["data"] == []
     assert client.put(folder_path).status_code == 404
     assert client.delete(folder_path).status_code == 404
     client.cookies.set("learning_session", owner_cookie)
@@ -49,6 +50,10 @@ def test_visibility_is_independent_of_archive_and_saved_conversations(account_ap
     assert client.delete(folder_path).status_code == 200
     assert client.delete(folder_path).status_code == 200
     assert [item["id"] for item in textbook_items(client)] == [second]
+    assert {row["id"]: row["added_to_learning"] for row in client.get(COURSES).json()["data"]} == {
+        course: False,
+        second: True,
+    }
     assert client.get(course_path).json()["data"]["status"] == "active"
     assert client.post(open_path, json={}).json()["data"]["conversation"] == project["conversation"]
     assert [item["id"] for item in textbook_items(client)] == [second]
@@ -80,6 +85,9 @@ def test_textbook_folders_paginate_without_requiring_sections(account_app):
         ids.append(course)
     first = client.get(TEXTBOOKS).json()["data"]
     assert [item["id"] for item in first["items"]] == ids[::-1][:6]
+    assert {
+        row["id"] for row in client.get(COURSES).json()["data"] if row["added_to_learning"]
+    } == set(ids)
     second = client.get(TEXTBOOKS, params={"before": first["next_cursor"]}).json()["data"]
     assert [item["id"] for item in second["items"]] == ids[1::-1]
     assert second["next_cursor"] is None

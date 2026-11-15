@@ -61,6 +61,8 @@
 
 在「我的课程」展开学科，点击课程垃圾桶旁的「添加到对话」。左侧「学习对话」可同时显示多个课本文件夹，未填写教材名时使用课程名。首批显示最近添加的 6 门课程，可加载更多。文件夹旁的垃圾桶只从左栏移除该课程，原课程、归档状态和对话保留。再添加即可恢复显示。已添加的课程归档时暂时隐藏，恢复课程后按原来的显示状态呈现。
 
+课程列表顶部提示在左侧「学习对话」查看已添加课程。课程行的绿色「已添加」由 `GET /api/v1/courses` 的 `added_to_learning` 提供，添加和移除成功后立即同步。该状态沿用既有显示记录，无新增迁移。
+
 展开课本后按正式顺序显示章节、小节和知识点。选择知识点后，当前内容卡片铺满主区，通过左侧教材目录切换知识点。空小节可生成并确认知识点。刷新、浏览器历史和原 `/?view=learning&project=<UUID>` 链接均可继续使用。入口为 `frontend/components/course-space.tsx` 和 `frontend/components/learning-project-navigation.tsx`，知识点主区由 `frontend/components/learning-conversation.tsx` 渲染。用 `GET /api/v1/learning/projects/textbooks` 读取列表，展开时对 `/textbooks/{course_id}` 执行 GET，添加与移除对同一路径执行 PUT 和 DELETE。小节对话继续由 `backend/app/learning/routes.py` 管理。
 
 迁移 `0009_learning_textbooks` 从 `0008_learning_projects` 建立独立的课本显示记录，回填已有对话的课程和此前已在左栏显示的正式目录。更新运行环境前对 PostgreSQL 做受限备份并用 `pg_restore --list` 校验，再执行 `docker compose run --rm --no-deps backend alembic upgrade head`，核对 revision 和 health/ready。应用回滚时保留迁移表，降级到 0008 会丢弃该表保存的左栏偏好。

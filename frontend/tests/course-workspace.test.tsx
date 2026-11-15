@@ -49,6 +49,16 @@ async function expandSubject(name = '数学') {
 }
 
 describe('textbooks in learning navigation', () => {
+  it('shows the directory note and badges from the course list before the sidebar opens', async () => {
+    vi.mocked(api).mockResolvedValue([{ ...courses[0], added_to_learning: true }]);
+    render(<CourseSpace />);
+    await expandSubject();
+    const row = (await screen.findByRole('button', { name: '进入高等数学' })).closest<HTMLElement>('.course-row')!;
+    expect(screen.getByText('已添加到对话的课程可在左侧「学习对话」中查看。')).toBeVisible();
+    expect(within(row).getByText('已添加')).toBeVisible();
+    expect(vi.mocked(api).mock.calls.map(([request]) => request)).toEqual(['courses?offset=0']);
+  });
+
   it('adds multiple courses, retries a failed removal, and lets the same course be added again', async () => {
     const activeCourses = [courses[0], { ...courses[1], status: 'active' as const }];
     const entries = new Map<string, string>();
@@ -72,22 +82,28 @@ describe('textbooks in learning navigation', () => {
     await expandSubject();
     await expandSubject('物理');
     const addMath = screen.getByRole('button', { name: '添加到对话：高等数学' });
+    const mathRow = within(addMath.closest<HTMLElement>('.course-row')!);
+    expect(mathRow.queryByText('已添加')).not.toBeInTheDocument();
     expect(addMath.parentElement).toContainElement(screen.getByRole('button', { name: '删除课程：高等数学' }));
     fireEvent.click(addMath);
     const removeMath = await screen.findByRole('button', { name: '从学习对话移除：高等数学（上册）' });
+    expect(mathRow.getByText('已添加')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: '添加到对话：大学物理' }));
     const removePhysics = await screen.findByRole('button', { name: '从学习对话移除：大学物理学' });
 
     fireEvent.click(removeMath);
     expect(await screen.findByRole('alert')).toHaveTextContent('移除失败，请重试');
     expect(removeMath).toBeVisible();
+    expect(mathRow.getByText('已添加')).toBeVisible();
     failRemoval = false;
     fireEvent.click(removeMath);
     await waitFor(() => expect(removeMath).not.toBeInTheDocument());
+    expect(mathRow.queryByText('已添加')).not.toBeInTheDocument();
     expect(removePhysics).toBeVisible();
     expect(screen.getByRole('button', { name: '进入高等数学' })).toBeVisible();
     fireEvent.click(addMath);
     expect(await screen.findByRole('button', { name: '从学习对话移除：高等数学（上册）' })).toBeVisible();
+    expect(mathRow.getByText('已添加')).toBeVisible();
     expect(location.pathname + location.search).toBe('/');
     expect(vi.mocked(api).mock.calls.some(([request]) => request.startsWith('courses/'))).toBe(false);
   });

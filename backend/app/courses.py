@@ -7,6 +7,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.auth import DB, Actor, Input
 from app.errors import AppError, ok
+from app.learning.models import LearningTextbook
 from app.models import Course, Upload
 from app.storage import MAX_UPLOAD, inspect_text
 
@@ -62,16 +63,19 @@ async def owned_by_id(db, course_id, user_id):
 async def listing(db: DB, user: Actor, offset: int = 0):
     if offset < 0 or offset > 100000:
         raise AppError("VALIDATION_ERROR", "分页参数无效")
+    added_to_learning = (
+        select(LearningTextbook.course_id).where(LearningTextbook.course_id == Course.id).exists()
+    )
     courses = (
-        await db.scalars(
-            select(Course)
+        await db.execute(
+            select(Course, added_to_learning)
             .where(Course.user_id == user.id)
             .order_by(Course.created_at.desc(), Course.id)
             .offset(offset)
             .limit(100)
         )
     ).all()
-    return ok([course_data(course) for course in courses])
+    return ok([course_data(course) | {"added_to_learning": added} for course, added in courses])
 
 
 @router.post("", status_code=201)

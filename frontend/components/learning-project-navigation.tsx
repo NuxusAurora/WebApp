@@ -87,7 +87,8 @@ function TextbookContents({ courseId, open, outline, onOutline, selection, revis
   return <OutlineFolders chapters={outline.chapters} selection={selection} onSelect={onSelect} />;
 }
 
-export function LearningProjectNavigation({ selection, revision, query, onSelect, onSessionExpired }: NavigationProps & { query: string }) {
+export function LearningProjectNavigation({ selection, revision, query, onSelect, onSessionExpired, onTextbookRemoved }:
+  NavigationProps & { query: string; onTextbookRemoved?: (courseId: string) => void }) {
   const [items, setItems] = useState<LearningTextbook[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -161,6 +162,7 @@ export function LearningProjectNavigation({ selection, revision, query, onSelect
     }
     setItems(previous => previous.filter(item => item.id !== id));
     setOutlines(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => key !== id)));
+    onTextbookRemoved?.(id);
   }
 
   const term = query.trim().toLocaleLowerCase();

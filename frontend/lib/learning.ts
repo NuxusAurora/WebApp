@@ -17,6 +17,7 @@ export type TeachingHistory = { turns: TeachingTurn[]; before: number | null;
 export type TeachingQuestion = { request_id: string; after: number; question: string;
   subquestion?: number; lesson_revision?: number; thread_id?: string };
 export type LearningTextbook = { id: string; title: string };
+export type LearningTextbookChanges = ReadonlyMap<string, { added: boolean }>;
 export type LearningSelection = { courseId: string; chapterId: string; sectionId: string; pointId?: string };
 export type LearningOutline = { chapters: {
   id: string;

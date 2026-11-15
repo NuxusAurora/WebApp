@@ -17,7 +17,8 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   error?: string;
   questionsOpen?: boolean;
   learning?: { selection: LearningSelection | null; revision: number; textbookAddedCount: number;
-    onSelect: (target: LearningTarget) => boolean; onSessionExpired: () => void };
+    onSelect: (target: LearningTarget) => boolean; onSessionExpired: () => void;
+    onTextbookRemoved?: (courseId: string) => void };
   navigate: (view: WorkspaceView) => boolean; logout: () => Promise<void>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -198,7 +199,8 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
                 </div>
               </div>
               {learningMounted || learningVisible && (!mobile || drawer) ? <LearningProjectNavigation key={user.id} selection={learning.selection}
-                revision={learning.revision} query={query ?? ''} onSelect={followProject} onSessionExpired={learning.onSessionExpired} /> : null}
+                revision={learning.revision} query={query ?? ''} onSelect={followProject}
+                onSessionExpired={learning.onSessionExpired} onTextbookRemoved={learning.onTextbookRemoved} /> : null}
             </div>
           </> : null : navItem(item.view, item.icon)}</div>)}
         </div>)}
