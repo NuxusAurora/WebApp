@@ -58,7 +58,7 @@ def lesson_response(body):
     messages = body["messages"]
     system = next(message["content"] for message in messages
                   if message["role"] == "system" and message["content"].startswith(
-                      ("你是", "给当前", "对当前", "生成一道", "评价学生")))
+                      ("你是", "为当前", "给当前", "对当前", "生成一道", "评价学生")))
     if body["model"] == "lesson-evaluation-error":
         return "invalid output"
     if body["model"] == "lesson-delayed":
@@ -66,13 +66,18 @@ def lesson_response(body):
     if "独立学习助手" in system:
         return json.dumps({"text": "因为函数定义要求每个输入恰好对应一个输出。"})
     user = json.loads(next(message["content"] for message in messages if message["role"] == "user"))
+    if "固定的练习题型清单" in system:
+        return json.dumps({"types": [
+            {"title": "判断唯一对应", "objective": "判断给出的关系是不是函数"},
+            {"title": "构造反例", "objective": "构造有多个输出的对应关系"},
+        ]})
     if "教学规划器" in system:
         step = {
             "concept": "唯一对应", "required_context": [], "completion_criteria": ["识别输入的输出"],
             "common_mistakes": [], "forbidden": ["不要提前宣布整体关系的判断结论"], "expected_takeaway": "逐个核对输入",
         }
         problem = "解释一个人可以拥有多个电话号码时，为什么从人到电话号码可能不是函数。"
-        if not user["previous_problem"]:
+        if not user["previous_problems"]:
             problem = "判断集合 A 到 B 的下列对应是否为函数。\n\n$$f(x)=x+1$$"
         return json.dumps({
             "problem": problem, "learning_objective": "理解函数的唯一对应", "difficulty": "basic",

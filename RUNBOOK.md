@@ -1,5 +1,13 @@
 # 运行手册
 
+## 知识点题型练习
+
+从「学习对话」打开知识点并开始学习。后端先拟定有序题型清单，再按当前题型出题，清单与首题一起保存。「相似题目」沿用当前题型，「下一个类型题目」跳到下一个待掌握题型。跳过的题型可以在后续轮次练习。单题完成最后一步或在多小题题目上点击「掌握本题型」会记录本人的掌握确认。全部类型确认后可点击「完结」。
+
+题面按生成顺序保留在同一对话。只有选中编号小题时才置顶，退出选择后题面回到对话原位。刷新读回最近题和历史。既有教学记录可继续阅读，首次切题时补建尚未保存的题型清单。功能沿用 `GET/POST /api/v1/learning/conversations/{conversation_id}/lesson/task`、现有教学修订表和当前数据库版本，无新增迁移。
+
+核心实现为 `backend/app/learning/lesson_protocol.py`、`practice.py` 和 `frontend/components/lesson-workspace.tsx`。定向回归为后端 `uv run pytest -q tests/test_learning_protocol.py tests/test_learning_legacy_reads.py` 和前端 `npm test -- tests/learning-workspace.test.tsx tests/lesson-reading.test.tsx`。
+
 ## Learning Protocol 2.0 · 联调与发布验收
 
 从项目根运行 `node scripts/phase0.mjs verify`，它会用隔离 Compose 栈跑旧回归和 `scripts/learning-acceptance.mjs`，并清理专用容器与卷。生产构建版本应配套 Alembic `0015_teaching_threads`。在目标环境备份并验证可恢复性后，从当前后端候选显式执行 `alembic upgrade 0015_teaching_threads`。先核对修订、旧问答和 health/ready，再启用新前端。已有新对话记录时，可回退前端并保留支持分组的后端及当前数据库迁移。

@@ -5,6 +5,7 @@ from app.ai.contracts import Result
 from app.errors import AppError
 from app.learning.contracts import LessonOperation, validate_model_output
 from app.learning.lesson_generation import LessonGenerator
+from tests.test_learning_contracts import PRACTICE_TYPES
 from tests.test_learning_contracts import draft_data as draft_data
 from tests.test_learning_legacy_reads import example_conversation as example_conversation
 from tests.test_phase1 import account_app as account_app
@@ -17,11 +18,20 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     first_step = draft_data["steps"][0]
     draft_data["steps"] = [first_step, dict(first_step, index=2, objective="第二步目标")]
     first_problem = "给定函数 f。\n（1）求 f(2)。\n（2）证明 f 单调。"
-    problems = iter([first_problem, first_problem.replace("f(2)", "f(3)"), "说明函数与关系的区别"])
+    problems = iter(
+        [
+            first_problem,
+            first_problem.replace("f(2)", "f(3)"),
+            "判断学生与学号的对应是否为函数",
+            "说明函数与关系的区别",
+        ]
+    )
     generated = []
 
     async def generate(self, operation, context):
         generated.append((operation, context))
+        if operation == LessonOperation.PRACTICE_PLAN:
+            return validate_model_output(operation, PRACTICE_TYPES)
         if operation == LessonOperation.PLAN:
             return validate_model_output(operation, draft_data | {"problem": next(problems)})
         return validate_model_output(
@@ -58,7 +68,11 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert "reference_answer" not in str(first)
     assert "第二步目标" not in str(first)
     assert send(start)["data"] == first
-    assert len(generated) == 2
+    assert len(generated) == 3
+    assert first["practice"]["types"] == PRACTICE_TYPES["types"]
+    assert first["question"]["type_title"] == PRACTICE_TYPES["types"][0]["title"]
+    assert {"similar-question", "next-type"}.issubset(first["actions"])
+    send(command("finish", first), 400)
     send(command("complete", first), 400)
     send(command("next", first, subquestion=3), 400)
     next_step = command("next", first, subquestion=2)
@@ -74,13 +88,36 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     done = send(command("complete", second))["data"]
     assert done["status"] == "completed"
     assert done["completion"]["completed_at"]
-    assert len(generated) == 3
-    following = send(command("next-question", done))["data"]
+    assert len(generated) == 4
+    assert done["practice"]["mastered"] == [0]
+    similar = send(command("similar-question", done))["data"]
+    assert similar["question"]["type_title"] == first["question"]["type_title"]
+    assert similar["question"]["problem"] == "判断学生与学号的对应是否为函数"
+    following = send(command("next-type", similar))["data"]
     assert following["question"]["problem"] == "说明函数与关系的区别"
     for key in ("task_id", "question", "plan"):
         assert following[key] != first[key]
+    assert following["question"]["type_title"] == PRACTICE_TYPES["types"][1]["title"]
+    assert following["practice"]["mastered"] == [0]
+    assert [question["question"] for question in following["previous_questions"]] == [
+        first["question"],
+        similar["question"],
+    ]
+    assert following["previous_questions"][0]["status"] == "completed"
+    assert following["previous_questions"][1]["actions"] == []
     assert send(start)["data"] == first
     assert client.get(url).json()["data"] == following
+    send(command("finish", following), 400)
+    final = send(command("next", following))["data"]
+    mastered = send(command("complete", final))["data"]
+    assert mastered["actions"] == ["finish"]
+    finish = command("finish", mastered)
+    finished = send(finish)["data"]
+    assert finished["actions"] == []
+    assert finished["practice"]["finished"]
+    assert len(finished["previous_questions"]) == 2
+    assert send(finish)["data"] == client.get(url).json()["data"] == finished
+    assert sum(operation == LessonOperation.PRACTICE_PLAN for operation, _ in generated) == 1
     authenticate(client, app, "other@example.com")
     assert client.get(url).status_code == 404
     send(command("next", following), 404)
@@ -91,6 +128,8 @@ def test_first_step_failure_leaves_no_plan(example_conversation, draft_data, mon
     url = f"/api/v1/learning/conversations/{conversation_id}/lesson/task"
 
     async def generate(self, operation, context):
+        if operation == LessonOperation.PRACTICE_PLAN:
+            return validate_model_output(operation, PRACTICE_TYPES)
         if operation == LessonOperation.PLAN:
             return validate_model_output(operation, draft_data)
         raise AppError("MODEL_OUTPUT_INVALID", "模型输出无效", 502)
@@ -116,24 +155,35 @@ def test_can_leave_a_multipart_question_without_completing_the_hidden_plan(
 ):
     _, client, conversation_id = example_conversation
     url = f"/api/v1/learning/conversations/{conversation_id}/lesson/task"
-    problems = iter(["给定函数 f。\n（1）求值。\n（2）求定义域。", "解释什么是反函数。"])
+    problems = iter(
+        [
+            "给定函数 f。\n（1）求值。\n（2）求定义域。",
+            "解释什么是反函数。",
+            "给定映射。\n（1）判断它是否为函数。\n（2）说明理由。",
+        ]
+    )
+    explained = []
 
     async def generate(self, operation, context):
+        if operation == LessonOperation.PRACTICE_PLAN:
+            return validate_model_output(operation, PRACTICE_TYPES)
         if operation == LessonOperation.PLAN:
             return validate_model_output(operation, draft_data | {"problem": next(problems)})
+        if operation == LessonOperation.EXPLAIN_SUBQUESTION:
+            explained.append(context["active_subquestion"])
         return validate_model_output(operation, {"title": "讲解", "content": "从定义出发。"})
 
     monkeypatch.setattr(LessonGenerator, "generate", generate)
     start = {"action": "start", "request_id": str(uuid4()), "expected_revision": 0}
     first = client.post(url, json=start).json()["data"]
     assert first["status"] != "completed"
-    assert "next-question" in first["actions"]
+    assert "next-type" in first["actions"]
 
-    def move_on(task):
+    def act(action, task):
         return client.post(
             url,
             json={
-                "action": "next-question",
+                "action": action,
                 "request_id": str(uuid4()),
                 "expected_revision": task["revision"],
                 "expected_task_id": task["task_id"],
@@ -142,12 +192,32 @@ def test_can_leave_a_multipart_question_without_completing_the_hidden_plan(
             },
         )
 
-    response = move_on(first)
+    response = act("next-type", first)
     assert response.status_code == 200
     following = response.json()["data"]
     assert following["question"]["problem"] == "解释什么是反函数。"
-    assert "next-question" not in following["actions"]
-    assert move_on(following).status_code == 400
+    assert following["practice"]["mastered"] == []
+    assert "next-type" in following["actions"]
+    assert act("finish", following).status_code == 400
+    historical = client.post(
+        url + "/subquestion",
+        json={
+            "expected_revision": following["revision"],
+            "question_revision": first["revision"],
+            "subquestion": 2,
+        },
+    )
+    assert historical.status_code == 200
+    assert explained == [{"number": 2, "text": "求定义域。"}]
+    assert client.get(url).json()["data"] == following
+    revisited = act("next-type", following).json()["data"]
+    assert revisited["practice"]["current"] == 0
+    result = act("master-type", revisited)
+    assert result.status_code == 200, result.json()
+    mastered = result.json()["data"]
+    assert mastered["status"] == "completed"
+    assert mastered["practice"]["mastered"] == [0]
+    assert "finish" not in mastered["actions"]
     assert client.post(url, json=start).json()["data"] == first
 
 
@@ -173,6 +243,8 @@ def test_explains_only_the_requested_subquestion_without_advancing_the_lesson(
     actual_generate = LessonGenerator.generate
 
     async def generate(self, operation, context):
+        if operation == LessonOperation.PRACTICE_PLAN:
+            return validate_model_output(operation, PRACTICE_TYPES)
         if operation == LessonOperation.PLAN:
             return validate_model_output(operation, draft_data)
         if operation == LessonOperation.NEXT:
@@ -214,6 +286,8 @@ def test_check_reply_is_saved_before_evaluation_and_support_keeps_step(
     draft_data["problem"] = "给定函数。\n（1）求定义域。\n（2）讨论单调性。"
 
     async def generate(self, operation, context):
+        if operation == LessonOperation.PRACTICE_PLAN:
+            return validate_model_output(operation, PRACTICE_TYPES)
         if operation == LessonOperation.PLAN:
             return validate_model_output(operation, draft_data)
         if operation == LessonOperation.NEXT:

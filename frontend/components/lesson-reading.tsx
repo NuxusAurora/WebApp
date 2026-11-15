@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math-extended';
@@ -20,34 +20,49 @@ export function LessonContent({ text, format }: { text: string; format?: Content
   </div>;
 }
 
-export function ProblemCard({ text, format, parts, active, onSelect, onReturn }: {
+export function ProblemCard({ text, format, parts, active, label = '题目', onSelect, onReturn, onExplain }: {
   text: string; format?: ContentFormat; parts?: LessonProblemParts;
-  active?: number; onSelect?: (number?: number) => void; onReturn?: () => void;
+  active?: number; label?: string; onSelect?: (number?: number) => void;
+  onReturn?: () => void; onExplain?: () => void;
 }) {
   const [open, setOpen] = useState(true);
+  const headingId = useId();
+  const bodyId = useId();
   const body = useRef<HTMLDivElement>(null);
-  const restoreFocus = useRef<number | undefined>(undefined);
+  const returnPart = useRef<number | undefined>(undefined);
   const visibleParts = active === undefined ? parts?.parts : parts?.parts.filter(part => part.number === active);
   useLayoutEffect(() => {
-    if (active !== undefined || restoreFocus.current === undefined) return;
-    body.current?.querySelector<HTMLButtonElement>(`[data-part="${restoreFocus.current}"]`)?.focus();
-    restoreFocus.current = undefined;
+    if (!open || active === undefined || !body.current) return;
+    const panel = body.current;
+    const part = panel.querySelector('[data-active="true"]');
+    if (!part) return;
+    const bottom = part.getBoundingClientRect().bottom - panel.getBoundingClientRect().bottom;
+    if (bottom > 0) panel.scrollTop += bottom;
+  }, [active, open]);
+  useLayoutEffect(() => {
+    if (active !== undefined || returnPart.current === undefined) return;
+    body.current?.querySelector<HTMLButtonElement>(`[data-part="${returnPart.current}"]`)?.focus();
+    returnPart.current = undefined;
   }, [active]);
-  return <section className="lesson-block lesson-problem-card" aria-labelledby="lesson-problem">
+  function clearPart() {
+    returnPart.current = active;
+    setOpen(true);
+    onSelect?.();
+  }
+  return <section className="lesson-block lesson-problem-card" aria-labelledby={headingId}>
     <div className="lesson-problem-header">
-      <h2 id="lesson-problem" tabIndex={-1}>{active === undefined ? '题目' : `第（${active}）问`}</h2>
+      <h2 id={headingId} data-problem-heading tabIndex={-1}>{active === undefined ? label : `第（${active}）问`}</h2>
       <div className="lesson-problem-controls">
         {onReturn ? <button type="button" className="text-button" onClick={onReturn}>返回题目</button> : null}
-        {active !== undefined ? <button type="button" className="text-button" onClick={() => {
-          restoreFocus.current = active;
-          setOpen(true);
-          onSelect?.();
-        }}>查看全部小题</button> : null}
-        <button type="button" className="text-button" aria-expanded={open} aria-controls="lesson-problem-text"
+        {onExplain ? <button type="button" className="text-button" data-detail-entry
+          onClick={onExplain}>开始讲解</button> : null}
+        {active !== undefined ? <button type="button" className="text-button"
+          onClick={clearPart}>查看全部小题</button> : null}
+        <button type="button" className="text-button" aria-expanded={open} aria-controls={bodyId}
           onClick={() => setOpen(!open)}>{open ? '收起题目' : '展开题目'}</button>
       </div>
     </div>
-    <div id="lesson-problem-text" ref={body} hidden={!open} tabIndex={0} role="region" aria-label="题面">
+    <div id={bodyId} ref={body} className="lesson-problem-text" hidden={!open} tabIndex={0} role="region" aria-label="题面">
       {parts && visibleParts?.length && onSelect ? <>
         {parts.statement ? <LessonContent text={parts.statement} format={format} /> : null}
         <div className="lesson-problem-parts">
@@ -59,7 +74,7 @@ export function ProblemCard({ text, format, parts, active, onSelect, onReturn }:
             }}>
             <button type="button" className="text-button lesson-part-number" data-part={part.number}
               aria-label={`第（${part.number}）问`} aria-pressed={part.number === active}
-              onClick={() => onSelect(part.number === active ? undefined : part.number)}>（{part.number}）</button>
+              onClick={part.number === active ? clearPart : () => onSelect(part.number)}>（{part.number}）</button>
             <LessonContent text={part.text} format={format} />
           </div>)}
         </div>

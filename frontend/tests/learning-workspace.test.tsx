@@ -56,7 +56,7 @@ it('keeps the lesson header to its title and searches the loaded outline without
   expect(screen.queryByRole('button', { name: '不打断模型提问' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   const question = screen.getByRole('button', { name: '不打断模型提问' });
-  expect(question.closest('footer')).toContainElement(screen.getByRole('button', { name: '开始下一题' }));
+  expect(question.closest('footer')).toContainElement(screen.getByRole('button', { name: '开始学习' }));
   expect(question).toHaveAttribute('aria-expanded', 'false');
   expect(api).not.toHaveBeenCalledWith('courses/course/curriculum', expect.anything());
   const selected = await screen.findByRole('link', { name: /行列式定义/ });
@@ -107,10 +107,14 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   const lessonPath = 'learning/conversations/' + secondId + '/lesson/task';
   const fallback = vi.mocked(api).getMockImplementation()!;
   const commands: string[] = [];
+  const practice = { types: [
+    { title: '定义判断', objective: '按定义判断' }, { title: '构造反例', objective: '识别反例' },
+  ], current: 0, mastered: [] as number[], finished: false };
   const firstQuestion: LessonTask = {
     revision: 1, status: 'final_step', actions: ['complete', 'hint'],
     question: { question_id: 'question-one', problem: '第一道题' },
     current_step: { step_id: 'step-one', index: 1, title: '第一步讲解', content: '第一道题的解法' },
+    practice,
   };
   let lesson: LessonTask = { revision: 0, status: 'not_started', actions: ['start'] };
   vi.mocked(api).mockImplementation(async (path, init) => {
@@ -119,10 +123,19 @@ it('opens an unnumbered question as a detail and returns to the question on relo
     const command = JSON.parse(String(init.body)).action;
     commands.push(command);
     if (command === 'start') lesson = firstQuestion;
-    else if (command === 'complete') lesson = { ...lesson, revision: 2, status: 'completed', actions: ['next-question'] };
-    else if (command === 'next-question') lesson = { ...firstQuestion, revision: 3,
+    else if (command === 'complete') {
+      const last = lesson.practice?.current === 1;
+      lesson = { ...lesson, revision: lesson.revision + 1, status: 'completed',
+        actions: last ? ['finish'] : ['similar-question', 'next-type'],
+        practice: { ...practice, current: last ? 1 : 0, mastered: last ? [0, 1] : [0] } };
+    }
+    else if (command === 'next-type') lesson = { ...firstQuestion, revision: 3,
+      previous_questions: [{ ...lesson, actions: [] }],
+      practice: { ...practice, current: 1, mastered: [0] },
       question: { question_id: 'question-two', problem: '第二道题' },
       current_step: { step_id: 'step-two', index: 1, title: '第二题讲解', content: '第二道题的解法' } };
+    else if (command === 'finish') lesson = { ...lesson, revision: 5, actions: [],
+      practice: { ...lesson.practice!, finished: true } };
     return lesson;
   });
 
@@ -142,11 +155,24 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByText('第一道题的解法')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '我理解了，完成本题' }));
-  fireEvent.click(await screen.findByRole('button', { name: '开始下一题' }));
+  expect(await screen.findByRole('button', { name: '相似题目' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '下一个类型题目' }));
   expect(await screen.findByText('第二道题')).toBeVisible();
+  expect(screen.getByText('第一道题')).toBeVisible();
   expect(screen.queryByText('第二道题的解法')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '开始讲解' })).toBeVisible();
-  expect(commands).toEqual(['start', 'complete', 'next-question']);
+  const conversation = screen.getByRole('region', { name: '练习对话' });
+  expect(within(conversation).getAllByRole('button', { name: '开始讲解' })).toHaveLength(2);
+  expect(screen.queryByRole('button', { name: '完结' })).not.toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('region', { name: '题目 1' })).getByRole('button', { name: '开始讲解' }));
+  expect(screen.getByText('第一道题的解法')).toBeVisible();
+  expect(screen.queryByRole('button', { name: '我理解了，完成本题' })).not.toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('region', { name: '题目 2' })).getByRole('button', { name: '开始讲解' }));
+  expect(screen.getByText('第二道题的解法').closest('.lesson-problem-dock')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '我理解了，完成本题' }));
+  fireEvent.click(await screen.findByRole('button', { name: '完结' }));
+  expect(await screen.findByText('知识点已完结')).toBeVisible();
+  expect(screen.getByText('第一道题')).toBeVisible();
+  expect(commands).toEqual(['start', 'complete', 'next-type', 'complete', 'finish']);
 });
 
 it('keeps explanations inside the selected subquestion even when whole-question progress exists', async () => {
@@ -155,7 +181,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   const fallback = vi.mocked(api).getMockImplementation()!;
   const selectedRequests: object[] = [];
   const lesson: LessonTask = {
-    revision: 7, status: 'teaching', actions: ['next', 'next-question', 'hint'],
+    revision: 7, status: 'teaching', actions: ['next', 'similar-question', 'next-type', 'hint'],
     question: { question_id: 'multi-part', problem: '一道三问的题目' },
     problem_parts: { statement: '共用题干', parts: [
       { number: 1, text: '第一小题' }, { number: 2, text: '第二小题' }, { number: 3, text: '第三小题' },
@@ -179,8 +205,10 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(screen.queryByText('旧的整题提示')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '开始讲解' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '不打断模型提问' })).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '开始下一题' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: '相似题目' })).toBeEnabled();
+  expect(third.closest('.lesson-problem-dock')).toBeNull();
   fireEvent.click(third);
+  expect(screen.getByRole('button', { name: '查看全部小题' }).closest('.lesson-problem-dock')).not.toBeNull();
   expect(screen.queryByText('第二小题')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('模型暂不可用');

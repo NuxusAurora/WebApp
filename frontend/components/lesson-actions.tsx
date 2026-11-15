@@ -6,7 +6,8 @@ import { LessonContent } from './lesson-reading';
 
 export const actionLabels: Record<LessonCommand, string> = {
   start: '开始学习', next: '我理解了，下一步', complete: '我理解了，完成本题',
-  'next-question': '开始下一题', hint: '给我提示', rephrase: '换一种方式',
+  'similar-question': '相似题目', 'next-type': '下一个类型题目', 'master-type': '掌握本题型', finish: '完结',
+  hint: '给我提示', rephrase: '换一种方式',
   'check-question': '验证一下', 'check-answer': '提交回答', 'evaluate-check': '重新评价',
 };
 
@@ -64,7 +65,25 @@ export function LessonActions({ task, primary, busy, disabled, run }: {
       <div className="lesson-secondary-actions">{buttons}</div>
       <details className="lesson-actions-menu"><summary>更多操作</summary><div>{buttons}</div></details>
     </> : null}
-    <button type="button" className="button primary lesson-primary-action" disabled={disabled || !task.actions.includes(primary)}
-      onClick={() => run(primary)}>{task.status === 'legacy' ? '开始下一题' : actionLabels[primary]}</button>
+    {task.actions.includes(primary) ? <button type="button" className="button primary lesson-primary-action"
+      disabled={disabled} onClick={() => run(primary)}>{actionLabels[primary]}</button> : null}
+  </>;
+}
+
+export function PracticeActions({ task, disabled, allowMastery, run }: {
+  task: LessonTask; disabled: boolean; allowMastery: boolean; run: (action: LessonCommand) => void;
+}) {
+  if (task.actions.includes('finish')) return <button type="button" className="button primary lesson-primary-action"
+    disabled={disabled} onClick={() => run('finish')}>{actionLabels.finish}</button>;
+  if (!task.actions.includes('similar-question')) return null;
+  return <>
+    {allowMastery && task.actions.includes('master-type') ? <button type="button" className="button secondary"
+      disabled={disabled} onClick={() => run('master-type')}>{actionLabels['master-type']}</button> : null}
+    <div className="lesson-practice-actions">
+      <button type="button" className="button secondary" disabled={disabled}
+        onClick={() => run('similar-question')}>{actionLabels['similar-question']}</button>
+      <button type="button" className="button primary" disabled={disabled || !task.actions.includes('next-type')}
+        onClick={() => run('next-type')}>{actionLabels['next-type']}</button>
+    </div>
   </>;
 }

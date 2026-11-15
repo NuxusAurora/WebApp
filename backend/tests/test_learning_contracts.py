@@ -17,6 +17,13 @@ from app.learning.contracts import (
     validate_model_output,
 )
 
+PRACTICE_TYPES = {
+    "types": [
+        {"title": "判断对应关系", "objective": "从定义判断是否为函数"},
+        {"title": "区分函数与关系", "objective": "用反例说明区别"},
+    ]
+}
+
 
 @pytest.fixture
 def draft_data():

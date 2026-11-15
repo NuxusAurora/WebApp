@@ -18,6 +18,21 @@ class LessonContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
 
+class PracticeType(LessonContract):
+    title: Title
+    objective: ShortText
+
+
+class PracticePlan(LessonContract):
+    types: Annotated[tuple[PracticeType, ...], Field(min_length=1, max_length=6)]
+
+    @model_validator(mode="after")
+    def validate_distinct_titles(self) -> Self:
+        if len({item.title.strip().casefold() for item in self.types}) != len(self.types):
+            raise ValueError("Practice type titles must be distinct")
+        return self
+
+
 class Step(LessonContract):
     index: PositiveIndex
     objective: ShortText
@@ -87,6 +102,7 @@ class CompletionOutput(LessonContract):
 
 
 class LessonOperation(StrEnum):
+    PRACTICE_PLAN = "practice_plan"
     PLAN = "plan"
     START = "start"
     NEXT = "next"
@@ -101,6 +117,7 @@ class LessonOperation(StrEnum):
 
 
 _OUTPUTS = {
+    LessonOperation.PRACTICE_PLAN: PracticePlan,
     LessonOperation.PLAN: LessonPlanDraft,
     LessonOperation.START: NewQuestionOutput,
     LessonOperation.NEXT: StepOutput,

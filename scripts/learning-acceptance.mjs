@@ -114,9 +114,17 @@ export async function learningAcceptance(ctx, frontend) {
   assert.deepEqual(data(await send(task, 'POST', pair[0].status === 200 ? advancing : competing)), state);
   await act('complete');
   assert.ok(state.completion.completed_at);
-  await act('next-question');
+  assert.deepEqual(state.practice.mastered, [0]);
+  await act('next-type');
   assert.notEqual(state.question.question_id, first.question.question_id);
   assert.notEqual(state.question.problem, first.question.problem);
+  assert.notEqual(state.question.type_title, first.question.type_title);
+  assert.equal(state.previous_questions[0].question.question_id, first.question.question_id);
+  await act('next');
+  await act('complete');
+  assert.deepEqual(state.actions, ['finish']);
+  await act('finish');
+  assert.equal(state.practice.finished, true);
   const current = state;
   ctx.compose('restart', 'backend');
   for (let i = 0; i < 30; i++) {

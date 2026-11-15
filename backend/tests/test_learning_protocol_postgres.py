@@ -12,6 +12,7 @@ from app.learning.lesson_generation import LessonGenerator
 from app.learning.models import LearningLessonPlan
 from tests import test_phase1
 from tests.test_knowledge import apply, draft, setup
+from tests.test_learning_contracts import PRACTICE_TYPES
 from tests.test_learning_contracts import draft_data as draft_data
 
 
@@ -33,6 +34,8 @@ def test_two_concurrent_starts_publish_one_plan(configured, tmp_path, draft_data
 
         async def generate(self, operation, context):
             nonlocal arrived
+            if operation == LessonOperation.PRACTICE_PLAN:
+                return validate_model_output(operation, PRACTICE_TYPES)
             if operation == LessonOperation.PLAN:
                 arrived += 1
                 if arrived == 2:

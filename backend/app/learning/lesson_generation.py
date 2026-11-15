@@ -12,6 +12,7 @@ from app.learning.contracts import LessonOperation, model_output_schema, validat
 
 PROMPT_DIRECTORY = Path(__file__).resolve().parents[2] / "prompts" / "learning"
 PROMPTS = {
+    LessonOperation.PRACTICE_PLAN: "practice-plan-v1",
     LessonOperation.PLAN: "plan-v1",
     LessonOperation.NEXT: "step-v1",
     LessonOperation.EXPLAIN_SUBQUESTION: "explain-subquestion-v1",
@@ -65,7 +66,7 @@ class LessonGenerator:
         except ValidationError, ValueError:
             code = (
                 "PLAN_VALIDATION_FAILED"
-                if operation == LessonOperation.PLAN
+                if operation in {LessonOperation.PRACTICE_PLAN, LessonOperation.PLAN}
                 else "MODEL_OUTPUT_INVALID"
             )
             raise AppError(code, "教学内容未通过校验，请重试", 502) from None

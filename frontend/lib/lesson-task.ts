@@ -9,7 +9,8 @@ export type PublishedStep = {
   takeaway?: string; is_final_step?: boolean; format?: ContentFormat;
 };
 
-export type LessonCommand = 'start' | 'next' | 'complete' | 'next-question' | 'hint' | 'rephrase'
+export type LessonCommand = 'start' | 'next' | 'complete' | 'similar-question' | 'next-type'
+  | 'master-type' | 'finish' | 'hint' | 'rephrase'
   | 'check-question' | 'check-answer' | 'evaluate-check';
 
 export type LessonCheck = {
@@ -26,7 +27,7 @@ export type LessonTask = {
   actions: LessonCommand[];
   legacy?: LessonProgress | null;
   task_id?: string;
-  question?: { question_id: string; problem: string; format?: ContentFormat };
+  question?: { question_id: string; problem: string; format?: ContentFormat; type_title?: string | null };
   problem_parts?: LessonProblemParts;
   plan?: { plan_id: string; plan_version: number; learning_objective: string; total_steps: number };
   current_step?: PublishedStep;
@@ -34,14 +35,17 @@ export type LessonTask = {
   support?: { hints?: { level: number; text: string }[]; rephrase?: string } | null;
   check?: LessonCheck | null;
   completion?: { completed_at: string } | null;
+  practice?: { types: { title: string; objective: string }[]; current: number; mastered: number[]; finished: boolean } | null;
+  previous_questions?: LessonTask[];
 };
 
 const path = (id: string) => `learning/conversations/${id}/lesson/task`;
 export const readLessonTask = (id: string, signal: AbortSignal) => api<LessonTask>(path(id), { signal });
 
-export function requestSubquestionExplanation(id: string, revision: number, number: number, signal: AbortSignal) {
+export function requestSubquestionExplanation(id: string, revision: number, number: number, signal: AbortSignal,
+  questionRevision?: number) {
   return api<SubquestionExplanation>(path(id) + '/subquestion', { method: 'POST', signal,
-    body: JSON.stringify({ expected_revision: revision, subquestion: number }),
+    body: JSON.stringify({ expected_revision: revision, subquestion: number, question_revision: questionRevision }),
   });
 }
 

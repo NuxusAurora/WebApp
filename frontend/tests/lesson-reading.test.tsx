@@ -45,7 +45,7 @@ it('can collapse and reopen even a short problem', () => {
   expect(button).toHaveAttribute('aria-expanded', 'true');
   fireEvent.click(button);
   expect(button).toHaveAccessibleName('展开题目');
-  expect(document.getElementById('lesson-problem-text')).not.toBeVisible();
+  expect(document.getElementById(button.getAttribute('aria-controls')!)).not.toBeVisible();
   fireEvent.click(button);
   expect(screen.getByText('短题面')).toBeVisible();
 });

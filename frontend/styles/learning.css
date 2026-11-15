@@ -64,19 +64,18 @@
   padding-inline: clamp(var(--space-8), 4vw, var(--space-12));
 }
 .lesson-problem-dock { padding-block-start: var(--space-6); }
-.lesson-reading-pane[data-overview="true"] .lesson-problem-dock {
-  display: grid; grid-template-rows: minmax(0, 1fr); flex: 1; min-block-size: 0;
-}
-.lesson-reading-pane[data-overview="true"] .lesson-problem-card { align-self: start; max-block-size: 100%; }
 .lesson-content {
-  flex: 1;
+  flex: 1; container-type: size;
   min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges;
   padding-block: var(--space-8) var(--space-6);
 }
 .lesson-problem-dock + .lesson-content { padding-block-start: var(--space-4); }
 .lesson-content:focus-visible { outline-offset: -2px; }
 .lesson-body, .lesson-problem-card, .lesson-footer > * { width: 100%; max-width: var(--container-standard); margin-inline: auto; }
-.lesson-body { display: grid; gap: 24px; }
+.lesson-body, .lesson-question { display: grid; gap: 24px; min-width: 0; }
+.lesson-question { scroll-margin-block-start: var(--space-4); }
+.lesson-question:last-child:not(:empty) { min-block-size: 100cqh; align-content: start; }
+.lesson-question:empty { margin-block-end: -24px; }
 .lesson-block { display: grid; gap: 8px; }
 .lesson-block h2, .lesson-check label { margin: 0; font-size: 16px; font-weight: var(--weight-emphasis); }
 .lesson-workspace .lesson-block p { margin: 0; line-height: 1.75; white-space: pre-wrap; }
@@ -84,9 +83,10 @@
 .lesson-problem-card {
   padding: var(--space-4); background: var(--surface-secondary); color: light-dark(#345f29, #bde7a4);
   border: 1px solid var(--line-soft); border-radius: var(--radius-card);
-  gap: 0; grid-template-rows: auto minmax(0, 1fr); max-block-size: min(44dvh, 28rem);
+  gap: 0; grid-template-rows: auto minmax(0, 1fr);
 }
-.lesson-problem-card #lesson-problem-text { overflow: auto; overscroll-behavior: contain; min-height: 0; }
+.lesson-problem-dock .lesson-problem-card { max-block-size: min(40dvh, 28rem); }
+.lesson-problem-dock .lesson-problem-text { overflow: auto; overscroll-behavior: contain; min-height: 0; }
 .lesson-problem-card :is(h1, h2, h3) { color: inherit; }
 .lesson-problem-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .lesson-problem-controls { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); }
@@ -134,6 +134,10 @@
 .lesson-footer > p { margin: 0 auto; }
 .lesson-footer > button, .lesson-check button { justify-self: start; width: auto; }
 .lesson-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.lesson-practice-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }
+.lesson-practice-status { font-size: var(--font-caption); }
+.lesson-practice-status summary { cursor: pointer; }
+.lesson-practice-status ol { margin-block: var(--space-2); padding-inline-start: var(--space-6); }
 .lesson-primary-action { margin-inline-start: auto; }
 .lesson-ask-action { margin-inline-start: auto; }
 .lesson-secondary-actions, .lesson-actions-menu > div { display: flex; flex-wrap: wrap; gap: var(--space-2); }

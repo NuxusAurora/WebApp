@@ -13,8 +13,8 @@ from app.courses import owned_by_id
 from app.errors import AppError
 from app.learning.context import conversation_context, learning_material
 from app.learning.contracts import LessonOperation
-from app.learning.lesson_snapshots import snapshot
-from app.learning.lesson_state import current_lesson, lesson_query
+from app.learning.lesson_snapshots import conversation_snapshot, snapshot
+from app.learning.lesson_state import current_lesson, earlier_questions, lesson_query
 from app.learning.lesson_support import apply_support, require_input
 from app.learning.models import (
     DEFAULT_TEACHING_THREAD_ID,
@@ -23,6 +23,7 @@ from app.learning.models import (
     LearningTurn,
 )
 from app.learning.plans import PlanSourceChanged, insert_plan, read_plan
+from app.learning.practice import QUESTION_ACTIONS, mark_mastered, next_type
 from app.learning.problem_parts import require_subquestion, selected_subquestion, split_problem
 
 
@@ -32,6 +33,10 @@ class LessonCommand(Input):
         "next",
         "complete",
         "next-question",
+        "similar-question",
+        "next-type",
+        "master-type",
+        "finish",
         "hint",
         "rephrase",
         "check-question",
@@ -58,12 +63,12 @@ class LessonCommand(Input):
         return result
 
 
-CORE_ACTIONS = {"start", "next", "complete", "next-question"}
 SCOPED_ACTIONS = {"next", "hint", "rephrase", "check-question"}
 
 
 class SubquestionRequest(Input):
     expected_revision: int = Field(ge=1, strict=True)
+    question_revision: int | None = Field(default=None, ge=1, strict=True)
     subquestion: int = Field(ge=1, le=99, strict=True)
 
 
@@ -87,7 +92,11 @@ def require(conversation_id, latest, command):
         )
     if expected != identity or command.expected_revision != (latest.revision if latest else 0):
         raise conflict(conversation_id, latest)
-    if command.action not in snapshot(conversation_id, latest)["actions"]:
+    actions = snapshot(conversation_id, latest)["actions"]
+    allowed = command.action in actions or (
+        command.action == "next-question" and "similar-question" in actions
+    )
+    if not allowed:
         raise AppError("INVALID_TRANSITION", "当前教学状态无法执行此操作")
     if command.subquestion is not None and command.action not in SCOPED_ACTIONS:
         raise AppError("INVALID_TRANSITION", "当前操作无需选择小题")
@@ -145,27 +154,43 @@ async def render(generator, material, draft, index, history, subquestion=None):
     }
 
 
-async def candidate(generator, action, material, previous, plan, subquestion=None):
-    if action == "complete":
-        return None, None
-    if action == "next":
-        steps = previous["steps"]
-        return None, await render(
-            generator, material, plan, steps[-1]["index"] + 1, steps, subquestion
+async def new_question(generator, action, material, practice, first_problem, previous_problems):
+    if practice is None:
+        design = await generator.generate(
+            LessonOperation.PRACTICE_PLAN, {"material": material, "first_problem": first_problem}
         )
-    old_problem = previous.get("problem")
+        practice = {
+            **design.model_dump(mode="json"),
+            "current": 0,
+            "mastered": [],
+            "finished": False,
+        }
+    if action in {"next-type", "next-question"}:
+        index = next_type(practice)
+        if index is not None:
+            practice = {**practice, "current": index}
+        elif action == "next-type" and first_problem is None:
+            raise AppError("INVALID_TRANSITION", "没有其他待掌握的题型")
+
+    context = {
+        "material": material,
+        "practice_type": practice["types"][practice["current"]],
+        "previous_problems": previous_problems[-6:],
+    }
+    used = {comparable_problem(problem) for problem in previous_problems}
     for _ in range(2):
-        draft = await generator.generate(
-            LessonOperation.PLAN, {"material": material, "previous_problem": old_problem}
-        )
-        if not old_problem or comparable_problem(draft.problem) != comparable_problem(old_problem):
-            return draft, await render(generator, material, draft, 1, [])
-    raise AppError("PLAN_VALIDATION_FAILED", "新题与上一题太相似，请重试", 502)
+        draft = await generator.generate(LessonOperation.PLAN, context)
+        if comparable_problem(draft.problem) not in used:
+            return practice, draft, await render(generator, material, draft, 1, [])
+        context["repair"] = "请改用新的题境、表达或已知条件，避免重复已有题目。"
+    raise AppError("PLAN_VALIDATION_FAILED", "新题与已保存题目重复，请重试", 502)
 
 
 async def read_snapshot(db, conversation_id, actor_id):
     await conversation_context(db, conversation_id, actor_id)
-    return snapshot(conversation_id, await current_lesson(db, conversation_id))
+    return await conversation_snapshot(
+        db, conversation_id, await current_lesson(db, conversation_id)
+    )
 
 
 async def explain_subquestion(db, conversation_id, actor_id, body, generator):
@@ -173,7 +198,18 @@ async def explain_subquestion(db, conversation_id, actor_id, body, generator):
     latest = await current_lesson(db, conversation_id)
     if latest is None or latest.revision != body.expected_revision:
         raise conflict(conversation_id, latest)
-    parts = split_problem(latest.state.get("problem") or "")
+    selected = latest
+    if body.question_revision is not None and body.question_revision != latest.revision:
+        if body.question_revision > latest.revision:
+            raise conflict(conversation_id, latest)
+        selected = await db.scalar(
+            lesson_query(conversation_id).where(
+                LearningLessonRevision.revision == body.question_revision
+            )
+        )
+        if selected is None:
+            raise conflict(conversation_id, latest)
+    parts = split_problem(selected.state.get("problem") or "")
     part = require_subquestion(parts, body.subquestion)
     point_version = point.content_version_id
     material = learning_material(course, section, point)
@@ -197,11 +233,21 @@ async def execute(db, conversation_id, actor_id, command, generator):
     course, section, point = await conversation_context(db, conversation_id, actor_id)
     latest = await current_lesson(db, conversation_id)
     if saved := await replay(db, conversation_id, latest, command):
-        return snapshot(conversation_id, saved)
+        return await conversation_snapshot(db, conversation_id, saved)
     require(conversation_id, latest, command)
 
     course_id, point_id, version = course.id, point.id, point.content_version_id
     previous = latest.state if latest else {}
+    practice = previous.get("practice")
+    first_problem = previous.get("problem")
+    previous_problems = []
+    if command.action in QUESTION_ACTIONS and latest is not None:
+        history = await earlier_questions(db, conversation_id, latest.revision)
+        previous_problems = [
+            entry.state["problem"] for entry in history if entry.state.get("problem")
+        ]
+        if first_problem:
+            previous_problems.append(first_problem)
     subquestion = selected_subquestion(previous.get("problem") or "", command.subquestion)
     plan_id = latest.plan_id if latest else None
     plan = None
@@ -209,9 +255,19 @@ async def execute(db, conversation_id, actor_id, command, generator):
         source = await db.get(LearningLessonPlan, plan_id)
         if source is None or source.conversation_id != conversation_id:
             raise AppError("TASK_NOT_FOUND", "教学计划不存在", 404)
-        if command.action != "next-question" and source.content_version_id != version:
-            raise conflict(conversation_id, latest)
-        if command.action == "next" or command.action not in CORE_ACTIONS:
+        if source.content_version_id != version:
+            if command.action not in QUESTION_ACTIONS and command.action != "finish":
+                raise conflict(conversation_id, latest)
+            if command.action in QUESTION_ACTIONS:
+                practice = None
+        if command.action in {
+            "next",
+            "hint",
+            "rephrase",
+            "check-question",
+            "check-answer",
+            "evaluate-check",
+        }:
             plan = await read_plan(db, conversation_id=conversation_id, plan_id=plan_id)
             if plan is None or (
                 command.action == "next" and len(plan.steps) <= previous["steps"][-1]["index"]
@@ -241,11 +297,14 @@ async def execute(db, conversation_id, actor_id, command, generator):
 
     support_changes = None
     draft = step = None
-    if command.action in CORE_ACTIONS:
-        draft, step = await candidate(
-            generator, command.action, material, previous, plan, subquestion
+    if command.action in QUESTION_ACTIONS:
+        practice, draft, step = await new_question(
+            generator, command.action, material, practice, first_problem, previous_problems
         )
-    else:
+    elif command.action == "next":
+        steps = previous["steps"]
+        step = await render(generator, material, plan, steps[-1]["index"] + 1, steps, subquestion)
+    elif command.action not in {"complete", "master-type", "finish"}:
         support_changes = await apply_support(
             generator, command, previous, plan, material, subquestion
         )
@@ -254,7 +313,7 @@ async def execute(db, conversation_id, actor_id, command, generator):
         _, _, point = await conversation_context(db, conversation_id, actor_id)
         latest = await current_lesson(db, conversation_id)
         if saved := await replay(db, conversation_id, latest, command):
-            return snapshot(conversation_id, saved)
+            return await conversation_snapshot(db, conversation_id, saved)
         require(conversation_id, latest, command)
         if point.content_version_id != version:
             raise conflict(conversation_id, latest)
@@ -278,18 +337,23 @@ async def execute(db, conversation_id, actor_id, command, generator):
                     "total_steps": len(plan.steps),
                 },
                 "steps": [step],
+                "practice": practice,
                 "created_at": plan.created_at.isoformat(),
             }
         else:
             state = dict(previous)
             if support_changes is not None:
                 state.update(support_changes)
-            elif command.action == "complete":
+            elif command.action in {"complete", "master-type"}:
                 state["completion"] = {"completed_at": datetime.now(UTC).isoformat()}
+                if practice:
+                    state["practice"] = mark_mastered(practice)
+            elif command.action == "finish":
+                state["practice"] = {**practice, "finished": True}
             else:
                 state["steps"] = [*state["steps"], step]
                 state["support"] = state["check"] = None
-        if command.action == "complete":
+        if command.action in {"complete", "master-type"}:
             state["status"] = "completed"
         elif step is not None:
             state["status"] = "final_step" if step["is_final_step"] else "teaching"
@@ -305,7 +369,8 @@ async def execute(db, conversation_id, actor_id, command, generator):
             state=state,
         )
         db.add(row)
-        result = snapshot(conversation_id, row)
+        await db.flush()
+        result = await conversation_snapshot(db, conversation_id, row)
         await db.commit()
         return result
     except PlanSourceChanged:

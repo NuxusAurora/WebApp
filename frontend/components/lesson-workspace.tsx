@@ -5,10 +5,12 @@ import { ApiError } from '../lib/api';
 import { readLessonTask, requestSubquestionExplanation, runLessonCommand,
   type LessonCommand, type LessonTask, type SubquestionExplanation } from '../lib/lesson-task';
 import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
-import { actionLabels, LessonActions, LessonSupport, UnderstandingCheck } from './lesson-actions';
+import { actionLabels, LessonActions, LessonSupport, PracticeActions, UnderstandingCheck } from './lesson-actions';
 import { TeachingChat, teachingChatLabel } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
+const questionActions: LessonCommand[] = ['start', 'similar-question', 'next-type'];
+const questionKey = (task: LessonTask) => task.question?.question_id ?? 'legacy:' + task.revision;
 
 // Generated lessons can already contain step labels. Keep the server's index as the visible label.
 function withoutStepLabels(text: string) {
@@ -29,33 +31,33 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const [stale, setStale] = useState(false);
   const [questions, setQuestions] = useState<boolean | null>(null);
   const [selection, setSelection] = useState<{ questionId: string; part: number | 'single' } | null>(null);
-  const [explanations, setExplanations] = useState<{
-    questionId: string; byNumber: Partial<Record<number, SubquestionExplanation>>;
-  } | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, Partial<Record<number, SubquestionExplanation>>>>({});
   const [explainingSubquestion, setExplainingSubquestion] = useState(false);
   const [subquestionError, setSubquestionError] = useState('');
   const request = useRef<AbortController | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const launch = useRef<HTMLButtonElement>(null);
-  const detailEntry = useRef<HTMLButtonElement>(null);
   const problemDock = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const focusDestination = useRef<'problem' | 'step' | 'entry' | null>(null);
+  const focusDestination = useRef<{
+    questionId: string; selector: string; showQuestion?: boolean; scrollOnly?: boolean;
+  } | 'step' | 'dock' | null>(null);
   const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
 
-  const legacy = progress?.legacy;
-  const step = progress?.current_step ?? legacy?.step;
-  const problem = progress?.question?.problem ?? legacy?.problem;
-  const complete = progress?.status === 'completed' || legacy?.complete;
-  const questionId = progress?.question?.question_id ?? 'legacy';
-  const scopedQuestionId = progress?.question?.question_id ?? 'legacy:' + progress?.revision;
-  const selectedPart = selection?.questionId === scopedQuestionId ? selection.part : undefined;
-  const insideDetail = Boolean(problem) && selectedPart !== undefined;
-  const singleDetail = insideDetail && selectedPart === 'single';
+  const timeline = progress ? [...(progress.previous_questions ?? []), progress]
+    .filter(task => task.question?.problem || task.legacy?.problem) : [];
+  const selectedQuestion = selection && timeline.find(task => questionKey(task) === selection.questionId);
+  const selectedPart = selectedQuestion ? selection?.part : undefined;
+  const currentDetail = Boolean(selectedQuestion && selectedQuestion === progress);
+  const singleDetail = selectedPart === 'single';
+  const legacy = selectedQuestion?.legacy;
+  const step = selectedQuestion?.current_step ?? legacy?.step;
+  const complete = selectedQuestion?.status === 'completed' || legacy?.complete;
   const activeSubquestion = typeof selectedPart === 'number' ? selectedPart : undefined;
-  const focusedExplanation = activeSubquestion !== undefined && explanations?.questionId === scopedQuestionId
-    ? explanations.byNumber[activeSubquestion] : undefined;
-  const questionsOpen = insideDetail && Boolean(questions);
+  const focusedExplanation = selection && activeSubquestion !== undefined
+    ? explanations[selection.questionId]?.[activeSubquestion] : undefined;
+  const pinProblem = Boolean(selectedQuestion && activeSubquestion !== undefined);
+  const questionsOpen = currentDetail && Boolean(questions);
 
   useEffect(() => {
     onQuestionsChange(questionsOpen);
@@ -78,6 +80,11 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     try {
       const result = await readLessonTask(conversationId, task.signal);
       if (task.signal.aborted) return;
+      if (result.previous_questions?.length) {
+        focusDestination.current = {
+          questionId: questionKey(result), selector: '[data-problem-heading]', showQuestion: true, scrollOnly: true,
+        };
+      }
       setProgress(result);
       setStale(false);
     } catch (cause) {
@@ -103,11 +110,18 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     const panel = content.current;
     const destination = focusDestination.current;
     if (destination) {
-      const stepHeading = destination === 'step' ? panel?.querySelector<HTMLElement>('#lesson-step') : null;
-      const target = destination === 'entry' ? detailEntry.current :
-        stepHeading ?? problemDock.current?.querySelector<HTMLElement>('#lesson-problem');
-      target?.focus({ preventScroll: true });
-      stepHeading?.scrollIntoView?.({ block: 'start' });
+      const slot = Array.from(panel?.querySelectorAll<HTMLElement>('[data-lesson-question]') ?? [])
+        .find(node => node.dataset.lessonQuestion === (typeof destination === 'string'
+          ? selection?.questionId : destination.questionId));
+      const target = destination === 'step' ? slot?.querySelector<HTMLElement>('#lesson-step') :
+        destination === 'dock' ? problemDock.current?.querySelector<HTMLElement>('[data-problem-heading]') :
+          slot?.querySelector<HTMLElement>(destination.selector);
+      if (destination === 'dock' || (typeof destination !== 'string' && destination.showQuestion)) {
+        slot?.scrollIntoView?.({ block: 'start' });
+      } else {
+        target?.scrollIntoView?.({ block: 'nearest' });
+      }
+      if (typeof destination === 'string' || !destination.scrollOnly) target?.focus({ preventScroll: true });
       focusDestination.current = null;
     } else if (panel?.clientHeight && readingAnchor.current) {
       const { node, top } = readingAnchor.current;
@@ -116,7 +130,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         : top;
     }
     readingAnchor.current = null;
-  }, [progress, questionsOpen, selectedPart, focusedExplanation]);
+  }, [progress, questionsOpen, selection, focusedExplanation]);
 
   async function act(action: LessonCommand, fields?: { check_id: string; answer?: string }) {
     if (!progress?.actions.includes(action) || request.current || stale) return;
@@ -136,9 +150,11 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         });
         if (task.signal.aborted) return;
       }
-      if (action === 'start' || action === 'next-question') {
+      if (questionActions.includes(action) || action === 'finish' || action === 'master-type') {
         leaveDetail();
-        focusDestination.current = 'problem';
+        focusDestination.current = {
+          questionId: questionKey(result), selector: '[data-problem-heading]', showQuestion: true,
+        };
       } else if (action === 'next') {
         focusDestination.current = 'step';
       }
@@ -187,33 +203,41 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     setQuestions(previous => previous === null ? null : false);
   }
 
-  function openSingleDetail() {
+  function openSingleDetail(task: LessonTask) {
+    cancelSubquestion();
+    setQuestions(previous => previous === null ? null : false);
     focusDestination.current = 'step';
-    setSelection({ questionId: scopedQuestionId, part: 'single' });
+    setSelection({ questionId: questionKey(task), part: 'single' });
   }
 
-  function returnFromSingleDetail() {
-    focusDestination.current = 'entry';
+  function returnFromSingleDetail(task: LessonTask) {
+    focusDestination.current = { questionId: questionKey(task), selector: '[data-detail-entry]' };
     leaveDetail();
   }
 
-  function selectSubquestion(number?: number) {
+  function cancelSubquestion() {
     if (explainingSubquestion) {
       request.current?.abort();
       request.current = null;
       setExplainingSubquestion(false);
     }
     setSubquestionError('');
+  }
+
+  function selectSubquestion(task: LessonTask, number?: number) {
+    cancelSubquestion();
     if (number === undefined) {
+      focusDestination.current = { questionId: questionKey(task), selector: `[data-part="${activeSubquestion}"]` };
       leaveDetail();
     } else {
-      focusDestination.current = 'step';
-      setSelection({ questionId: scopedQuestionId, part: number });
+      setQuestions(previous => previous === null ? null : false);
+      focusDestination.current = 'dock';
+      setSelection({ questionId: questionKey(task), part: number });
     }
   }
 
   async function explainSelection() {
-    if (!progress || activeSubquestion === undefined || request.current || stale) return;
+    if (!progress || !selectedQuestion || !selection || activeSubquestion === undefined || request.current || stale) return;
     const task = new AbortController();
     request.current = task;
     setSubquestionError('');
@@ -221,13 +245,14 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     try {
       const result = await requestSubquestionExplanation(
         conversationId, progress.revision, activeSubquestion, task.signal,
+        currentDetail ? undefined : selectedQuestion.revision,
       );
       if (task.signal.aborted) return;
       focusDestination.current = 'step';
       setExplanations(previous => ({
-        questionId: scopedQuestionId,
-        byNumber: {
-          ...(previous?.questionId === scopedQuestionId ? previous.byNumber : {}),
+        ...previous,
+        [selection.questionId]: {
+          ...previous[selection.questionId],
           [result.number]: result,
         },
       }));
@@ -247,14 +272,16 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   }
 
   const primary: LessonCommand = progress?.status === 'final_step' ? 'complete' :
-    progress?.status === 'completed' ? 'next-question' : progress?.status === 'teaching' ? 'next' : 'start';
+    progress?.status === 'teaching' ? 'next' : 'start';
   const blocked = Boolean(busy) || explainingSubquestion || stale;
   const checkError = failedAction === 'check-answer' || failedAction === 'evaluate-check';
   const localAction = failedAction === 'hint' || failedAction === 'rephrase' || failedAction === 'check-question';
-  const overviewAction = progress?.actions.includes('next-question') ? 'next-question' :
-    (!problem || (legacy && progress?.problem_parts)) && progress?.actions.includes('start') ? 'start' : undefined;
-  const openSingle = Boolean(problem && !progress?.problem_parts);
-  const showFooter = Boolean(busy || stale || explainingSubquestion || error || insideDetail || overviewAction || openSingle);
+  const canStart = progress?.actions.includes('start');
+  const practice = progress?.practice;
+  const busyNavigation = busy && (questionActions.includes(busy as LessonCommand) ||
+    ['load', 'next', 'complete', 'master-type', 'finish'].includes(busy));
+  const showFooter = Boolean(busy || stale || explainingSubquestion || error || currentDetail ||
+    activeSubquestion !== undefined || canStart || practice || progress?.actions.includes('similar-question'));
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
     aria-label={title} data-questions-open={questionsOpen}>
@@ -262,49 +289,61 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
     </header>
     <section className="lesson-main" aria-labelledby="learning-point-title">
-      <div className="lesson-reading-pane" data-overview={!insideDetail}>
-        {problem ? <div className="lesson-problem-dock" ref={problemDock}>
-          <ProblemCard key={questionId} text={problem} format={progress?.question?.format}
-            parts={progress?.problem_parts} active={activeSubquestion} onSelect={selectSubquestion}
-            onReturn={singleDetail ? returnFromSingleDetail : undefined} />
+      <div className="lesson-reading-pane">
+        {pinProblem && selectedQuestion ? <div className="lesson-problem-dock" ref={problemDock}>
+          <ProblemCard key={questionKey(selectedQuestion)}
+            text={selectedQuestion.question?.problem ?? selectedQuestion.legacy?.problem ?? ''}
+            format={selectedQuestion.question?.format} parts={selectedQuestion.problem_parts}
+            active={activeSubquestion} onSelect={number => selectSubquestion(selectedQuestion, number)} />
         </div> : null}
-        {insideDetail ? <div className="lesson-content" ref={content} role="region"
-          aria-label={singleDetail ? '题目讲解' : '小题讲解'} tabIndex={0}>
-          <div className="lesson-body">
-            {focusedExplanation ? <LessonStep title={focusedExplanation.title} subquestion={focusedExplanation.number}
-              step={{ ...focusedExplanation, index: focusedExplanation.number, format: 'markdown' }} /> : null}
-            {singleDetail && progress && step ? <>
-              <LessonStep title={withoutStepLabels(step.title)}
-                step={{ ...step, content: withoutStepLabels(step.content) }} />
-              {Boolean(progress.completed_steps?.length) ? <details className="lesson-history">
-                <summary>已完成步骤（{progress.completed_steps?.length}）</summary>
-                {progress.completed_steps?.map(entry => <LessonStep key={entry.step_id}
-                  title={withoutStepLabels(entry.title)} step={entry} current={false} />)}
-              </details> : null}
-              {legacy?.check ? <section className="lesson-block"><h2>理解检测</h2><p>{legacy.check}</p></section> : null}
-              {legacy?.support ? <section className="lesson-block" aria-live="polite">
-                <h2>{supportLabels[legacy.support.kind]}</h2>
-                <LessonContent text={legacy.support.text} />
+        <div className="lesson-content" ref={content} role="region" aria-label="练习对话" tabIndex={0}>
+          <div className="lesson-body">{timeline.map((task, index) => {
+            const key = questionKey(task);
+            const selected = task === selectedQuestion;
+            const showSingleDetail = selected && singleDetail;
+            const label = task.question?.type_title;
+            return <div className="lesson-question" key={key} data-lesson-question={key}>
+              {!(selected && pinProblem) ? <ProblemCard
+                text={task.question?.problem ?? task.legacy?.problem ?? ''}
+                format={task.question?.format} parts={task.problem_parts}
+                label={`题目 ${index + 1}${label ? ' · ' + label : ''}`}
+                onSelect={number => selectSubquestion(task, number)}
+                onReturn={showSingleDetail ? () => returnFromSingleDetail(task) : undefined}
+                onExplain={!task.problem_parts && !showSingleDetail ? () => openSingleDetail(task) : undefined} /> : null}
+              {selected && focusedExplanation ? <LessonStep title={focusedExplanation.title} subquestion={focusedExplanation.number}
+                step={{ ...focusedExplanation, index: focusedExplanation.number, format: 'markdown' }} /> : null}
+              {showSingleDetail && step ? <>
+                <LessonStep title={withoutStepLabels(step.title)}
+                  step={{ ...step, content: withoutStepLabels(step.content) }} />
+                {Boolean(task.completed_steps?.some(entry => entry.index < step.index)) ? <details className="lesson-history">
+                  <summary>已完成步骤（{step.index - 1}）</summary>
+                  {task.completed_steps?.filter(entry => entry.index < step.index).map(entry => <LessonStep key={entry.step_id}
+                    title={withoutStepLabels(entry.title)} step={entry} current={false} />)}
+                </details> : null}
+                {legacy?.check ? <section className="lesson-block"><h2>理解检测</h2><p>{legacy.check}</p></section> : null}
+                {legacy?.support ? <section className="lesson-block" aria-live="polite">
+                  <h2>{supportLabels[legacy.support.kind]}</h2>
+                  <LessonContent text={legacy.support.text} />
+                </section> : null}
+                <LessonSupport key={task.current_step?.step_id ?? 'legacy-support'} support={task.support} />
+                {currentDetail && (busy === 'hint' || busy === 'rephrase' || busy === 'check-question') ? <p role="status">
+                  {busy === 'check-question' ? '正在准备检测题…' : '正在生成辅助讲解…'}
+                </p> : null}
+                {currentDetail && error && localAction ? <p className="notice error" role="alert">{error}</p> : null}
+                {task.check ? <UnderstandingCheck key={task.check.check_id} check={task.check}
+                  busy={currentDetail ? busy : null} disabled={!currentDetail || blocked || task.status === 'completed'}
+                  error={currentDetail && checkError ? error : ''} submit={(action, fields) => void act(action, fields)} /> : null}
+              </> : null}
+              {showSingleDetail && complete ? <section className="lesson-completion" role="status">
+                <strong>本题已完成</strong>
               </section> : null}
-              <LessonSupport key={progress.current_step?.step_id ?? 'legacy-support'} support={progress.support} />
-              {busy === 'hint' || busy === 'rephrase' || busy === 'check-question' ? <p role="status">
-                {busy === 'check-question' ? '正在准备检测题…' : '正在生成辅助讲解…'}
-              </p> : null}
-              {error && localAction ? <p className="notice error" role="alert">{error}</p> : null}
-              {progress.check ? <UnderstandingCheck key={progress.check.check_id} check={progress.check}
-                busy={busy} disabled={blocked || progress.status === 'completed'}
-                error={checkError ? error : ''} submit={(action, fields) => void act(action, fields)} /> : null}
-            </> : null}
-            {singleDetail && complete ? <section className="lesson-completion" role="status">
-              <strong>本题已完成</strong>
-              {progress?.completion && progress.plan ? <p>你确认完成了 {progress.plan.total_steps} 个教学步骤。</p> : null}
-            </section> : null}
-          </div>
-        </div> : null}
+            </div>;
+          })}</div>
+        </div>
       </div>
       {showFooter ? <footer className="lesson-footer">
-        {busy && ['load', 'start', 'next', 'next-question', 'complete'].includes(busy) ? <p className="muted" role="status">
-          {busy === 'load' ? '正在读取教学进度…' : busy === 'complete' ? '正在保存完成记录…'
+        {busyNavigation ? <p className="muted" role="status">
+          {busy === 'load' ? '正在读取教学进度…' : busy === 'complete' || busy === 'master-type' || busy === 'finish' ? '正在保存完成记录…'
             : busy === 'next' ? '正在生成下一步…' : '正在准备题目和教学步骤…'}
         </p> : null}
         {explainingSubquestion ? <p className="muted" role="status">正在准备第（{activeSubquestion}）问的讲解…</p> : null}
@@ -312,20 +351,25 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         {error && !localAction && !checkError ? <p className="notice error" role="alert">{error}</p> : null}
         {((!progress && error) || stale) ? <button type="button" className="button secondary"
           disabled={Boolean(busy)} onClick={() => void load()}>重新加载进度</button> : null}
+        {practice?.finished ? <p className="lesson-practice-status" role="status">知识点已完结</p> :
+          practice ? <details className="lesson-practice-status">
+            <summary><span role="status">已掌握 {practice.mastered.length} / {practice.types.length} 种题型</span></summary>
+            <ol>{practice.types.map(({ title }, index) => <li key={title}>
+              {title} · {practice.mastered.includes(index) ? '已掌握' : index === practice.current ? '当前题型' : '待掌握'}
+            </li>)}</ol>
+          </details> : null}
         <div className="lesson-actions">
           {activeSubquestion !== undefined && !focusedExplanation ?
             <button type="button" className="button primary" disabled={blocked}
               onClick={() => void explainSelection()}>开始讲解</button> : null}
-          {singleDetail && progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
+          {singleDetail && currentDetail && progress && progress.status !== 'legacy' ? <LessonActions task={progress}
+            primary={primary} disabled={blocked} busy={busy}
             run={action => void act(action)} /> : null}
-          {!insideDetail && openSingle ? <button ref={detailEntry} type="button"
-            className={overviewAction ? 'button secondary' : 'button primary'}
-            onClick={openSingleDetail}>开始讲解</button> : null}
-          {!insideDetail && overviewAction ? <button type="button" className="button primary lesson-primary-action"
-            disabled={blocked} onClick={() => void act(overviewAction)}>
-            {legacy ? actionLabels['next-question'] : actionLabels[overviewAction]}
-          </button> : null}
-          {insideDetail ? <button ref={launch} type="button" className="button secondary lesson-ask-action"
+          {canStart ? <button type="button" className="button primary lesson-primary-action"
+            disabled={blocked} onClick={() => void act('start')}>{actionLabels.start}</button> : null}
+          {progress ? <PracticeActions task={progress} disabled={blocked} allowMastery={!selectedQuestion || currentDetail}
+            run={action => void act(action)} /> : null}
+          {currentDetail ? <button ref={launch} type="button" className="button secondary lesson-ask-action"
             aria-expanded={questionsOpen} aria-controls={questions === null ? undefined : 'teaching-questions'}
             onClick={() => {
               if (questionsOpen) closeQuestions();
