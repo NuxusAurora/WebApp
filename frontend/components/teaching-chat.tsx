@@ -86,16 +86,18 @@ export function TeachingChat({ conversationId, open, activeStep, subquestion, on
     role={mobile ? 'dialog' : undefined} aria-modal={mobile && open ? true : undefined}
     aria-labelledby="teaching-questions-title" onKeyDown={handleKey}>
     <header className="teaching-chat-header">
-      <h2 ref={heading} id="teaching-questions-title" tabIndex={-1}>{teachingChatLabel}</h2>
-      <div className="teaching-chat-actions">
-        <button type="button" className="text-button" onClick={newThread}>新开对话</button>
-        <button type="button" className="text-button" onClick={onClose} aria-label="关闭提问窗">关闭</button>
+      <div className="teaching-chat-toolbar">
+        <h2 ref={heading} id="teaching-questions-title" tabIndex={-1}>{teachingChatLabel}</h2>
+        {threads.length ? <select className="ui-select teaching-thread-select" aria-label="切换对话"
+          value={active} onChange={event => showThread(event.target.value)}>
+          <option value="">原对话</option>
+          {threads.map(thread => <option key={thread.id} value={thread.id}>{thread.title}</option>)}
+        </select> : null}
+        <div className="teaching-chat-actions">
+          <button type="button" className="text-button" onClick={newThread}>新开对话</button>
+          <button type="button" className="text-button" onClick={onClose} aria-label="关闭提问窗">关闭</button>
+        </div>
       </div>
-      {threads.length ? <select className="ui-select teaching-thread-select" aria-label="切换对话"
-        value={active} onChange={event => showThread(event.target.value)}>
-        <option value="">原对话</option>
-        {threads.map(thread => <option key={thread.id} value={thread.id}>{thread.title}</option>)}
-      </select> : null}
       {listError ? <button type="button" className="text-button" onClick={() => {
         setListError(false);
         setListAttempt(attempt => attempt + 1);
