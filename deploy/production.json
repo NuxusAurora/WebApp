@@ -1,27 +1,27 @@
 {
-  "revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
-  "image_source_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
-  "configuration_source_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
+  "revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
+  "image_source_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
+  "configuration_source_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:c439657",
-      "id": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8"
+      "source": "webapp-release-backend:e23b66e",
+      "id": "sha256:1f4d9fa4fcfeb07b0fcd743a369a4a0e8d9512a15d40c304e1fe1f32fdc8c8a7"
     },
     "frontend": {
-      "source": "webapp-release-frontend:c51b1e6",
-      "id": "sha256:aeefb8d4b69e7745c6b9e7bc49dbe95ef56eedc6d56c7b1934224e744abcd75d"
+      "source": "webapp-release-frontend:e23b66e",
+      "id": "sha256:d3521af22f4be76d87bf88f7459d6ad8547b8ac8c112d0655d68e2c44e8d72c5"
     }
   },
   "runtime_images": {
-    "backend": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
-    "worker": "sha256:3c262733c404ba2653b7cd2158f45d916d648c290bffe398b8ae3b53c7b564a8",
-    "frontend": "sha256:aeefb8d4b69e7745c6b9e7bc49dbe95ef56eedc6d56c7b1934224e744abcd75d",
+    "backend": "sha256:1f4d9fa4fcfeb07b0fcd743a369a4a0e8d9512a15d40c304e1fe1f32fdc8c8a7",
+    "worker": "sha256:1f4d9fa4fcfeb07b0fcd743a369a4a0e8d9512a15d40c304e1fe1f32fdc8c8a7",
+    "frontend": "sha256:d3521af22f4be76d87bf88f7459d6ad8547b8ac8c112d0655d68e2c44e8d72c5",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
   },
   "canonical_origin": "https://learn.nuxusaurora.cn",
-  "schema_revision": "0007_connection_slots",
+  "schema_revision": "0015_teaching_threads",
   "test_login": "always available; no environment gates",
   "service_health": {
     "learning-cloud-backend-1": "healthy",
@@ -34,33 +34,34 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": false,
-  "data_preservation": "consistent stopped-writer backup/cutover with equal business counts/sorted hashes; final QA upload/course/session removed and original table counts unchanged; no real provider calls",
+  "data_preservation": "All 13 pre-existing tables matched by row count and sorted SHA-256 digest before and after migration. After authenticated smoke testing the 12 business tables still matched; only the expired test session was purged and QA sessions were removed.",
   "business_counts": {
-    "users": 1,
-    "courses": 2,
-    "uploads": 3,
-    "chapters": 0,
-    "sections": 0,
-    "workflow_runs": 3,
-    "structure_versions": 1,
-    "structure_events": 1,
-    "ai_providers": 2,
+    "ai_call_logs": 13,
     "ai_models": 1,
-    "ai_call_logs": 7,
-    "knowledge_points": 0
+    "ai_providers": 2,
+    "auth_tokens": 0,
+    "chapters": 6,
+    "courses": 2,
+    "knowledge_points": 8,
+    "sections": 33,
+    "structure_events": 14,
+    "structure_versions": 7,
+    "uploads": 5,
+    "users": 1,
+    "workflow_runs": 9
   },
-  "backup_before_upgrade": "database/storage/environment backed up after writer stop; no migration; removed after acceptance",
-  "released_at_utc": "2026-11-11T04:39:29.410898+00:00",
+  "backup_before_upgrade": "Live database restored in a shadow database for upgrade/downgrade rehearsal; final PostgreSQL, storage and environment snapshots taken with writers stopped and archive structures verified.",
+  "released_at_utc": "2026-11-15T14:15:31Z",
   "validation": {
-    "backend_tests": 167,
-    "ruff_format_runtime_build": "passed",
-    "mpo_runtime": "both local/public: native2-frameMPO5956342/5253552bytes upload201, private JPEG download verified1frame/noMPF/correct orientation; image/jpeg,image/mpo,application/octet-stream accepted",
-    "http_vision_contract": "MPO actual JPEG bytes asserted by MockTransport, no new real model call",
-    "real_original_mpo_files": "unavailable: rejected uploads not retained; user Linux retry needed",
-    "frontend": "54 focused frontend tests, TypeScript and production build passed; candidate and public Chrome verified all five statuses in desktop dark and mobile light",
+    "local_frontend": "159 tests, TypeScript and production build passed in the test Docker stage at the pushed revision.",
+    "github_ci": "43722231264 passed backend and tooling, then exited in the frontend Compose stage without command details; equivalent frontend stage passed locally.",
+    "database_rehearsal": "Restore, upgrade to head, downgrade and pre-existing table fingerprints passed.",
     "business_hashes_preserved_across_cutover": true,
-    "business_counts_preserved_after_qa": true,
-    "https_health_ready": "200"
+    "business_hashes_preserved_after_qa": true,
+    "https_home_health_ready": 200,
+    "anonymous_learning_access": 401,
+    "authenticated_browser": "Existing test account logged in. Course and learning APIs returned 200. Orange note, search and new-course button shared a row at 1280 and 390 CSS px. Logout restored 401.",
+    "real_provider_call_verified": false
   },
   "configuration_hashes": {
     "compose.yaml": "b84cad65a1f77cfcb7dbca3365417f8c12bae8fc63c992772f04ace1332e58c5",
@@ -69,12 +70,12 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 315594871,
+  "cleanup_logical_bytes": 470536874,
   "obsolete_image_tags_removed": [
-    "webapp-release-backend:bcb38c9",
-    "webapp-mpo-backend:latest"
+    "webapp-release-frontend:c51b1e6",
+    "webapp-release-backend:c439657"
   ],
-  "cleanup": "temporary reconstructedOCI archives/delta/source packages/database-storage-env rollback copies removed after acceptance; current source/runtime/user data retained",
+  "cleanup": "Staged archives and stopped-writer snapshots deleted after acceptance; only current runtime images, data, production environment and source releases retained.",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
   "nginx_template_render_matches_runtime": true,
   "nginx_upload_limit": "50 MiB",
@@ -102,50 +103,13 @@
       "verification": "transactional JSON field update and database readback; all other model fields except updated_at, capability tests, provider and encrypted credentials unchanged; no model call"
     }
   ],
-  "real_provider_vision_probe_verified": true,
-  "frontend_source_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
+  "frontend_source_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
   "service_source_revisions": {
-    "frontend": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
-    "backend": "c4396572034b0df50b11b7072fb071bb8c4c1e4b",
-    "worker": "c4396572034b0df50b11b7072fb071bb8c4c1e4b"
+    "frontend": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
+    "backend": "c5fd49ef5fc518c5dc32e677c7389c9cec2e3777",
+    "worker": "c5fd49ef5fc518c5dc32e677c7389c9cec2e3777"
   },
-  "latest_release_scope": "green for knowledge points with a started learning status",
-  "studied_knowledge_color_release": {
-    "released_at_utc": "2026-11-11T04:39:29.410898+00:00",
-    "current_path": "/opt/learning-workbench/releases/c51b1e6",
-    "previous_image": "sha256:15047238cf3937fd9a3e37dc56b9df65fd4934c32a6c141932405a905932bc2c",
-    "public_health": 200,
-    "public_ready": 200,
-    "unchanged_service_containers_verified": true,
-    "nginx_digest_unchanged": true,
-    "public_chrome_fixture": ["1280x720 dark", "390x844 light"],
-    "temporary_transfer_logical_bytes_removed": 70312270,
-    "old_frontend_image_tag_removed": true
-  },
-  "curriculum_section_knowledge_release": {
-    "released_at_utc": "2026-11-11T00:52:19.904644+00:00",
-    "current_path": "/opt/learning-workbench/releases/96f3c65",
-    "previous_image": "sha256:dcebc52a27892d9418371fc7a5bd2c7b7fae343383ba66b29377384838a20f26",
-    "public_health": 200,
-    "public_ready": 200,
-    "unchanged_service_containers_verified": true,
-    "nginx_digest_unchanged": true,
-    "public_chrome_fixture": ["1280x720 dark", "390x844 light"],
-    "temporary_transfer_logical_bytes_removed": 70313805,
-    "old_frontend_image_tag_removed": true
-  },
-  "frontend_knowledge_list_release": {
-    "released_at_utc": "2026-11-11T00:35:48.362807+00:00",
-    "current_path": "/opt/learning-workbench/releases/4ec072d",
-    "previous_image": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
-    "public_health": 200,
-    "public_ready": 200,
-    "unchanged_service_containers_verified": true,
-    "nginx_digest_unchanged": true,
-    "public_chrome_fixture": ["1280x720 dark", "390x844 dark"],
-    "temporary_transfer_logical_bytes_removed": 70309195,
-    "old_frontend_image_tag_removed": true
-  },
+  "latest_release_scope": "Pushed master revision: learning conversations and practice, course add status, and course toolbar.",
   "course_detail_labels": [
     "创建课程中",
     "课程概览",
@@ -228,5 +192,54 @@
     ],
     "cause": "Pillow detectedMPO for .jpg/image/jpeg; rejected atinspect/unsupported_format beforedecode",
     "real_provider_quality": "not tested for user original MPO; previous ordinaryJPEG local/public25.335/22.128s atbcb38c9 unchanged contract"
-  }
+  },
+  "frontend_knowledge_list_release": {
+    "released_at_utc": "2026-11-11T00:35:48.362807+00:00",
+    "current_path": "/opt/learning-workbench/releases/4ec072d",
+    "previous_image": "sha256:ff90d06b986eeef61ce91d6202a3e31e8bd6a4662565f60d0503ad1a860ba738",
+    "public_health": 200,
+    "public_ready": 200,
+    "unchanged_service_containers_verified": true,
+    "nginx_digest_unchanged": true,
+    "public_chrome_fixture": [
+      "1280x720 dark",
+      "390x844 dark"
+    ],
+    "temporary_transfer_logical_bytes_removed": 70309195,
+    "old_frontend_image_tag_removed": true
+  },
+  "curriculum_section_knowledge_release": {
+    "released_at_utc": "2026-11-11T00:52:19.904644+00:00",
+    "current_path": "/opt/learning-workbench/releases/96f3c65",
+    "previous_image": "sha256:dcebc52a27892d9418371fc7a5bd2c7b7fae343383ba66b29377384838a20f26",
+    "public_health": 200,
+    "public_ready": 200,
+    "unchanged_service_containers_verified": true,
+    "nginx_digest_unchanged": true,
+    "public_chrome_fixture": [
+      "1280x720 dark",
+      "390x844 light"
+    ],
+    "temporary_transfer_logical_bytes_removed": 70313805,
+    "old_frontend_image_tag_removed": true
+  },
+  "studied_knowledge_color_release": {
+    "released_at_utc": "2026-11-11T04:39:29.410898+00:00",
+    "current_path": "/opt/learning-workbench/releases/c51b1e6",
+    "previous_image": "sha256:15047238cf3937fd9a3e37dc56b9df65fd4934c32a6c141932405a905932bc2c",
+    "public_health": 200,
+    "public_ready": 200,
+    "unchanged_service_containers_verified": true,
+    "nginx_digest_unchanged": true,
+    "public_chrome_fixture": [
+      "1280x720 dark",
+      "390x844 light"
+    ],
+    "temporary_transfer_logical_bytes_removed": 70312270,
+    "old_frontend_image_tag_removed": true
+  },
+  "previous_revision": "c51b1e6d4c1666e5c45717e33ec311ebae7aa569",
+  "previous_schema_revision": "0007_connection_slots",
+  "current_path": "/opt/learning-workbench/releases/e23b66e",
+  "historical_provider_vision_probe_verified": true
 }
