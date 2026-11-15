@@ -58,6 +58,10 @@
   padding-inline: clamp(var(--space-8), 4vw, var(--space-12));
 }
 .lesson-problem-dock { padding-block-start: var(--space-6); }
+.lesson-reading-pane[data-overview="true"] .lesson-problem-dock {
+  display: grid; grid-template-rows: minmax(0, 1fr); flex: 1; min-block-size: 0;
+}
+.lesson-reading-pane[data-overview="true"] .lesson-problem-card { align-self: start; max-block-size: 100%; }
 .lesson-content {
   flex: 1;
   min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges;

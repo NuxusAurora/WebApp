@@ -20,9 +20,9 @@ export function LessonContent({ text, format }: { text: string; format?: Content
   </div>;
 }
 
-export function ProblemCard({ text, format, parts, active, onSelect }: {
+export function ProblemCard({ text, format, parts, active, onSelect, onReturn }: {
   text: string; format?: ContentFormat; parts?: LessonProblemParts;
-  active?: number; onSelect?: (number?: number) => void;
+  active?: number; onSelect?: (number?: number) => void; onReturn?: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const body = useRef<HTMLDivElement>(null);
@@ -35,10 +35,12 @@ export function ProblemCard({ text, format, parts, active, onSelect }: {
   }, [active]);
   return <section className="lesson-block lesson-problem-card" aria-labelledby="lesson-problem">
     <div className="lesson-problem-header">
-      <h2 id="lesson-problem" tabIndex={-1}>题目</h2>
+      <h2 id="lesson-problem" tabIndex={-1}>{active === undefined ? '题目' : `第（${active}）问`}</h2>
       <div className="lesson-problem-controls">
-        {open && active !== undefined ? <button type="button" className="text-button" onClick={() => {
+        {onReturn ? <button type="button" className="text-button" onClick={onReturn}>返回题目</button> : null}
+        {active !== undefined ? <button type="button" className="text-button" onClick={() => {
           restoreFocus.current = active;
+          setOpen(true);
           onSelect?.();
         }}>查看全部小题</button> : null}
         <button type="button" className="text-button" aria-expanded={open} aria-controls="lesson-problem-text"
@@ -66,15 +68,14 @@ export function ProblemCard({ text, format, parts, active, onSelect }: {
   </section>;
 }
 
-export function LessonStep({ title, step, total, subquestion, current = true }: {
-  title: string; step: PublishedStep; total?: number; subquestion?: number; current?: boolean;
+export function LessonStep({ title, step, subquestion, current = true }: {
+  title: string; step: PublishedStep; subquestion?: number; current?: boolean;
 }) {
-  const shownNumber = subquestion ?? (total ? step.index : undefined);
   return <section className="lesson-block lesson-reading-step"
     aria-label={subquestion === undefined ? `第 ${step.index} 步` : `第（${subquestion}）问讲解`}>
     {current ? <>
-      {shownNumber !== undefined ? <p className="lesson-step-number">解第（{shownNumber}）问：</p> : null}
-      <h2 id="lesson-step" tabIndex={-1}>{shownNumber !== undefined ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}</h2>
+      {subquestion !== undefined ? <p className="lesson-step-number">解第（{subquestion}）问：</p> : null}
+      <h2 id="lesson-step" tabIndex={-1}>{subquestion !== undefined ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}</h2>
     </> : <h3>第 {step.index} 步：{title}</h3>}
     {step.objective ? <p className="lesson-objective"><strong>本步目标</strong> {step.objective}</p> : null}
     <LessonContent text={step.content} format={step.format} />

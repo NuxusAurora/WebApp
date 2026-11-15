@@ -111,6 +111,46 @@ def test_first_step_failure_leaves_no_plan(example_conversation, draft_data, mon
     assert client.get(url).json()["data"] == empty
 
 
+def test_can_leave_a_multipart_question_without_completing_the_hidden_plan(
+    example_conversation, draft_data, monkeypatch
+):
+    _, client, conversation_id = example_conversation
+    url = f"/api/v1/learning/conversations/{conversation_id}/lesson/task"
+    problems = iter(["给定函数 f。\n（1）求值。\n（2）求定义域。", "解释什么是反函数。"])
+
+    async def generate(self, operation, context):
+        if operation == LessonOperation.PLAN:
+            return validate_model_output(operation, draft_data | {"problem": next(problems)})
+        return validate_model_output(operation, {"title": "讲解", "content": "从定义出发。"})
+
+    monkeypatch.setattr(LessonGenerator, "generate", generate)
+    start = {"action": "start", "request_id": str(uuid4()), "expected_revision": 0}
+    first = client.post(url, json=start).json()["data"]
+    assert first["status"] != "completed"
+    assert "next-question" in first["actions"]
+
+    def move_on(task):
+        return client.post(
+            url,
+            json={
+                "action": "next-question",
+                "request_id": str(uuid4()),
+                "expected_revision": task["revision"],
+                "expected_task_id": task["task_id"],
+                "expected_plan_id": task["plan"]["plan_id"],
+                "expected_step_index": task["current_step"]["index"],
+            },
+        )
+
+    response = move_on(first)
+    assert response.status_code == 200
+    following = response.json()["data"]
+    assert following["question"]["problem"] == "解释什么是反函数。"
+    assert "next-question" not in following["actions"]
+    assert move_on(following).status_code == 400
+    assert client.post(url, json=start).json()["data"] == first
+
+
 def test_explains_only_the_requested_subquestion_without_advancing_the_lesson(
     example_conversation, draft_data, monkeypatch
 ):

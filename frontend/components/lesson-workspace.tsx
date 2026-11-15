@@ -5,7 +5,7 @@ import { ApiError } from '../lib/api';
 import { readLessonTask, requestSubquestionExplanation, runLessonCommand,
   type LessonCommand, type LessonTask, type SubquestionExplanation } from '../lib/lesson-task';
 import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
-import { LessonActions, LessonSupport, UnderstandingCheck } from './lesson-actions';
+import { actionLabels, LessonActions, LessonSupport, UnderstandingCheck } from './lesson-actions';
 import { TeachingChat } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
@@ -28,22 +28,19 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const [failedAction, setFailedAction] = useState<LessonCommand | null>(null);
   const [stale, setStale] = useState(false);
   const [questions, setQuestions] = useState<boolean | null>(null);
-  const [selection, setSelection] = useState<{ questionId: string; number: number } | null>(null);
+  const [selection, setSelection] = useState<{ questionId: string; part: number | 'single' } | null>(null);
   const [explanations, setExplanations] = useState<{
     questionId: string; byNumber: Partial<Record<number, SubquestionExplanation>>;
   } | null>(null);
   const [explainingSubquestion, setExplainingSubquestion] = useState(false);
   const [subquestionError, setSubquestionError] = useState('');
-  const revealStorageKey = 'learning:revealed-question:' + conversationId;
-  const [revealedQuestion, setRevealedQuestion] = useState<string | null>(() => {
-    try { return sessionStorage.getItem(revealStorageKey); } catch { return null; }
-  });
   const request = useRef<AbortController | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const launch = useRef<HTMLButtonElement>(null);
+  const detailEntry = useRef<HTMLButtonElement>(null);
   const problemDock = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
-  const focusStep = useRef(false);
+  const focusDestination = useRef<'problem' | 'step' | 'entry' | null>(null);
   const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
 
   const legacy = progress?.legacy;
@@ -52,13 +49,17 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const complete = progress?.status === 'completed' || legacy?.complete;
   const questionId = progress?.question?.question_id ?? 'legacy';
   const scopedQuestionId = progress?.question?.question_id ?? 'legacy:' + progress?.revision;
-  const activeSubquestion = selection?.questionId === scopedQuestionId ? selection.number : undefined;
+  const selectedPart = selection?.questionId === scopedQuestionId ? selection.part : undefined;
+  const insideDetail = Boolean(problem) && selectedPart !== undefined;
+  const singleDetail = insideDetail && selectedPart === 'single';
+  const activeSubquestion = typeof selectedPart === 'number' ? selectedPart : undefined;
   const focusedExplanation = activeSubquestion !== undefined && explanations?.questionId === scopedQuestionId
     ? explanations.byNumber[activeSubquestion] : undefined;
-  const hasStepActivity = progress?.check || progress?.support?.hints?.length || progress?.support?.rephrase ||
-    legacy?.check || legacy?.support;
-  const previewingProblem = Boolean(problem) && step?.index === 1 && !complete && !hasStepActivity &&
-    revealedQuestion !== questionId;
+  const questionsOpen = insideDetail && Boolean(questions);
+
+  useEffect(() => {
+    onQuestionsChange(questionsOpen);
+  }, [onQuestionsChange, questionsOpen]);
 
   const fail = useCallback((cause: unknown) => {
     if (cause instanceof ApiError && cause.status === 401) onSessionExpired();
@@ -73,6 +74,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     setError('');
     setSubquestionError('');
     setFailedAction(null);
+    setQuestions(previous => previous === null ? null : false);
     try {
       const result = await readLessonTask(conversationId, task.signal);
       if (task.signal.aborted) return;
@@ -99,22 +101,22 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
 
   useLayoutEffect(() => {
     const panel = content.current;
-    if (!panel?.clientHeight) return;
-    if (focusStep.current) {
-      const inPreview = previewingProblem && activeSubquestion === undefined;
-      const target = inPreview ? problemDock.current?.querySelector<HTMLElement>('#lesson-problem') :
-        panel.querySelector<HTMLElement>('#lesson-step');
+    const destination = focusDestination.current;
+    if (destination) {
+      const stepHeading = destination === 'step' ? panel?.querySelector<HTMLElement>('#lesson-step') : null;
+      const target = destination === 'entry' ? detailEntry.current :
+        stepHeading ?? problemDock.current?.querySelector<HTMLElement>('#lesson-problem');
       target?.focus({ preventScroll: true });
-      if (!inPreview) target?.scrollIntoView?.({ block: 'start' });
-      focusStep.current = false;
-    } else if (readingAnchor.current) {
+      stepHeading?.scrollIntoView?.({ block: 'start' });
+      focusDestination.current = null;
+    } else if (panel?.clientHeight && readingAnchor.current) {
       const { node, top } = readingAnchor.current;
       panel.scrollTop = node && panel.contains(node)
         ? panel.scrollTop + node.getBoundingClientRect().top - panel.getBoundingClientRect().top + top
         : top;
     }
     readingAnchor.current = null;
-  }, [progress, questions, previewingProblem, activeSubquestion, focusedExplanation]);
+  }, [progress, questionsOpen, selectedPart, focusedExplanation]);
 
   async function act(action: LessonCommand, fields?: { check_id: string; answer?: string }) {
     if (!progress?.actions.includes(action) || request.current || stale) return;
@@ -134,7 +136,12 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         });
         if (task.signal.aborted) return;
       }
-      focusStep.current = result.current_step?.step_id !== progress.current_step?.step_id;
+      if (action === 'start' || action === 'next-question') {
+        leaveDetail();
+        focusDestination.current = 'problem';
+      } else if (action === 'next') {
+        focusDestination.current = 'step';
+      }
       setProgress(result);
     } catch (cause) {
       if (task.signal.aborted) return;
@@ -143,6 +150,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         try {
           const latest = await readLessonTask(conversationId, task.signal);
           if (task.signal.aborted) return;
+          if (latest.question?.question_id !== progress.question?.question_id) leaveDetail();
           setProgress(latest);
           if (latest.revision !== progress.revision && cause instanceof ApiError && cause.status === 409) {
             setError('进度已更新，请确认当前步骤');
@@ -171,14 +179,22 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   function closeQuestions() {
     rememberReadingPosition();
     setQuestions(false);
-    onQuestionsChange(false);
     requestAnimationFrame(() => launch.current?.focus({ preventScroll: true }));
   }
 
-  function revealExplanation() {
-    focusStep.current = true;
-    setRevealedQuestion(questionId);
-    try { sessionStorage.setItem(revealStorageKey, questionId); } catch { /* The current page still keeps the reveal. */ }
+  function leaveDetail() {
+    setSelection(null);
+    setQuestions(previous => previous === null ? null : false);
+  }
+
+  function openSingleDetail() {
+    focusDestination.current = 'step';
+    setSelection({ questionId: scopedQuestionId, part: 'single' });
+  }
+
+  function returnFromSingleDetail() {
+    focusDestination.current = 'entry';
+    leaveDetail();
   }
 
   function selectSubquestion(number?: number) {
@@ -188,7 +204,12 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       setExplainingSubquestion(false);
     }
     setSubquestionError('');
-    setSelection(number === undefined ? null : { questionId: scopedQuestionId, number });
+    if (number === undefined) {
+      leaveDetail();
+    } else {
+      focusDestination.current = 'step';
+      setSelection({ questionId: scopedQuestionId, part: number });
+    }
   }
 
   async function explainSelection() {
@@ -202,7 +223,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         conversationId, progress.revision, activeSubquestion, task.signal,
       );
       if (task.signal.aborted) return;
-      focusStep.current = true;
+      focusDestination.current = 'step';
       setExplanations(previous => ({
         questionId: scopedQuestionId,
         byNumber: {
@@ -230,25 +251,30 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const blocked = Boolean(busy) || explainingSubquestion || stale;
   const checkError = failedAction === 'check-answer' || failedAction === 'evaluate-check';
   const localAction = failedAction === 'hint' || failedAction === 'rephrase' || failedAction === 'check-question';
+  const overviewAction = progress?.actions.includes('next-question') ? 'next-question' :
+    (!problem || (legacy && progress?.problem_parts)) && progress?.actions.includes('start') ? 'start' : undefined;
+  const openSingle = Boolean(problem && !progress?.problem_parts);
+  const showFooter = Boolean(busy || stale || explainingSubquestion || error || insideDetail || overviewAction || openSingle);
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
-    aria-label={title} data-questions-open={Boolean(questions)}>
+    aria-label={title} data-questions-open={questionsOpen}>
     <header className="lesson-header">
       <h1 ref={heading} id="learning-point-title" tabIndex={-1}>{title}</h1>
     </header>
     <section className="lesson-main" aria-labelledby="learning-point-title">
-      <div className="lesson-reading-pane">
+      <div className="lesson-reading-pane" data-overview={!insideDetail}>
         {problem ? <div className="lesson-problem-dock" ref={problemDock}>
           <ProblemCard key={questionId} text={problem} format={progress?.question?.format}
-            parts={progress?.problem_parts} active={activeSubquestion} onSelect={selectSubquestion} />
+            parts={progress?.problem_parts} active={activeSubquestion} onSelect={selectSubquestion}
+            onReturn={singleDetail ? returnFromSingleDetail : undefined} />
         </div> : null}
-        <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
+        {insideDetail ? <div className="lesson-content" ref={content} role="region"
+          aria-label={singleDetail ? '题目讲解' : '小题讲解'} tabIndex={0}>
           <div className="lesson-body">
-            {!problem && progress ? <p className="muted">从一道题开始，一次学一步。</p> : null}
             {focusedExplanation ? <LessonStep title={focusedExplanation.title} subquestion={focusedExplanation.number}
               step={{ ...focusedExplanation, index: focusedExplanation.number, format: 'markdown' }} /> : null}
-            {activeSubquestion === undefined && progress && step && problem && !previewingProblem ? <>
-              <LessonStep title={withoutStepLabels(step.title)} total={progress.plan?.total_steps}
+            {singleDetail && progress && step ? <>
+              <LessonStep title={withoutStepLabels(step.title)}
                 step={{ ...step, content: withoutStepLabels(step.content) }} />
               {Boolean(progress.completed_steps?.length) ? <details className="lesson-history">
                 <summary>已完成步骤（{progress.completed_steps?.length}）</summary>
@@ -269,39 +295,46 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
                 busy={busy} disabled={blocked || progress.status === 'completed'}
                 error={checkError ? error : ''} submit={(action, fields) => void act(action, fields)} /> : null}
             </> : null}
-            {activeSubquestion === undefined && complete ? <section className="lesson-completion" role="status">
+            {singleDetail && complete ? <section className="lesson-completion" role="status">
               <strong>本题已完成</strong>
               {progress?.completion && progress.plan ? <p>你确认完成了 {progress.plan.total_steps} 个教学步骤。</p> : null}
             </section> : null}
           </div>
-        </div>
+        </div> : null}
       </div>
-      <footer className="lesson-footer">
+      {showFooter ? <footer className="lesson-footer">
         {busy && ['load', 'start', 'next', 'next-question', 'complete'].includes(busy) ? <p className="muted" role="status">
           {busy === 'load' ? '正在读取教学进度…' : busy === 'complete' ? '正在保存完成记录…'
             : busy === 'next' ? '正在生成下一步…' : '正在准备题目和教学步骤…'}
         </p> : null}
         {explainingSubquestion ? <p className="muted" role="status">正在准备第（{activeSubquestion}）问的讲解…</p> : null}
         {activeSubquestion !== undefined && subquestionError ? <p className="notice error" role="alert">{subquestionError}</p> : null}
-        {activeSubquestion === undefined && error && !localAction && !checkError ? <p className="notice error" role="alert">{error}</p> : null}
+        {error && !localAction && !checkError ? <p className="notice error" role="alert">{error}</p> : null}
         {((!progress && error) || stale) ? <button type="button" className="button secondary"
           disabled={Boolean(busy)} onClick={() => void load()}>重新加载进度</button> : null}
         <div className="lesson-actions">
-          <button ref={launch} type="button" className="button secondary" aria-expanded={Boolean(questions)}
+          {insideDetail ? <button ref={launch} type="button" className="button secondary" aria-expanded={questionsOpen}
             aria-controls={questions === null ? undefined : 'teaching-questions'}
             onClick={() => {
-              if (questions) closeQuestions();
-              else { rememberReadingPosition(); setQuestions(true); onQuestionsChange(true); }
-            }}>随时提问</button>
-          {(activeSubquestion !== undefined ? !focusedExplanation : previewingProblem) ?
+              if (questionsOpen) closeQuestions();
+              else { rememberReadingPosition(); setQuestions(true); }
+            }}>随时提问</button> : null}
+          {activeSubquestion !== undefined && !focusedExplanation ?
             <button type="button" className="button primary lesson-primary-action" disabled={blocked}
-              onClick={activeSubquestion === undefined ? revealExplanation : () => void explainSelection()}>开始讲解</button> :
-            activeSubquestion === undefined && progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
+              onClick={() => void explainSelection()}>开始讲解</button> : null}
+          {singleDetail && progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
             run={action => void act(action)} /> : null}
+          {!insideDetail && openSingle ? <button ref={detailEntry} type="button"
+            className={overviewAction ? 'button secondary' : 'button primary lesson-primary-action'}
+            onClick={openSingleDetail}>开始讲解</button> : null}
+          {!insideDetail && overviewAction ? <button type="button" className="button primary lesson-primary-action"
+            disabled={blocked} onClick={() => void act(overviewAction)}>
+            {legacy ? actionLabels['next-question'] : actionLabels[overviewAction]}
+          </button> : null}
         </div>
-      </footer>
+      </footer> : null}
     </section>
-    {questions !== null ? <TeachingChat conversationId={conversationId} open={questions}
+    {questions !== null ? <TeachingChat conversationId={conversationId} open={questionsOpen}
       activeStep={progress?.current_step?.index}
       subquestion={progress && activeSubquestion !== undefined ? { number: activeSubquestion, revision: progress.revision } : undefined}
       onClose={closeQuestions} onSessionExpired={onSessionExpired} /> : null}

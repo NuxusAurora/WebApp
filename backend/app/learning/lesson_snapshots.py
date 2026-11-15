@@ -16,6 +16,16 @@ def snapshot(conversation_id, row):
     state = row.state
     steps = state["steps"]
     status = state["status"]
+    fields = problem_fields(state["problem"])
+    actions = {
+        "teaching": ["next"],
+        "final_step": ["complete"],
+        "completed": ["next-question"],
+    }[status]
+    if status != "completed":
+        if fields:
+            actions.append("next-question")
+        actions.extend(available(state))
     return {
         **base,
         "task_id": state["task_id"],
@@ -24,17 +34,12 @@ def snapshot(conversation_id, row):
             "problem": state["problem"],
             "format": "markdown",
         },
-        **problem_fields(state["problem"]),
+        **fields,
         "plan": {"plan_id": str(row.plan_id), **state["plan"]},
         "current_step": steps[-1],
         "completed_steps": steps if status == "completed" else steps[:-1],
         "status": status,
-        "actions": {
-            "teaching": ["next"],
-            "final_step": ["complete"],
-            "completed": ["next-question"],
-        }[status]
-        + (available(state) if status != "completed" else []),
+        "actions": actions,
         "support": state.get("support"),
         "check": state.get("check"),
         "completion": state.get("completion"),

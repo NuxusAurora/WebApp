@@ -53,6 +53,8 @@ it('keeps the lesson header to its title and searches the loaded outline without
   expect(await screen.findByText('已有题目')).toBeVisible();
   expect(heading.closest('header')).toHaveTextContent(/^行列式定义$/);
   expect(screen.queryByRole('navigation', { name: '面包屑' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '随时提问' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   const question = screen.getByRole('button', { name: '随时提问' });
   expect(question.closest('footer')).toContainElement(screen.getByRole('button', { name: '开始下一题' }));
   expect(question).toHaveAttribute('aria-expanded', 'false');
@@ -90,12 +92,17 @@ it('restores the saved conversation from the legacy project URL without rewritin
   history.replaceState({}, '', '/?view=learning&project=' + projectId);
   render(<Workspace />);
   expect(await screen.findByText('已有题目')).toBeVisible();
+  expect(screen.queryByText('继续阅读')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(screen.getByText('继续阅读')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '返回题目' }));
+  expect(screen.queryByText('继续阅读')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '开始讲解' })).toHaveFocus();
   expect(await screen.findByRole('link', { name: /行列式定义/ })).toHaveAttribute('aria-current', 'page');
   expect(location.search).toBe('?view=learning&project=' + projectId);
 });
 
-it('shows each new question before its explanation and remembers the reveal in the same tab', async () => {
+it('opens an unnumbered question as a detail and returns to the question on reload', async () => {
   history.replaceState({}, '', secondHref);
   const lessonPath = 'learning/conversations/' + secondId + '/lesson/task';
   const fallback = vi.mocked(api).getMockImplementation()!;
@@ -130,6 +137,9 @@ it('shows each new question before its explanation and remembers the reveal in t
 
   firstLoad.unmount();
   render(<Workspace />);
+  expect(await screen.findByText('第一道题')).toBeVisible();
+  expect(screen.queryByText('第一道题的解法')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByText('第一道题的解法')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '我理解了，完成本题' }));
   fireEvent.click(await screen.findByRole('button', { name: '开始下一题' }));
@@ -139,19 +149,20 @@ it('shows each new question before its explanation and remembers the reveal in t
   expect(commands).toEqual(['start', 'complete', 'next-question']);
 });
 
-it('starts the selected subquestion instead of revealing the first whole-question step', async () => {
+it('keeps explanations inside the selected subquestion even when whole-question progress exists', async () => {
   history.replaceState({}, '', secondHref);
   const lessonPath = 'learning/conversations/' + secondId + '/lesson/task';
   const fallback = vi.mocked(api).getMockImplementation()!;
   const selectedRequests: object[] = [];
   const lesson: LessonTask = {
-    revision: 7, status: 'teaching', actions: ['next'],
+    revision: 7, status: 'teaching', actions: ['next', 'next-question', 'hint'],
     question: { question_id: 'multi-part', problem: '一道三问的题目' },
     problem_parts: { statement: '共用题干', parts: [
       { number: 1, text: '第一小题' }, { number: 2, text: '第二小题' }, { number: 3, text: '第三小题' },
     ] },
-    current_step: { step_id: 'first-step', index: 1, title: '第一问的讲解', content: '本来会显示的整题讲解' },
+    current_step: { step_id: 'second-step', index: 2, title: '第二步', content: '旧的整题讲解' },
     plan: { plan_id: 'whole-plan', plan_version: 1, learning_objective: '目标', total_steps: 3 },
+    support: { hints: [{ level: 1, text: '旧的整题提示' }] },
   };
   vi.mocked(api).mockImplementation(async (path, init) => {
     if (path === lessonPath && init?.method !== 'POST') return lesson;
@@ -163,19 +174,29 @@ it('starts the selected subquestion instead of revealing the first whole-questio
     return fallback(path, init);
   });
   render(<Workspace />);
-  fireEvent.click(await screen.findByRole('button', { name: '第（3）问' }));
+  const third = await screen.findByRole('button', { name: '第（3）问' });
+  expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
+  expect(screen.queryByText('旧的整题提示')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '开始讲解' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '随时提问' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '开始下一题' })).toBeEnabled();
+  fireEvent.click(third);
+  expect(screen.queryByText('第二小题')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('模型暂不可用');
-  expect(screen.queryByText('本来会显示的整题讲解')).not.toBeInTheDocument();
+  expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByRole('heading', { name: '第三问的讲解' })).toBeVisible();
   expect(screen.getByText('解第（3）问：')).toBeVisible();
-  expect(screen.queryByText('本来会显示的整题讲解')).not.toBeInTheDocument();
+  expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   expect(selectedRequests).toEqual([{ expected_revision: 7, subquestion: 3 }, { expected_revision: 7, subquestion: 3 }]);
 
   fireEvent.click(screen.getByRole('button', { name: '查看全部小题' }));
-  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
-  expect(await screen.findByText('本来会显示的整题讲解')).toBeVisible();
+  expect(screen.getByText('第二小题')).toBeVisible();
+  expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
+  expect(screen.queryByText('直接用第三问的数据求解。')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '开始讲解' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '第（3）问' })).toHaveFocus();
   fireEvent.click(screen.getByRole('button', { name: '第（3）问' }));
   expect(screen.getByRole('heading', { name: '第三问的讲解' })).toBeVisible();
   expect(selectedRequests).toHaveLength(2);
