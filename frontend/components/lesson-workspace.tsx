@@ -13,6 +13,10 @@ import { TeachingChat, teachingChatLabel } from './teaching-chat';
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
 const questionActions: LessonCommand[] = ['start', 'custom-question', 'select-type'];
 const questionKey = (task: LessonTask) => task.question?.question_id ?? 'legacy:' + task.revision;
+function questionLabel(task: LessonTask, index: number) {
+  const type = task.question?.type_title;
+  return `题目 ${index + 1}${type ? ' · ' + type : ''}`;
+}
 type FocusTransition = {
   motion: NonNullable<ReturnType<typeof createLessonFocusMotion>>;
 } & ({ direction: 'enter'; origin: LessonFocusOrigin | null } |
@@ -56,7 +60,8 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const timeline = progress ? [...(progress.previous_questions ?? []), progress]
     .filter(task => task.question?.problem || task.legacy?.problem)
     .sort((a, b) => (a.question_order ?? a.revision) - (b.question_order ?? b.revision)) : [];
-  const selectedQuestion = selection && timeline.find(task => questionKey(task) === selection.questionId);
+  const selectedIndex = selection ? timeline.findIndex(task => questionKey(task) === selection.questionId) : -1;
+  const selectedQuestion = selectedIndex >= 0 ? timeline[selectedIndex] : undefined;
   const selectedPart = selectedQuestion ? selection?.part : undefined;
   const currentDetail = Boolean(selectedQuestion && selectedQuestion === progress);
   const singleDetail = selectedPart === 'single';
@@ -395,6 +400,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
           <ProblemCard key={questionKey(selectedQuestion)}
             text={selectedQuestion.question?.problem ?? selectedQuestion.legacy?.problem ?? ''}
             format={selectedQuestion.question?.format} parts={selectedQuestion.problem_parts}
+            label={questionLabel(selectedQuestion, selectedIndex)}
             active={activeSubquestion} onSelect={number => selectSubquestion(selectedQuestion, number)} />
         </div> : null}
         <div className="lesson-content" ref={content} role="region" aria-label="练习对话" tabIndex={0}>
@@ -402,12 +408,11 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
             const key = questionKey(task);
             const selected = task === selectedQuestion;
             const showSingleDetail = selected && singleDetail;
-            const label = task.question?.type_title;
             return <div className="lesson-question" key={key} data-lesson-question={key} hidden={pinProblem && !selected}>
               {!(selected && pinProblem) ? <ProblemCard
                 text={task.question?.problem ?? task.legacy?.problem ?? ''}
                 format={task.question?.format} parts={task.problem_parts}
-                label={`题目 ${index + 1}${label ? ' · ' + label : ''}`} isCurrent={task === progress}
+                label={questionLabel(task, index)} isCurrent={task === progress}
                 onSelect={number => selectSubquestion(task, number)}
                 onReturn={showSingleDetail ? () => returnFromSingleDetail(task) : undefined}
                 onExplain={!task.problem_parts && !showSingleDetail ? () => openSingleDetail(task) : undefined} /> : null}
@@ -448,7 +453,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
             : busy === 'next' ? '正在生成下一步…'
               : busy === 'select-type' ? '正在打开所选题型…' : '正在准备题目和教学步骤…'}
         </p> : null}
-        {explainingSubquestion ? <p className="muted" role="status">正在准备第（{activeSubquestion}）问的讲解…</p> : null}
+        {explainingSubquestion ? <p className="muted" role="status">正在准备讲解…</p> : null}
         {activeSubquestion !== undefined && subquestionError ? <p className="notice error" role="alert">{subquestionError}</p> : null}
         {error && !localAction && !checkError ? <p className="notice error" role="alert">{error}</p> : null}
         {((!progress && error) || stale) ? <button type="button" className="button secondary"

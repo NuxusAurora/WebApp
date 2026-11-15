@@ -54,7 +54,7 @@ export function ProblemCard({ text, format, parts, active, label = '题目', isC
   }
   return <section className="lesson-block lesson-problem-card" aria-labelledby={headingId}>
     <div className="lesson-problem-header">
-      <h2 id={headingId} data-problem-heading tabIndex={-1}>{active === undefined ? label : `第（${active}）问`}</h2>
+      <h2 id={headingId} data-problem-heading tabIndex={-1}>{label}</h2>
       <div className="lesson-problem-controls">
         {onReturn ? <button type="button" className="text-button" onClick={onReturn}>返回题目</button> : null}
         {onExplain ? <button type="button" className="text-button" data-detail-entry
@@ -91,10 +91,9 @@ export function LessonStep({ title, step, subquestion, current = true }: {
 }) {
   return <section className="lesson-block lesson-reading-step"
     aria-label={subquestion === undefined ? `第 ${step.index} 步` : `第（${subquestion}）问讲解`}>
-    {current ? <>
-      {subquestion !== undefined ? <p className="lesson-step-number">解第（{subquestion}）问：</p> : null}
-      <h2 id="lesson-step" tabIndex={-1}>{subquestion !== undefined ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}</h2>
-    </> : <h3>第 {step.index} 步：{title}</h3>}
+    {current ? <h2 id="lesson-step" tabIndex={-1}>
+      {subquestion !== undefined ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}
+    </h2> : <h3>第 {step.index} 步：{title}</h3>}
     {step.objective ? <p className="lesson-objective"><strong>本步目标</strong> {step.objective}</p> : null}
     <LessonContent text={step.content} format={step.format} />
     {step.takeaway ? <p><strong>本步结论</strong> {step.takeaway}</p> : null}

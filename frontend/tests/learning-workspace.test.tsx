@@ -291,7 +291,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
         { number: 1, text: '历史第一问' }, { number: 2, text: '历史第二问' },
       ] },
     }],
-    question: { question_id: 'multi-part', problem: '一道三问的题目' },
+    question: { question_id: 'multi-part', problem: '一道三问的题目', type_title: '基础练习' },
     problem_parts: { statement: '共用题干', parts: [
       { number: 1, text: '第一小题' }, { number: 2, text: '第二小题' }, { number: 3, text: '第三小题' },
     ] },
@@ -329,14 +329,14 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(screen.queryByRole('button', { name: /题目类型/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('region', { name: '题目 1' })).not.toBeInTheDocument();
   expect(screen.getByText('历史题干')).not.toBeVisible();
-  expect(screen.getByRole('button', { name: '返回全部题目' }).closest('.lesson-problem-dock')).not.toBeNull();
+  expect(screen.getByRole('heading', { name: '题目 2 · 基础练习' }).closest('.lesson-problem-dock')).not.toBeNull();
   expect(screen.queryByText('第二小题')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('模型暂不可用');
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
   expect(await screen.findByRole('heading', { name: '第三问的讲解' })).toBeVisible();
-  expect(screen.getByText('解第（3）问：')).toBeVisible();
+  expect(screen.queryByText('解第（3）问：')).not.toBeInTheDocument();
   expect(screen.queryByText('旧的整题讲解')).not.toBeInTheDocument();
   expect(selectedRequests).toEqual([{ expected_revision: 7, subquestion: 3 }, { expected_revision: 7, subquestion: 3 }]);
 
@@ -356,6 +356,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   fireEvent.click(screen.getByRole('button', { name: '返回全部题目' }));
   const earlier = within(screen.getByRole('region', { name: '题目 1' }));
   fireEvent.click(earlier.getByRole('button', { name: '第（2）问' }));
+  expect(screen.getByRole('heading', { name: '题目 1' }).closest('.lesson-problem-dock')).not.toBeNull();
   expect(screen.getByText('历史第二问')).toBeVisible();
   expect(screen.queryByRole('button', { name: '自定义题目' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /题目类型/ })).not.toBeInTheDocument();
