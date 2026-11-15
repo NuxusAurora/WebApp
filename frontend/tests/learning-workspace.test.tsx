@@ -111,7 +111,7 @@ it('opens an unnumbered question as a detail and returns to the question on relo
     { title: '定义判断', objective: '按定义判断' }, { title: '构造反例', objective: '识别反例' },
   ], current: 0, mastered: [] as number[], finished: false };
   const firstQuestion: LessonTask = {
-    revision: 1, status: 'final_step', actions: ['complete', 'hint', 'custom-question', 'next-type'],
+    revision: 1, status: 'final_step', actions: ['complete', 'hint', 'custom-question', 'select-type'],
     question: { question_id: 'question-one', problem: '第一道题' },
     current_step: { step_id: 'step-one', index: 1, title: '第一步讲解', content: '第一道题的解法' },
     practice,
@@ -120,18 +120,18 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   vi.mocked(api).mockImplementation(async (path, init) => {
     if (path !== lessonPath) return fallback(path, init);
     if (init?.method !== 'POST') return lesson;
-    const command = JSON.parse(String(init.body)).action;
+    const { action: command, type_index } = JSON.parse(String(init.body));
     commands.push(command);
     if (command === 'start') lesson = firstQuestion;
     else if (command === 'complete') {
       const last = lesson.practice?.current === 1;
       lesson = { ...lesson, revision: lesson.revision + 1, status: 'completed',
-        actions: last ? ['finish'] : ['custom-question', 'next-type'],
+        actions: last ? ['finish'] : ['custom-question', 'select-type'],
         practice: { ...practice, current: last ? 1 : 0, mastered: last ? [0, 1] : [0] } };
     }
-    else if (command === 'next-type') lesson = { ...firstQuestion, revision: 3,
-      previous_questions: [{ ...lesson, actions: [] }], actions: ['complete', 'hint', 'custom-question'],
-      practice: { ...practice, current: 1, mastered: [0] },
+    else if (command === 'select-type') lesson = { ...firstQuestion, revision: 3,
+      previous_questions: [{ ...lesson, actions: [] }],
+      practice: { ...practice, current: type_index, mastered: [0] },
       question: { question_id: 'question-two', problem: '第二道题' },
       current_step: { step_id: 'step-two', index: 1, title: '第二题讲解', content: '第二道题的解法' } };
     else if (command === 'finish') lesson = { ...lesson, revision: 5, actions: [],
@@ -159,10 +159,23 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   expect(screen.queryByRole('button', { name: /题目类型/ })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '返回题目' }));
   expect(await screen.findByRole('button', { name: '自定义题目' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: '题目类型 1/2' }));
+  const typePicker = screen.getByRole('button', { name: '题目类型 1/2' });
+  fireEvent.click(typePicker);
+  const options = within(screen.getByRole('list', { name: '选择题型' }));
+  expect(typePicker).toHaveAttribute('aria-expanded', 'true');
+  expect(commands).toEqual(['start', 'complete']);
+  expect(options.getByRole('button', { name: /定义判断/ })).toBeDisabled();
+  const target = options.getByRole('button', { name: /构造反例/ });
+  expect(target).toHaveFocus();
+  fireEvent.keyDown(target, { key: 'Escape' });
+  expect(typePicker).toHaveFocus();
+  expect(screen.queryByRole('list', { name: '选择题型' })).not.toBeInTheDocument();
+  fireEvent.click(typePicker);
+  fireEvent.click(screen.getByRole('button', { name: /构造反例/ }));
   expect(await screen.findByText('第二道题')).toBeVisible();
+  expect(screen.queryByRole('list', { name: '选择题型' })).not.toBeInTheDocument();
   expect(screen.getByText('第一道题')).toBeVisible();
-  expect(screen.getByRole('button', { name: '题目类型 2/2' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '题目类型 2/2' })).toBeEnabled();
   expect(screen.queryByText('第二道题的解法')).not.toBeInTheDocument();
   const conversation = screen.getByRole('region', { name: '练习对话' });
   expect(within(conversation).getAllByRole('button', { name: '开始讲解' })).toHaveLength(2);
@@ -176,7 +189,7 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   fireEvent.click(await screen.findByRole('button', { name: '完结' }));
   expect(await screen.findByText('知识点已完结')).toBeVisible();
   expect(screen.getByText('第一道题')).toBeVisible();
-  expect(commands).toEqual(['start', 'complete', 'next-type', 'complete', 'finish']);
+  expect(commands).toEqual(['start', 'complete', 'select-type', 'complete', 'finish']);
 });
 
 it('submits custom question requirements and keeps the draft when generation fails', async () => {
@@ -221,7 +234,7 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   const fallback = vi.mocked(api).getMockImplementation()!;
   const selectedRequests: object[] = [];
   const lesson: LessonTask = {
-    revision: 7, status: 'teaching', actions: ['next', 'custom-question', 'next-type', 'hint'],
+    revision: 7, status: 'teaching', actions: ['next', 'custom-question', 'select-type', 'hint'],
     practice: { types: [{ title: '基础练习', objective: '应用定义' }, { title: '变式', objective: '变式应用' }],
       current: 0, mastered: [], finished: false },
     previous_questions: [{
@@ -258,10 +271,13 @@ it('keeps explanations inside the selected subquestion even when whole-question 
   expect(screen.queryByRole('button', { name: '不打断模型提问' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '自定义题目' })).toBeEnabled();
   expect(screen.getByRole('button', { name: '题目类型 1/2' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '题目类型 1/2' }));
+  expect(screen.getByRole('list', { name: '选择题型' })).toBeVisible();
   expect(third.closest('.lesson-problem-dock')).toBeNull();
   conversation.scrollTop = 180;
   fireEvent.click(third);
   expect(conversation.scrollTop).toBe(0);
+  expect(screen.queryByRole('list', { name: '选择题型' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '自定义题目' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /题目类型/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('region', { name: '题目 1' })).not.toBeInTheDocument();

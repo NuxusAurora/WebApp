@@ -9,7 +9,7 @@ export type PublishedStep = {
   takeaway?: string; is_final_step?: boolean; format?: ContentFormat;
 };
 
-export type LessonCommand = 'start' | 'next' | 'complete' | 'custom-question' | 'similar-question' | 'next-type'
+export type LessonCommand = 'start' | 'next' | 'complete' | 'custom-question' | 'similar-question' | 'next-type' | 'select-type'
   | 'master-type' | 'finish' | 'hint' | 'rephrase'
   | 'check-question' | 'check-answer' | 'evaluate-check';
 
@@ -50,7 +50,7 @@ export function requestSubquestionExplanation(id: string, revision: number, numb
 }
 
 export type LessonCommandFields = {
-  check_id?: string; answer?: string; subquestion?: number; question_request?: string;
+  check_id?: string; answer?: string; subquestion?: number; question_request?: string; type_index?: number;
 };
 
 export function runLessonCommand(id: string, lesson: LessonTask, action: LessonCommand,

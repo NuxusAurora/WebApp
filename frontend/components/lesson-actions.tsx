@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { LessonCheck, LessonCommand, LessonCommandFields, LessonTask } from '../lib/lesson-task';
 import { LessonContent } from './lesson-reading';
 
 export const actionLabels: Record<LessonCommand, string> = {
   start: '开始学习', next: '我理解了，下一步', complete: '我理解了，完成本题',
-  'custom-question': '自定义题目', 'similar-question': '相似题目', 'next-type': '题目类型',
+  'custom-question': '自定义题目', 'similar-question': '相似题目', 'next-type': '题目类型', 'select-type': '题目类型',
   'master-type': '掌握本题型', finish: '完结',
   hint: '给我提示', rephrase: '换一种方式',
   'check-question': '验证一下', 'check-answer': '提交回答', 'evaluate-check': '重新评价',
@@ -74,47 +74,67 @@ export function LessonActions({ task, primary, busy, disabled, run }: {
 function PracticeNavigation({ task, disabled, run }: {
   task: LessonTask; disabled: boolean; run: (action: LessonCommand, fields?: LessonCommandFields) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [panel, setPanel] = useState<'request' | 'types' | null>(null);
   const [draft, setDraft] = useState('');
   const fieldId = useId();
-  const trigger = useRef<HTMLButtonElement>(null);
+  const listId = useId();
+  const requestTrigger = useRef<HTMLButtonElement>(null);
+  const typeTrigger = useRef<HTMLButtonElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
+  const typeList = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    if (open) field.current?.focus();
-  }, [open]);
+    if (panel === 'request') field.current?.focus();
+    if (panel === 'types') typeList.current?.querySelector<HTMLButtonElement>('button:enabled')?.focus();
+  }, [panel]);
 
   function close() {
-    setOpen(false);
-    trigger.current?.focus();
+    setPanel(null);
+    (panel === 'types' ? typeTrigger : requestTrigger).current?.focus();
+  }
+
+  function dismissOnEscape(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape' && !disabled) {
+      event.preventDefault();
+      close();
+    }
   }
 
   const { practice } = task;
   const canCustomize = task.actions.includes('custom-question');
-  const canAdvance = task.actions.includes('next-type');
-  if (!canCustomize && !canAdvance) return null;
+  const canSelect = Boolean(practice && task.actions.includes('select-type'));
+  if (!canCustomize && !canSelect) return null;
   const typeLabel = practice
-    ? `${actionLabels['next-type']} ${practice.current + 1}/${practice.types.length}`
-    : actionLabels['next-type'];
+    ? `${actionLabels['select-type']} ${practice.current + 1}/${practice.types.length}`
+    : actionLabels['select-type'];
 
   return <>
     <div className="lesson-practice-actions">
-      {canCustomize ? <button ref={trigger} type="button" className="button secondary" disabled={disabled}
-        aria-expanded={open} aria-controls={open ? fieldId + '-form' : undefined}
-        onClick={() => setOpen(!open)}>{actionLabels['custom-question']}</button> : null}
-      <button type="button" className="button primary" disabled={disabled || !canAdvance}
-        title={canAdvance ? '切换到下一个题型' : undefined}
-        onClick={() => run('next-type')}>{typeLabel}</button>
+      {canCustomize ? <button ref={requestTrigger} type="button" className="button secondary" disabled={disabled}
+        aria-expanded={panel === 'request'} aria-controls={panel === 'request' ? fieldId + '-form' : undefined}
+        onClick={() => setPanel(panel === 'request' ? null : 'request')}>{actionLabels['custom-question']}</button> : null}
+      <button ref={typeTrigger} type="button" className="button primary" disabled={disabled || !canSelect}
+        aria-expanded={panel === 'types'} aria-controls={panel === 'types' ? listId : undefined}
+        onClick={() => setPanel(panel === 'types' ? null : 'types')}>{typeLabel}</button>
     </div>
-    {canCustomize && open ? <form id={fieldId + '-form'} className="lesson-custom-question" onSubmit={event => {
+    {canSelect && practice && panel === 'types' ? <ul id={listId} ref={typeList} aria-label="选择题型"
+      className="lesson-type-options" onKeyDown={dismissOnEscape}>
+      {practice.types.map(({ title }, index) => {
+        const current = index === practice.current;
+        return <li key={title}>
+          <button type="button" className="button secondary lesson-type-option" disabled={disabled || current}
+            aria-current={current || undefined} onClick={() => run('select-type', { type_index: index })}>
+            <span>{index + 1}. {title}</span>
+            {current ? <span className="lesson-type-option-status">当前题型</span> :
+              practice.mastered.includes(index) ? <span className="lesson-type-option-status">已掌握</span> : null}
+          </button>
+        </li>;
+      })}
+    </ul> : null}
+    {canCustomize && panel === 'request' ? <form id={fieldId + '-form'} className="lesson-custom-question" onSubmit={event => {
       event.preventDefault();
       if (!disabled && draft.trim()) run('custom-question', { question_request: draft.trim() });
-    }} onKeyDown={event => {
-      if (event.key === 'Escape' && !disabled) {
-        event.preventDefault();
-        close();
-      }
-    }}>
+    }} onKeyDown={dismissOnEscape}>
       <label htmlFor={fieldId}>出题要求</label>
       <textarea ref={field} id={fieldId} className="ui-input" rows={2} maxLength={1000} required readOnly={disabled}
         value={draft} onChange={event => setDraft(event.target.value)} placeholder="例如，用实际场景出一道有三小题的练习" />

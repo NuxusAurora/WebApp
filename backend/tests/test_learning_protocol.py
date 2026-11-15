@@ -71,7 +71,9 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert len(generated) == 3
     assert first["practice"]["types"] == PRACTICE_TYPES["types"]
     assert first["question"]["type_title"] == PRACTICE_TYPES["types"][0]["title"]
-    assert {"custom-question", "similar-question", "next-type"}.issubset(first["actions"])
+    assert {"custom-question", "similar-question", "next-type", "select-type"}.issubset(
+        first["actions"]
+    )
     send(command("finish", first), 400)
     send(command("complete", first), 400)
     send(command("next", first, subquestion=3), 400)
@@ -103,7 +105,15 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert plan_calls[-1]["question_request"] == "用学校场景出题"
     assert send(custom)["data"] == customized
     send(custom | {"question_request": "改用交通场景"}, 409)
-    following = send(command("next-type", customized))["data"]
+    send(command("select-type", customized), 400)
+    send(command("select-type", customized, type_index=0), 400)
+    send(command("select-type", customized, type_index=3), 400)
+    send(command("next-type", customized, type_index=1), 400)
+    selection = command("select-type", customized, type_index=1)
+    following = send(selection)["data"]
+    assert send(selection)["data"] == following
+    send(selection | {"type_index": 0}, 409)
+    assert generated[-2][1]["practice_type"] == PRACTICE_TYPES["types"][1]
     assert following["question"]["problem"] == "说明函数与关系的区别"
     for key in ("task_id", "question", "plan"):
         assert following[key] != first[key]

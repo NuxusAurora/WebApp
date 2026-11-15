@@ -9,7 +9,7 @@ import { actionLabels, LessonActions, LessonSupport, PracticeActions, Understand
 import { TeachingChat, teachingChatLabel } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
-const questionActions: LessonCommand[] = ['start', 'custom-question', 'next-type'];
+const questionActions: LessonCommand[] = ['start', 'custom-question', 'select-type'];
 const questionKey = (task: LessonTask) => task.question?.question_id ?? 'legacy:' + task.revision;
 
 // Generated lessons can already contain step labels. Keep the server's index as the visible label.
@@ -293,7 +293,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const busyNavigation = busy && (questionActions.includes(busy as LessonCommand) ||
     ['load', 'next', 'complete', 'master-type', 'finish'].includes(busy));
   const showFooter = Boolean(busy || stale || explainingSubquestion || error || currentDetail ||
-    activeSubquestion !== undefined || canStart || practice || progress?.actions.some(action => action === 'custom-question' || action === 'next-type'));
+    activeSubquestion !== undefined || canStart || practice || progress?.actions.some(action => action === 'custom-question' || action === 'select-type'));
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
     aria-label={title} data-questions-open={questionsOpen}>
