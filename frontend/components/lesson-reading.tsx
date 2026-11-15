@@ -25,7 +25,7 @@ export function ProblemCard({ text, format }: { text: string; format?: ContentFo
   const long = text.length > 220 || text.split('\n').length > 5;
   return <section className="lesson-block lesson-problem-card" aria-labelledby="lesson-problem">
     <div className="lesson-problem-header">
-      <h2 id="lesson-problem">题目</h2>
+      <h2 id="lesson-problem" tabIndex={-1}>题目</h2>
       {long ? <button type="button" className="text-button" aria-expanded={open} aria-controls="lesson-problem-text"
         onClick={() => setOpen(!open)}>{open ? '收起题目' : '展开题目'}</button> : null}
     </div>

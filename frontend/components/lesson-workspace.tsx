@@ -27,12 +27,26 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   const [failedAction, setFailedAction] = useState<LessonCommand | null>(null);
   const [stale, setStale] = useState(false);
   const [questions, setQuestions] = useState<boolean | null>(null);
+  const revealStorageKey = 'learning:revealed-question:' + conversationId;
+  const [revealedQuestion, setRevealedQuestion] = useState<string | null>(() => {
+    try { return sessionStorage.getItem(revealStorageKey); } catch { return null; }
+  });
   const request = useRef<AbortController | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const launch = useRef<HTMLButtonElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const focusStep = useRef(false);
   const readingAnchor = useRef<{ node?: HTMLElement; top: number } | null>(null);
+
+  const legacy = progress?.legacy;
+  const step = progress?.current_step ?? legacy?.step;
+  const problem = progress?.question?.problem ?? legacy?.problem;
+  const complete = progress?.status === 'completed' || legacy?.complete;
+  const questionId = progress?.question?.question_id ?? 'legacy';
+  const hasStepActivity = progress?.check || progress?.support?.hints?.length || progress?.support?.rephrase ||
+    legacy?.check || legacy?.support;
+  const previewingProblem = Boolean(problem) && step?.index === 1 && !complete && !hasStepActivity &&
+    revealedQuestion !== questionId;
 
   const fail = useCallback((cause: unknown) => {
     if (cause instanceof ApiError && cause.status === 401) onSessionExpired();
@@ -74,9 +88,9 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     const panel = content.current;
     if (!panel?.clientHeight) return;
     if (focusStep.current) {
-      const stepHeading = panel.querySelector<HTMLElement>('#lesson-step');
-      stepHeading?.focus({ preventScroll: true });
-      stepHeading?.scrollIntoView?.({ block: 'start' });
+      const target = panel.querySelector<HTMLElement>(previewingProblem ? '#lesson-problem' : '#lesson-step');
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView?.({ block: 'start' });
       focusStep.current = false;
     } else if (readingAnchor.current) {
       const { node, top } = readingAnchor.current;
@@ -85,7 +99,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         : top;
     }
     readingAnchor.current = null;
-  }, [progress, questions]);
+  }, [progress, questions, previewingProblem]);
 
   async function act(action: LessonCommand, fields?: { check_id: string; answer?: string }) {
     if (!progress?.actions.includes(action) || request.current || stale) return;
@@ -146,10 +160,12 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     requestAnimationFrame(() => launch.current?.focus({ preventScroll: true }));
   }
 
-  const legacy = progress?.legacy;
-  const step = progress?.current_step ?? legacy?.step;
-  const problem = progress?.question?.problem ?? legacy?.problem;
-  const complete = progress?.status === 'completed' || legacy?.complete;
+  function revealExplanation() {
+    focusStep.current = true;
+    setRevealedQuestion(questionId);
+    try { sessionStorage.setItem(revealStorageKey, questionId); } catch { /* The current page still keeps the reveal. */ }
+  }
+
   const primary: LessonCommand = progress?.status === 'final_step' ? 'complete' :
     progress?.status === 'completed' ? 'next-question' : progress?.status === 'teaching' ? 'next' : 'start';
   const blocked = Boolean(busy) || stale;
@@ -164,8 +180,9 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       </header>
       <div className="lesson-content" ref={content} role="region" aria-label="当前教学内容" tabIndex={0}>
         <div className="lesson-body">
-          {progress && step && problem ? <>
-            <ProblemCard key={progress.question?.question_id ?? 'legacy-problem'} text={problem} format={progress.question?.format} />
+          {problem ? <ProblemCard key={questionId} text={problem} format={progress?.question?.format} /> :
+            progress ? <p className="muted">从一道题开始，一次学一步。</p> : null}
+          {progress && step && problem && !previewingProblem ? <>
             <LessonStep title={withoutStepLabels(step.title)} total={progress.plan?.total_steps}
               step={{ ...step, content: withoutStepLabels(step.content) }} />
             {Boolean(progress.completed_steps?.length) ? <details className="lesson-history">
@@ -186,7 +203,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
             {progress.check ? <UnderstandingCheck key={progress.check.check_id} check={progress.check}
               busy={busy} disabled={blocked || progress.status === 'completed'}
               error={checkError ? error : ''} submit={(action, fields) => void act(action, fields)} /> : null}
-          </> : progress ? <p className="muted">从一道题开始，一次学一步。</p> : null}
+          </> : null}
           {complete ? <section className="lesson-completion" role="status">
             <strong>本题已完成</strong>
             {progress?.completion && progress.plan ? <p>你确认完成了 {progress.plan.total_steps} 个教学步骤。</p> : null}
@@ -208,7 +225,9 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
               if (questions) closeQuestions();
               else { rememberReadingPosition(); setQuestions(true); onQuestionsChange(true); }
             }}>随时提问</button>
-          {progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
+          {previewingProblem ? <button type="button" className="button primary lesson-primary-action"
+            disabled={blocked} onClick={revealExplanation}>开始讲解</button> :
+            progress ? <LessonActions task={progress} primary={primary} disabled={blocked} busy={busy}
             run={action => void act(action)} /> : null}
         </div>
       </footer>

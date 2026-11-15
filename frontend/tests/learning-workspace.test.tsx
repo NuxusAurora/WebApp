@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Workspace } from '../components/workspace';
 import { api } from '../lib/api';
+import type { LessonTask } from '../lib/lesson-task';
 import { sidebarDOM } from './sidebar-test-dom';
 
 vi.mock('../lib/api', async load => ({ ...await load<typeof import('../lib/api')>(), api: vi.fn() }));
@@ -26,6 +27,7 @@ function project(pointId: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   sidebarDOM();
   history.replaceState({}, '', firstHref);
   vi.mocked(api).mockImplementation(async (path, init) => {
@@ -81,6 +83,51 @@ it('restores the saved conversation from the legacy project URL without rewritin
   history.replaceState({}, '', '/?view=learning&project=' + projectId);
   render(<Workspace />);
   expect(await screen.findByText('已有题目')).toBeVisible();
+  expect(screen.getByText('继续阅读')).toBeVisible();
   expect(await screen.findByRole('link', { name: /行列式定义/ })).toHaveAttribute('aria-current', 'page');
   expect(location.search).toBe('?view=learning&project=' + projectId);
+});
+
+it('shows each new question before its explanation and remembers the reveal in the same tab', async () => {
+  history.replaceState({}, '', secondHref);
+  const lessonPath = 'learning/conversations/' + secondId + '/lesson/task';
+  const fallback = vi.mocked(api).getMockImplementation()!;
+  const commands: string[] = [];
+  const firstQuestion: LessonTask = {
+    revision: 1, status: 'final_step', actions: ['complete', 'hint'],
+    question: { question_id: 'question-one', problem: '第一道题' },
+    current_step: { step_id: 'step-one', index: 1, title: '第一步讲解', content: '第一道题的解法' },
+  };
+  let lesson: LessonTask = { revision: 0, status: 'not_started', actions: ['start'] };
+  vi.mocked(api).mockImplementation(async (path, init) => {
+    if (path !== lessonPath) return fallback(path, init);
+    if (init?.method !== 'POST') return lesson;
+    const command = JSON.parse(String(init.body)).action;
+    commands.push(command);
+    if (command === 'start') lesson = firstQuestion;
+    else if (command === 'complete') lesson = { ...lesson, revision: 2, status: 'completed', actions: ['next-question'] };
+    else if (command === 'next-question') lesson = { ...firstQuestion, revision: 3,
+      question: { question_id: 'question-two', problem: '第二道题' },
+      current_step: { step_id: 'step-two', index: 1, title: '第二题讲解', content: '第二道题的解法' } };
+    return lesson;
+  });
+
+  const firstLoad = render(<Workspace />);
+  fireEvent.click(await screen.findByRole('button', { name: '开始学习' }));
+  expect(await screen.findByText('第一道题')).toBeVisible();
+  expect(screen.queryByText('第一道题的解法')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '给我提示' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '开始讲解' }));
+  expect(await screen.findByText('第一道题的解法')).toBeVisible();
+  expect(commands).toEqual(['start']);
+
+  firstLoad.unmount();
+  render(<Workspace />);
+  expect(await screen.findByText('第一道题的解法')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '我理解了，完成本题' }));
+  fireEvent.click(await screen.findByRole('button', { name: '开始下一题' }));
+  expect(await screen.findByText('第二道题')).toBeVisible();
+  expect(screen.queryByText('第二道题的解法')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '开始讲解' })).toBeVisible();
+  expect(commands).toEqual(['start', 'complete', 'next-question']);
 });
