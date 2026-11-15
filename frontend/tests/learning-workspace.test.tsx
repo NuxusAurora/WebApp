@@ -218,11 +218,13 @@ it('reveals a previously generated question at its original position when its ty
     revision: 5, question_order: 5, status: 'teaching', actions: ['select-type'],
     question: { question_id: 'second', problem: '当前第二题' }, practice,
   };
+  let lesson: LessonTask = { ...current, previous_questions: [saved] };
   vi.mocked(api).mockImplementation(async (path, init) => {
     if (path !== lessonPath) return fallback(path, init);
-    if (init?.method !== 'POST') return { ...current, previous_questions: [saved] };
+    if (init?.method !== 'POST') return lesson;
     expect(JSON.parse(String(init.body))).toMatchObject({ action: 'select-type', type_index: 0 });
-    return { ...saved, revision: 6, actions: ['select-type'], previous_questions: [{ ...current, actions: [] }] };
+    lesson = { ...saved, revision: 6, actions: ['select-type'], previous_questions: [{ ...current, actions: [] }] };
+    return lesson;
   });
   render(<Workspace />);
   const firstCard = await screen.findByRole('region', { name: '题目 1' });
@@ -239,10 +241,59 @@ it('reveals a previously generated question at its original position when its ty
   expect(screen.getByText('已经保存的讲解')).toBeVisible();
 });
 
+it.each([false, true])('preserves third-type generation across a point switch (finished while away: %s)', async finishedAway => {
+  const lessonPath = 'learning/conversations/' + firstId + '/lesson/task';
+  const fallback = vi.mocked(api).getMockImplementation()!;
+  const practice = {
+    types: ['判断符号', '交换规律', '奇偶性辨析'].map(title => ({ title, objective: title })),
+    current: 1, mastered: [0], finished: false,
+  };
+  let lesson: LessonTask = {
+    revision: 5, status: 'teaching', actions: ['select-type'],
+    practice, generated_type_indices: [0, 1],
+    question: { question_id: 'previous', problem: '交换规律练习' },
+  };
+  const pending = Promise.withResolvers<void>();
+  const commands: RequestInit[] = [];
+  vi.mocked(api).mockImplementation(async (path, init) => {
+    if (path !== lessonPath) return fallback(path, init);
+    if (init?.method !== 'POST') return lesson;
+    commands.push(init);
+    expect(JSON.parse(String(init.body))).toMatchObject({ action: 'select-type', expected_revision: 5, type_index: 2 });
+    await pending.promise;
+    if (init.signal?.aborted) throw init.signal.reason;
+    lesson = { ...lesson, revision: 6, practice: { ...practice, current: 2 }, generated_type_indices: [0, 1, 2],
+      previous_questions: [lesson], question: { question_id: 'third', problem: '奇偶性辨析练习' } };
+    return lesson;
+  });
+  render(<Workspace />);
+  fireEvent.click(await screen.findByRole('button', { name: '题目类型 2/3' }));
+  const thirdType = screen.getByRole('button', { name: /奇偶性辨析/ });
+  expect(thirdType).toHaveTextContent('AI 出题');
+  fireEvent.click(thirdType);
+  await screen.findByText('正在打开所选题型…');
+  fireEvent.click(await screen.findByRole('link', { name: /排列与逆序数/ }));
+  await screen.findByRole('heading', { name: '排列与逆序数' });
+  expect(screen.queryByText('正在打开所选题型…')).not.toBeInTheDocument();
+  expect(commands[0]?.signal?.aborted).toBe(false);
+
+  if (finishedAway) await act(async () => pending.resolve());
+  fireEvent.click(await screen.findByRole('link', { name: /行列式定义/ }));
+  if (!finishedAway) {
+    expect(await screen.findByText('正在打开所选题型…')).toBeVisible();
+    expect(await screen.findByRole('button', { name: '题目类型 2/3' })).toBeDisabled();
+    await act(async () => pending.resolve());
+  }
+  expect(await screen.findByText('奇偶性辨析练习')).toBeVisible();
+  expect(await screen.findByRole('button', { name: '题目类型 3/3' })).toBeEnabled();
+  expect(screen.getByText('交换规律练习')).toBeVisible();
+  expect(commands).toHaveLength(1);
+});
+
 it('submits custom question requirements and keeps the draft when generation fails', async () => {
   const lessonPath = 'learning/conversations/' + firstId + '/lesson/task';
   const fallback = vi.mocked(api).getMockImplementation()!;
-  const lesson: LessonTask = {
+  let lesson: LessonTask = {
     revision: 2, status: 'teaching', actions: ['custom-question', 'next-type'],
     question: { question_id: 'initial', problem: '题面' },
   };
@@ -252,8 +303,9 @@ it('submits custom question requirements and keeps the draft when generation fai
     if (init?.method !== 'POST') return lesson;
     requests.push(JSON.parse(String(init.body)));
     if (requests.length === 1) throw new Error('生成失败，请重试');
-    return { ...lesson, revision: 3, previous_questions: [lesson],
+    lesson = { ...lesson, revision: 3, previous_questions: [lesson],
       question: { question_id: 'custom', problem: '按要求生成的题面' } };
+    return lesson;
   });
   render(<Workspace />);
   const trigger = await screen.findByRole('button', { name: '自定义题目' });

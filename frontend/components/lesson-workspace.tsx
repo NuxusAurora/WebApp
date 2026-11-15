@@ -6,12 +6,15 @@ import { createLessonFocusMotion, findLessonQuestion,
   type LessonFocusOrigin, type LessonReturnOrigin } from '../lib/lesson-focus-motion';
 import { readLessonTask, requestSubquestionExplanation, runLessonCommand,
   type LessonCommand, type LessonCommandFields, type LessonTask, type SubquestionExplanation } from '../lib/lesson-task';
+import { useWorkspaceOperation } from '../lib/workspace-operations';
 import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
 import { actionLabels, LessonActions, LessonSupport, PracticeActions, UnderstandingCheck } from './lesson-actions';
 import { TeachingChat, teachingChatLabel } from './teaching-chat';
 
 const supportLabels = { explain: '另一种讲法', hint: '提示', evaluate: '反馈' };
-const questionActions: LessonCommand[] = ['start', 'custom-question', 'select-type'];
+const questionActions: LessonCommand[] = ['start', 'custom-question', 'select-type', 'similar-question', 'next-type'];
+const needsProgressRefresh = (cause: unknown) =>
+  !(cause instanceof ApiError) || [409, 502, 503, 504].includes(cause.status);
 const questionKey = (task: LessonTask) => task.question?.question_id ?? 'legacy:' + task.revision;
 const questionNumberLabel = (index: number) => `题目 ${index + 1}`;
 function questionLabel(task: LessonTask, index: number) {
@@ -84,8 +87,10 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     else setError(cause instanceof Error ? cause.message : '教学暂不可用，请重试');
   }, [onSessionExpired]);
 
-  const load = useCallback(async () => {
-    if (request.current) return;
+  const load = useCallback(async (afterQuestion?: { status: 'succeeded' } | { status: 'failed'; cause: unknown }) => {
+    if (request.current && !afterQuestion) return;
+    // Replace an initial read of the old revision if the command finishes just as this view returns.
+    request.current?.abort();
     const task = new AbortController();
     request.current = task;
     setBusy('load');
@@ -96,15 +101,20 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     try {
       const result = await readLessonTask(conversationId, task.signal);
       if (task.signal.aborted) return;
-      if (result.previous_questions?.length) {
+      if (afterQuestion?.status === 'succeeded' || (!afterQuestion && result.previous_questions?.length)) {
         focusDestination.current = {
-          questionId: questionKey(result), selector: '[data-problem-heading]', showQuestion: true, scrollOnly: true,
+          questionId: questionKey(result), selector: '[data-problem-heading]', showQuestion: true, scrollOnly: !afterQuestion,
         };
       }
       setProgress(result);
       setStale(false);
+      if (afterQuestion?.status === 'failed') fail(afterQuestion.cause);
     } catch (cause) {
-      if (!task.signal.aborted) fail(cause);
+      if (!task.signal.aborted) {
+        if (afterQuestion) setStale(true);
+        fail(afterQuestion?.status === 'failed' && !(cause instanceof ApiError && cause.status === 401)
+          ? afterQuestion.cause : cause);
+      }
     } finally {
       if (request.current === task) {
         request.current = null;
@@ -123,6 +133,13 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       focusMotion.current = null;
     };
   }, [load]);
+  const questionJob = useWorkspaceOperation('lesson-question:' + conversationId, () => {
+    leaveDetail();
+    void load({ status: 'succeeded' });
+  }, cause => {
+    if (needsProgressRefresh(cause)) void load({ status: 'failed', cause });
+    else fail(cause);
+  });
 
   useLayoutEffect(() => {
     const panel = content.current;
@@ -177,11 +194,18 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   }, [progress, questionsOpen, selection, activeSubquestion, focusedExplanation]);
 
   async function act(action: LessonCommand, fields?: LessonCommandFields) {
-    if (!progress?.actions.includes(action) || request.current || stale) return;
-    const task = new AbortController();
-    request.current = task;
+    if (!progress?.actions.includes(action) || request.current || questionJob.busy || stale) return;
     setError('');
     setFailedAction(null);
+    if (questionActions.includes(action)) {
+      const label = action === 'select-type' ? '正在打开所选题型…' : '正在准备题目和教学步骤…';
+      questionJob.start(label, async signal => {
+        await runLessonCommand(conversationId, progress, action, signal, fields);
+      });
+      return;
+    }
+    const task = new AbortController();
+    request.current = task;
     setBusy(action);
     try {
       let result = await runLessonCommand(conversationId, progress, action, task.signal, fields);
@@ -194,7 +218,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         });
         if (task.signal.aborted) return;
       }
-      if (questionActions.includes(action) || action === 'finish' || action === 'master-type') {
+      if (action === 'finish' || action === 'master-type') {
         leaveDetail();
         focusDestination.current = {
           questionId: questionKey(result), selector: '[data-problem-heading]', showQuestion: true,
@@ -206,7 +230,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     } catch (cause) {
       if (task.signal.aborted) return;
       setFailedAction(action);
-      if (!(cause instanceof ApiError) || [409, 502, 503, 504].includes(cause.status)) {
+      if (needsProgressRefresh(cause)) {
         try {
           const latest = await readLessonTask(conversationId, task.signal);
           if (task.signal.aborted) return;
@@ -344,7 +368,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
   }
 
   async function explainSelection() {
-    if (!progress || !selectedQuestion || !selection || activeSubquestion === undefined || request.current || stale) return;
+    if (!progress || !selectedQuestion || !selection || activeSubquestion === undefined || request.current || questionJob.busy || stale) return;
     const task = new AbortController();
     request.current = task;
     setSubquestionError('');
@@ -380,14 +404,15 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
 
   const primary: LessonCommand = progress?.status === 'final_step' ? 'complete' :
     progress?.status === 'teaching' ? 'next' : 'start';
-  const blocked = Boolean(busy) || explainingSubquestion || stale;
+  const blocked = Boolean(busy) || questionJob.busy || explainingSubquestion || stale;
   const checkError = failedAction === 'check-answer' || failedAction === 'evaluate-check';
   const localAction = failedAction === 'hint' || failedAction === 'rephrase' || failedAction === 'check-question';
   const canStart = progress?.actions.includes('start');
   const practice = progress?.practice;
-  const busyNavigation = busy && (questionActions.includes(busy as LessonCommand) ||
-    ['load', 'next', 'complete', 'master-type', 'finish'].includes(busy));
-  const showFooter = Boolean(busy || stale || explainingSubquestion || error || currentDetail ||
+  const navigationStatus = questionJob.label || (busy === 'load' ? '正在读取教学进度…' :
+    busy === 'complete' || busy === 'master-type' || busy === 'finish' ? '正在保存完成记录…' :
+      busy === 'next' ? '正在生成下一步…' : '');
+  const showFooter = Boolean(busy || questionJob.busy || stale || explainingSubquestion || error || currentDetail ||
     activeSubquestion !== undefined || canStart || practice || progress?.actions.some(action => action === 'custom-question' || action === 'select-type'));
 
   return <section className="learning-conversation-main learning-conversation-point lesson-workspace"
@@ -450,16 +475,12 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         </div>
       </div>
       {showFooter ? <footer className="lesson-footer">
-        {busyNavigation ? <p className="muted" role="status">
-          {busy === 'load' ? '正在读取教学进度…' : busy === 'complete' || busy === 'master-type' || busy === 'finish' ? '正在保存完成记录…'
-            : busy === 'next' ? '正在生成下一步…'
-              : busy === 'select-type' ? '正在打开所选题型…' : '正在准备题目和教学步骤…'}
-        </p> : null}
+        {navigationStatus ? <p className="muted" role="status">{navigationStatus}</p> : null}
         {explainingSubquestion ? <p className="muted" role="status">正在准备讲解…</p> : null}
         {activeSubquestion !== undefined && subquestionError ? <p className="notice error" role="alert">{subquestionError}</p> : null}
         {error && !localAction && !checkError ? <p className="notice error" role="alert">{error}</p> : null}
         {((!progress && error) || stale) ? <button type="button" className="button secondary"
-          disabled={Boolean(busy)} onClick={() => void load()}>重新加载进度</button> : null}
+          disabled={Boolean(busy) || questionJob.busy} onClick={() => void load()}>重新加载进度</button> : null}
         {practice?.finished ? <p className="lesson-practice-status" role="status">知识点已完结</p> :
           practice ? <details className="lesson-practice-status">
             <summary><span role="status">已掌握 {practice.mastered.length} / {practice.types.length} 种题型</span></summary>
