@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '../lib/api';
-import { createLessonFocusMotion, findLessonQuestion, type LessonFocusOrigin } from '../lib/lesson-focus-motion';
+import { createLessonFocusMotion, findLessonQuestion,
+  type LessonFocusOrigin, type LessonReturnOrigin } from '../lib/lesson-focus-motion';
 import { readLessonTask, requestSubquestionExplanation, runLessonCommand,
   type LessonCommand, type LessonCommandFields, type LessonTask, type SubquestionExplanation } from '../lib/lesson-task';
 import { LessonContent, LessonStep, ProblemCard } from './lesson-reading';
@@ -14,8 +15,8 @@ const questionActions: LessonCommand[] = ['start', 'custom-question', 'select-ty
 const questionKey = (task: LessonTask) => task.question?.question_id ?? 'legacy:' + task.revision;
 type FocusTransition = {
   motion: NonNullable<ReturnType<typeof createLessonFocusMotion>>;
-  origin: LessonFocusOrigin | null;
-};
+} & ({ direction: 'enter'; origin: LessonFocusOrigin | null } |
+  { direction: 'return'; origin: LessonReturnOrigin | null; part: number });
 
 // Generated lessons can already contain step labels. Keep the server's index as the visible label.
 function withoutStepLabels(text: string) {
@@ -125,10 +126,11 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       const target = destination === 'step' ? slot?.querySelector<HTMLElement>('#lesson-step') :
         destination === 'dock' ? problemDock.current?.querySelector<HTMLElement>('[data-problem-heading]') :
           slot?.querySelector<HTMLElement>(destination.selector);
+      const transition = focusMotion.current;
+      let deferFocus = false;
       if (destination === 'dock') {
         if (panel) panel.scrollTop = 0;
-        const transition = focusMotion.current;
-        if (transition?.origin && problemDock.current && activeSubquestion !== undefined) {
+        if (transition?.direction === 'enter' && transition.origin && problemDock.current && activeSubquestion !== undefined) {
           void transition.motion.settle(problemDock.current, activeSubquestion, transition.origin,
             slot?.querySelector<HTMLElement>('.lesson-reading-step'))
             .catch(() => transition.motion.cancel())
@@ -136,13 +138,28 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
         }
       } else if (typeof destination !== 'string' && destination.showQuestion) {
         slot?.scrollIntoView?.({ block: 'start' });
-      } else {
-        if (panel && typeof destination !== 'string' && destination.restoreScrollTop !== undefined) {
-          panel.scrollTop = destination.restoreScrollTop;
+      } else if (panel && typeof destination !== 'string' && destination.restoreScrollTop !== undefined) {
+        const readingTop = destination.restoreScrollTop;
+        if (transition?.direction === 'return' && transition.origin && slot) {
+          deferFocus = true;
+          panel.focus({ preventScroll: true });
+          void transition.motion.restore(slot, transition.part, transition.origin, readingTop)
+            .catch(() => {
+              transition.motion.cancel();
+              if (focusMotion.current === transition) panel.scrollTop = readingTop;
+            })
+            .finally(() => {
+              if (focusMotion.current !== transition) return;
+              focusMotion.current = null;
+              if (document.activeElement === panel) target?.focus({ preventScroll: true });
+            });
+        } else {
+          panel.scrollTop = readingTop;
         }
+      } else {
         target?.scrollIntoView?.({ block: 'nearest' });
       }
-      if (typeof destination === 'string' || !destination.scrollOnly) target?.focus({ preventScroll: true });
+      if (!deferFocus && (typeof destination === 'string' || !destination.scrollOnly)) target?.focus({ preventScroll: true });
       focusDestination.current = null;
     } else if (panel?.clientHeight && readingAnchor.current) {
       const { node, top } = readingAnchor.current;
@@ -219,16 +236,23 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     requestAnimationFrame(() => launch.current?.focus({ preventScroll: true }));
   }
 
-  function leaveDetail() {
-    focusMotion.current?.motion.cancel();
-    focusMotion.current = null;
+  function clearSelection() {
     setSelection(null);
     setQuestions(previous => previous === null ? null : false);
   }
 
-  function openSingleDetail(task: LessonTask) {
+  function stopFocusMotion() {
     focusMotion.current?.motion.cancel();
     focusMotion.current = null;
+  }
+
+  function leaveDetail() {
+    stopFocusMotion();
+    clearSelection();
+  }
+
+  function openSingleDetail(task: LessonTask) {
+    stopFocusMotion();
     cancelSubquestion();
     setQuestions(previous => previous === null ? null : false);
     focusDestination.current = 'step';
@@ -249,23 +273,46 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
     setSubquestionError('');
   }
 
-  function selectSubquestion(task: LessonTask, number?: number) {
-    cancelSubquestion();
-    if (number === undefined) {
+  function returnFromSubquestion(questionId: string, part: number) {
+    if (focusMotion.current?.direction === 'return') return;
+    stopFocusMotion();
+    const panel = content.current;
+    const dock = problemDock.current;
+    const motion = panel && dock && createLessonFocusMotion(panel);
+    const showOverview = () => {
       focusDestination.current = {
-        questionId: questionKey(task),
-        selector: `[data-part="${activeSubquestion}"]`,
+        questionId,
+        selector: `[data-part="${part}"]`,
         restoreScrollTop: overviewScrollTop.current,
       };
-      leaveDetail();
+      clearSelection();
+    };
+    if (!motion || !dock) {
+      showOverview();
+      return;
+    }
+    const transition: FocusTransition = { direction: 'return', motion, part, origin: null };
+    focusMotion.current = transition;
+    const slot = findLessonQuestion(panel, questionId);
+    void motion.depart(dock, part, slot?.querySelector<HTMLElement>('.lesson-reading-step')).catch(() => null).then(origin => {
+      if (focusMotion.current !== transition) return;
+      transition.origin = origin;
+      if (!origin) stopFocusMotion();
+      showOverview();
+    });
+  }
+
+  function selectSubquestion(task: LessonTask, number?: number) {
+    cancelSubquestion();
+    const questionId = questionKey(task);
+    if (number === undefined) {
+      if (activeSubquestion !== undefined) returnFromSubquestion(questionId, activeSubquestion);
       return;
     }
 
     const panel = content.current;
-    const questionId = questionKey(task);
-    if (!pinProblem && !focusMotion.current) overviewScrollTop.current = panel?.scrollTop ?? 0;
-    focusMotion.current?.motion.cancel();
-    focusMotion.current = null;
+    if (!pinProblem && focusMotion.current?.direction !== 'enter') overviewScrollTop.current = panel?.scrollTop ?? 0;
+    stopFocusMotion();
     const open = () => {
       setQuestions(previous => previous === null ? null : false);
       focusDestination.current = 'dock';
@@ -277,7 +324,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
       open();
       return;
     }
-    const transition: FocusTransition = { motion, origin: null };
+    const transition: FocusTransition = { direction: 'enter', motion, origin: null };
     focusMotion.current = transition;
     void motion.lift(slot, number).catch(() => null).then(origin => {
       if (focusMotion.current !== transition) return;
