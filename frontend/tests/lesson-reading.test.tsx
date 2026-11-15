@@ -28,7 +28,10 @@ it('can collapse and reopen even a short problem', () => {
   expect(screen.getByText('短题面')).toBeVisible();
 });
 
-it('pins the selected part under the stem and restores the other parts on request', () => {
+it.each([
+  ['编号', () => screen.getByRole('button', { name: '第（2）问' })],
+  ['正文', () => screen.getByText('第二小题')],
+])('pins the selected part when clicking %s and restores the other parts on request', (_, target) => {
   function SelectableProblem() {
     const [active, setActive] = useState<number>();
     return <ProblemCard text="共用题干" parts={{ statement: '共用题干', parts: [
@@ -36,7 +39,7 @@ it('pins the selected part under the stem and restores the other parts on reques
     ] }} active={active} onSelect={setActive} />;
   }
   render(<SelectableProblem />);
-  fireEvent.click(screen.getByRole('button', { name: '第（2）问' }));
+  fireEvent.click(target());
   expect(screen.getByText('共用题干')).toBeVisible();
   expect(screen.getByText('第二小题')).toBeVisible();
   expect(screen.queryByText('第一小题')).not.toBeInTheDocument();

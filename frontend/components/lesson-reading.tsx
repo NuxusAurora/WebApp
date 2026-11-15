@@ -51,8 +51,9 @@ export function ProblemCard({ text, format, parts, active, onSelect }: {
         <div className="lesson-problem-parts">
           {visibleParts.map(part => <div key={part.number} className="lesson-problem-part"
             data-active={part.number === active} onClick={event => {
-              if (active === undefined && event.target instanceof Element &&
-                !event.target.closest('button, a, [tabindex]') && !window.getSelection()?.toString()) onSelect(part.number);
+              if (active !== undefined || !(event.target instanceof Element) || window.getSelection()?.toString()) return;
+              const interactive = event.target.closest('button, a, [tabindex]');
+              if (!event.currentTarget.contains(interactive)) onSelect(part.number);
             }}>
             <button type="button" className="text-button lesson-part-number" data-part={part.number}
               aria-label={`第（${part.number}）问`} aria-pressed={part.number === active}
