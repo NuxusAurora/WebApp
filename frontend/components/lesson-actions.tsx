@@ -121,12 +121,19 @@ function PracticeNavigation({ task, disabled, run }: {
       className="lesson-type-options" onKeyDown={dismissOnEscape}>
       {practice.types.map(({ title }, index) => {
         const current = index === practice.current;
+        const mastered = practice.mastered.includes(index);
+        const hasQuestion = task.generated_type_indices?.includes(index);
         return <li key={title}>
           <button type="button" className="button secondary lesson-type-option" disabled={disabled || current}
             aria-current={current || undefined} onClick={() => run('select-type', { type_index: index })}>
             <span>{index + 1}. {title}</span>
             {current ? <span className="lesson-type-option-status">当前题型</span> :
-              practice.mastered.includes(index) ? <span className="lesson-type-option-status">已掌握</span> : null}
+              mastered || hasQuestion !== undefined ? <span className="lesson-type-option-status">
+                {mastered ? <span>已掌握</span> : null}
+                {hasQuestion !== undefined ? <span className="lesson-type-option-badge" data-new-question={!hasQuestion}>
+                  {hasQuestion ? '回原题' : 'AI 出题'}
+                </span> : null}
+              </span> : null}
           </button>
         </li>;
       })}

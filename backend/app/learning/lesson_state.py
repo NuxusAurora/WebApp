@@ -38,36 +38,25 @@ async def question_timeline(db, conversation_id, revision):
         .label("rank"),
     ).subquery()
     result = await db.execute(
-        select(row, ranked.c.first_revision)
+        select(row, ranked.c.first_revision, LearningLessonPlan.content_version_id)
         .join(ranked, ranked.c.id == row.id)
+        .outerjoin(LearningLessonPlan, row.plan_id == LearningLessonPlan.plan_id)
         .where(ranked.c.rank == 1)
         .order_by(ranked.c.first_revision)
     )
     return result.all()
 
 
-async def saved_question_for_type(db, timeline, practice, type_index, content_version_id):
-    candidates = [
-        row
-        for row, _ in reversed(timeline)
-        if row.plan_id is not None
-        and (saved := row.state.get("practice"))
-        and saved["current"] == type_index
-        and saved["types"] == practice["types"]
-    ]
-    if not candidates:
-        return None
-    current_plans = set(
-        await db.scalars(
-            select(LearningLessonPlan.plan_id).where(
-                LearningLessonPlan.plan_id.in_([row.plan_id for row in candidates]),
-                LearningLessonPlan.content_version_id == content_version_id,
-            )
-        )
-    )
-    return next(
-        ((row.plan_id, row.state) for row in candidates if row.plan_id in current_plans), None
-    )
+def saved_questions_by_type(timeline, practice, content_version_id):
+    """Use the newest question per type from the same curriculum version and practice plan."""
+    questions = {}
+    for row, _, version in timeline:
+        if row.plan_id is None or version != content_version_id:
+            continue
+        saved = row.state.get("practice")
+        if saved and saved["types"] == practice["types"]:
+            questions[saved["current"]] = (row.plan_id, row.state)
+    return questions
 
 
 def legacy_state_data(lesson: LearningLessonRevision | None) -> dict:

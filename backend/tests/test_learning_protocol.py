@@ -70,6 +70,7 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert send(start)["data"] == first
     assert len(generated) == 3
     assert first["practice"]["types"] == PRACTICE_TYPES["types"]
+    assert first["generated_type_indices"] == [0]
     assert first["question"]["type_title"] == PRACTICE_TYPES["types"][0]["title"]
     assert {"custom-question", "similar-question", "next-type", "select-type"}.issubset(
         first["actions"]
@@ -86,7 +87,10 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
     assert second["completed_steps"] == [first["current_step"]]
     assert generated[-1][1]["step"]["objective"] == "第二步目标"
     assert generated[-1][1]["active_subquestion"] == {"number": 2, "text": "证明 f 单调。"}
-    assert send(command("next", first), 409)["error"]["details"]["snapshot"] == second
+    conflict = send(command("next", first), 409)["error"]["details"]["snapshot"]
+    assert conflict == {
+        key: value for key, value in second.items() if key != "generated_type_indices"
+    }
     done = send(command("complete", second))["data"]
     assert done["status"] == "completed"
     assert done["completion"]["completed_at"]
@@ -119,6 +123,7 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
         assert following[key] != first[key]
     assert following["question"]["type_title"] == PRACTICE_TYPES["types"][1]["title"]
     assert following["practice"]["mastered"] == [0]
+    assert following["generated_type_indices"] == [0, 1]
     assert [question["question"] for question in following["previous_questions"]] == [
         first["question"],
         customized["question"],
@@ -135,6 +140,7 @@ def test_protocol_commands_and_public_history(example_conversation, draft_data, 
         assert resumed[key] == customized[key]
     assert resumed["practice"]["mastered"] == [0]
     assert resumed["practice"]["current"] == 0
+    assert resumed["generated_type_indices"] == [0, 1]
     assert [entry["question"] for entry in resumed["previous_questions"]] == [
         first["question"],
         following["question"],

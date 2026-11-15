@@ -18,7 +18,7 @@ from app.learning.lesson_state import (
     current_lesson,
     lesson_query,
     question_timeline,
-    saved_question_for_type,
+    saved_questions_by_type,
 )
 from app.learning.lesson_support import apply_support, require_input
 from app.learning.models import (
@@ -310,12 +310,10 @@ async def execute(db, conversation_id, actor_id, command, generator):
     if command.action in QUESTION_ACTIONS and latest is not None:
         timeline = await question_timeline(db, conversation_id, latest.revision)
         if command.action == "select-type":
-            restored = await saved_question_for_type(
-                db, timeline, practice, command.type_index, version
-            )
+            restored = saved_questions_by_type(timeline, practice, version).get(command.type_index)
         if restored is None:
             previous_problems = [
-                entry.state["problem"] for entry, _ in timeline if entry.state.get("problem")
+                entry.state["problem"] for entry, _, _ in timeline if entry.state.get("problem")
             ]
     material = learning_material(course, section, point)
     if command.action == "next":

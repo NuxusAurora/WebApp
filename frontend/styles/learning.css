@@ -136,7 +136,17 @@
 .lesson-type-option.button {
   justify-content: space-between; width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: start;
 }
-.lesson-type-option-status { flex-shrink: 0; font-size: var(--font-caption); }
+.lesson-type-option-status {
+  display: inline-flex; align-items: center; gap: var(--space-2); flex-shrink: 0;
+  font-size: var(--font-caption); white-space: nowrap;
+}
+.lesson-type-option-badge {
+  padding: 2px 6px; border-radius: var(--radius-small);
+  color: var(--text-secondary); background: var(--surface-secondary);
+}
+.lesson-type-option-badge[data-new-question="true"] {
+  color: var(--accent-strong); background: var(--accent-soft);
+}
 .lesson-custom-question { display: grid; gap: var(--space-2); flex-basis: 100%; }
 .lesson-custom-question textarea { max-block-size: 25vh; resize: vertical; font-size: max(16px, 1em); }
 .lesson-custom-question-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }

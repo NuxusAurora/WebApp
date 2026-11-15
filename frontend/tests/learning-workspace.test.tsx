@@ -112,6 +112,7 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   ], current: 0, mastered: [] as number[], finished: false };
   const firstQuestion: LessonTask = {
     revision: 1, status: 'final_step', actions: ['complete', 'hint', 'custom-question', 'select-type'],
+    generated_type_indices: [0],
     question: { question_id: 'question-one', problem: '第一道题' },
     current_step: { step_id: 'step-one', index: 1, title: '第一步讲解', content: '第一道题的解法' },
     practice,
@@ -130,7 +131,7 @@ it('opens an unnumbered question as a detail and returns to the question on relo
         practice: { ...practice, current: last ? 1 : 0, mastered: last ? [0, 1] : [0] } };
     }
     else if (command === 'select-type') lesson = { ...firstQuestion, revision: 3,
-      previous_questions: [{ ...lesson, actions: [] }],
+      previous_questions: [{ ...lesson, actions: [] }], generated_type_indices: [0, 1],
       practice: { ...practice, current: type_index, mastered: [0] },
       question: { question_id: 'question-two', problem: '第二道题' },
       current_step: { step_id: 'step-two', index: 1, title: '第二题讲解', content: '第二道题的解法' } };
@@ -167,6 +168,7 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   expect(options.getByRole('button', { name: /定义判断/ })).toBeDisabled();
   const target = options.getByRole('button', { name: /构造反例/ });
   expect(target).toHaveFocus();
+  expect(target).toHaveTextContent('AI 出题');
   fireEvent.keyDown(target, { key: 'Escape' });
   expect(typePicker).toHaveFocus();
   expect(screen.queryByRole('list', { name: '选择题型' })).not.toBeInTheDocument();
@@ -175,7 +177,13 @@ it('opens an unnumbered question as a detail and returns to the question on relo
   expect(await screen.findByText('第二道题')).toBeVisible();
   expect(screen.queryByRole('list', { name: '选择题型' })).not.toBeInTheDocument();
   expect(screen.getByText('第一道题')).toBeVisible();
-  expect(screen.getByRole('button', { name: '题目类型 2/2' })).toBeEnabled();
+  const secondType = screen.getByRole('button', { name: '题目类型 2/2' });
+  expect(secondType).toBeEnabled();
+  fireEvent.click(secondType);
+  const savedType = screen.getByRole('button', { name: /定义判断/ });
+  expect(savedType).toHaveTextContent('回原题');
+  expect(savedType).toHaveTextContent('已掌握');
+  fireEvent.keyDown(savedType, { key: 'Escape' });
   expect(screen.queryByText('第二道题的解法')).not.toBeInTheDocument();
   const conversation = screen.getByRole('region', { name: '练习对话' });
   expect(within(conversation).getAllByRole('button', { name: '开始讲解' })).toHaveLength(2);

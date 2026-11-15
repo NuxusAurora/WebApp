@@ -36,6 +36,7 @@ export type LessonTask = {
   check?: LessonCheck | null;
   completion?: { completed_at: string } | null;
   practice?: { types: { title: string; objective: string }[]; current: number; mastered: number[]; finished: boolean } | null;
+  generated_type_indices?: number[];
   question_order?: number;
   previous_questions?: LessonTask[];
 };
