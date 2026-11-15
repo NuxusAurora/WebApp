@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sidebarDOM } from './sidebar-test-dom';
 import { CourseSpace } from '../components/course-space';
+import { WorkspaceOperations } from '../lib/workspace-operations';
 import { Account } from '../components/account';
 import { Workspace } from '../components/workspace';
 import { CourseEditor } from '../components/course-editor';
@@ -336,7 +337,7 @@ describe('desktop course workspace', () => {
       throw new Error('Unexpected request');
     });
     const dirty = vi.fn();
-    render(<CourseSpace onDirtyChange={dirty} />);
+    render(<CourseSpace onDirtyChange={dirty} />, { wrapper: WorkspaceOperations });
     await expandSubject();
     fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
     await screen.findByRole('heading', { name: '高等数学' });
@@ -448,6 +449,7 @@ describe('desktop course workspace', () => {
       payload: { knowledge_points: [{ ...point, temp_id: 'p', existing_knowledge_point_id: null }] },
       change_summary: { added: [], modified: [], archived: [] } };
     const request = vi.mocked(api);
+    let saved = false;
     request.mockImplementation(async path => {
       if (path === 'users/me') return { id: 'user', display_name: '学生', email: 'student@example.com' };
       if (path.startsWith('courses?')) return courses;
@@ -455,8 +457,8 @@ describe('desktop course workspace', () => {
       if (path.endsWith('/curriculum')) return { confirmed_revision: 1, versions: [], curriculum: {
         chapters: [{ id: 'chapter', title: '函数与极限', sections: [{ id: 's1', title: '函数' }, { id: 's2', title: '极限' }] }],
       } };
-      if (path === 'sections/s1/knowledge-points/generate') return draft;
-      if (path === 'sections/s1/knowledge-points') return { confirmed_revision: 1, knowledge_points: [], draft: null };
+      if (path === 'sections/s1/knowledge-points/generate') { saved = true; return draft; }
+      if (path === 'sections/s1/knowledge-points') return { confirmed_revision: 1, knowledge_points: [], draft: saved ? draft : null };
       if (path === 'sections/s2/knowledge-points') return { confirmed_revision: 1, draft: null, knowledge_points: [
         { ...point, id: 'existing', section_id: 's2', status: 'NOT_STARTED', title: '数列极限' },
       ] };
@@ -493,6 +495,7 @@ describe('desktop course workspace', () => {
       payload: { knowledge_points: [{ ...point, temp_id: 'p', existing_knowledge_point_id: 'point' }] },
       change_summary: { added: [], modified: [], archived: [] } };
     const request = vi.mocked(api);
+    let saved = false;
     request.mockImplementation(async path => {
       if (path === 'users/me') return { id: 'user', display_name: '学生', email: 'student@example.com' };
       if (path.startsWith('courses?')) return courses;
@@ -500,8 +503,8 @@ describe('desktop course workspace', () => {
       if (path.endsWith('/curriculum')) return { confirmed_revision: 1, versions: [], curriculum: {
         chapters: [{ id: 'chapter', title: '函数与极限', sections: [{ id: 's1', title: '函数' }] }],
       } };
-      if (path === 'sections/s1/knowledge-points/generate') return draft;
-      if (path === 'sections/s1/knowledge-points') return { confirmed_revision: 1, knowledge_points: [point], draft: null };
+      if (path === 'sections/s1/knowledge-points/generate') { saved = true; return draft; }
+      if (path === 'sections/s1/knowledge-points') return { confirmed_revision: 1, knowledge_points: [point], draft: saved ? draft : null };
       throw new Error('Unexpected request');
     });
     await ready();
@@ -528,6 +531,55 @@ describe('desktop course workspace', () => {
     expect(JSON.parse(String(generate[0][1]?.body))).toEqual({
       provider_id: 'provider', model_id: 'model', base_course_revision: 1,
     });
+  });
+
+  it('keeps one generation running when leaving the workspace page and reopening the section', async () => {
+    const point = { temp_id: 'p', title: '函数定义', description: '集合间的唯一对应',
+      learning_objectives: ['解释定义'], mastery_criteria: ['判断函数'], importance: 'HIGH' };
+    const draft = { id: 'draft', revision: 1, status: 'DRAFT', base_course_revision: 1,
+      payload: { knowledge_points: [point] }, change_summary: { added: [], modified: [], archived: [] } };
+    let saved: typeof draft | null = null;
+    const generation = Promise.withResolvers<void>();
+    const request = vi.mocked(api);
+    request.mockImplementation(async path => {
+      if (path === 'users/me') return { id: 'user', display_name: '学生', email: 'student@example.com' };
+      if (path.startsWith('courses?')) return courses;
+      if (path === 'ai/providers') return [{ id: 'provider', enabled: true, models: [{ id: 'model', enabled: true }] }];
+      if (path.endsWith('/curriculum')) return { confirmed_revision: 1, versions: [], curriculum: {
+        chapters: [{ id: 'chapter', title: '函数与极限', sections: [{ id: 's1', title: '函数' }, { id: 's2', title: '极限' }] }],
+      } };
+      if (path === 'sections/s1/knowledge-points/generate') { await generation.promise; saved = draft; return draft; }
+      if (path.startsWith('sections/')) return { confirmed_revision: 1, knowledge_points: [], draft: path.includes('/s1/') ? saved : null };
+      return [];
+    });
+    async function openSection(name: string) {
+      fireEvent.click(screen.getByRole('tab', { name: '目录与小节' }));
+      fireEvent.click(await screen.findByRole('button', { name: '章节 1 函数与极限' }));
+      fireEvent.click(screen.getByRole('button', { name }));
+      return screen.findByRole('button', { name: '生成具体知识点' });
+    }
+    await ready();
+    fireEvent.click(await openSection('小节 1.1 函数'));
+    await screen.findByText('正在生成知识点…');
+    const signal = request.mock.calls.find(([path]) => path.endsWith('/generate'))?.[1]?.signal;
+    await act(async () => { fireEvent.click(screen.getByRole('link', { name: '账户设置' })); });
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole('tab', { name: '目录与小节' })).not.toBeInTheDocument();
+    expect(signal?.aborted).toBe(false);
+
+    fireEvent.click(screen.getByRole('link', { name: '我的课程' }));
+    await expandSubject();
+    fireEvent.click(await screen.findByRole('button', { name: '进入高等数学' }));
+    expect(await openSection('小节 1.2 极限')).toBeEnabled();
+    expect(screen.queryByText('正在生成知识点…')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '小节 1.1 函数' }));
+    expect(await screen.findByRole('button', { name: '生成具体知识点' })).toBeDisabled();
+    await screen.findByText('正在生成知识点…');
+    await act(async () => generation.resolve());
+    expect(await screen.findByDisplayValue('函数定义')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认无误' })).toBeEnabled();
+    expect(request.mock.calls.filter(([path]) => path.endsWith('/generate'))).toHaveLength(1);
+    expect(request.mock.calls.some(([path]) => path.endsWith('/confirm'))).toBe(false);
   });
 });
 

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SectionKnowledge } from '../components/knowledge';
 import { ApiError } from '../lib/api';
 import type { KnowledgeData, KnowledgeVersion } from '../lib/knowledge';
+import { WorkspaceOperations } from '../lib/workspace-operations';
 
 const providers = [{ id: 'p', enabled: true, provider_name: '默认接口', models: [{ id: 'm', enabled: true, model_name: 'fixture' }] }];
 const payload = { knowledge_points: [{ temp_id: 'kp1', existing_knowledge_point_id: null, title: '函数定义', description: '集合间的唯一对应', learning_objectives: ['解释定义'], importance: 'HIGH' as const, mastery_criteria: ['判断函数'] }] };
@@ -19,7 +20,9 @@ function mock(current = initial) {
     init?.method === 'POST' || init?.method === 'PATCH' ? response(version) : response(current));
   vi.stubGlobal('fetch', fetcher); return fetcher;
 }
-function renderEditor(onDirtyChange = vi.fn()) { return render(<SectionKnowledge sectionId="s1" onDirtyChange={onDirtyChange} />); }
+function renderEditor(onDirtyChange = vi.fn()) {
+  return render(<SectionKnowledge sectionId="s1" onDirtyChange={onDirtyChange} />, { wrapper: WorkspaceOperations });
+}
 
 describe('section knowledge draft workflow', () => {
   it('allows applying a legacy draft directly without a review card or a save', async () => {
@@ -75,7 +78,13 @@ describe('section knowledge draft workflow', () => {
   });
   it('generates using the first enabled model and never confirms automatically', async () => {
     const fetcher = mock(); renderEditor();
-    fireEvent.click(await screen.findByRole('button', { name: '生成具体知识点' }));
+    const generate = await screen.findByRole('button', { name: '生成具体知识点' });
+    let saved = false;
+    fetcher.mockImplementation(url => {
+      if (url.endsWith('/generate')) { saved = true; return response(version); }
+      return response(url.endsWith('ai/providers') ? providers : { ...initial, draft: saved ? version : null });
+    });
+    fireEvent.click(generate);
     await screen.findByDisplayValue('函数定义');
     const call = fetcher.mock.calls.find(([url]) => url.endsWith('/generate'))!;
     expect(JSON.parse(String(call[1]?.body))).toEqual({ provider_id: 'p', model_id: 'm', base_course_revision: 1 });
@@ -145,13 +154,32 @@ describe('section knowledge draft workflow', () => {
   it('preserves a previous draft if regeneration fails', async () => {
     const fetcher = mock({ ...initial, draft: version }); vi.spyOn(window, 'confirm').mockReturnValue(true);
     const onDirtyChange = vi.fn();
-    const editor = render(<SectionKnowledge sectionId="s1" onDirtyChange={onDirtyChange} />);
+    const editor = renderEditor(onDirtyChange);
     await screen.findByDisplayValue('函数定义');
     fetcher.mockImplementation(() => Promise.resolve(Response.json({ success: false, error: { message: '模型不可用' } }, { status: 502 })));
     editor.rerender(<SectionKnowledge sectionId="s1" onDirtyChange={onDirtyChange} action="generate" />);
     await screen.findByText('模型不可用'); expect(screen.getByDisplayValue('函数定义')).toBeInTheDocument();
     const call = fetcher.mock.calls.find(([url]) => url.endsWith('/generate'))!;
     expect(JSON.parse(String(call[1]?.body))).toMatchObject({ replace_version_id: 'v', replace_revision: 1 });
+  });
+  it('shows a background failure only in its original section and keeps the retry available', async () => {
+    const pending = Promise.withResolvers<Response>();
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.endsWith('/generate')) return pending.promise;
+      return response(url.endsWith('ai/providers') ? providers : initial);
+    }));
+    const onDirtyChange = vi.fn();
+    const section = (id: string) => <SectionKnowledge key={id} sectionId={id} onDirtyChange={onDirtyChange} />;
+    const { rerender } = render(section('s1'), { wrapper: WorkspaceOperations });
+    fireEvent.click(await screen.findByRole('button', { name: '生成具体知识点' }));
+    rerender(section('s2'));
+    pending.resolve(Response.json({ success: false, error: { message: '生成超时，请重试' } }, { status: 502 }));
+    expect(await screen.findByRole('button', { name: '生成具体知识点' })).toBeEnabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    rerender(section('s1'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('生成超时，请重试');
+    expect(await screen.findByRole('button', { name: '生成具体知识点' })).toBeEnabled();
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
   });
   it('blocks a stale draft and explicitly replaces it when editing from formal points', async () => {
     const fetcher = mock({ ...initial, confirmed_revision: 2, draft: version }); vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -163,7 +191,7 @@ describe('section knowledge draft workflow', () => {
     const call = fetcher.mock.calls.find(([url]) => url.endsWith('/drafts'))!;
     expect(JSON.parse(String(call[1]?.body))).toMatchObject({ base_course_revision: 2, replace_version_id: 'v', replace_revision: 1 });
   });
-  it('aborts generation and prevents late results when the section closes', async () => {
+  it('aborts generation and ignores late results when the signed-in workspace closes', async () => {
     const fetcher = mock(); const dirty = vi.fn(); const { unmount } = renderEditor(dirty);
     await screen.findByRole('button', { name: '生成具体知识点' });
     let release!: (result: Response) => void;
@@ -182,7 +210,7 @@ describe('section knowledge draft workflow', () => {
     renderEditor(); await screen.findByText('读取失败'); fail = false;
     fireEvent.click(screen.getByRole('button', { name: '重新加载知识点' })); await screen.findByRole('button', { name: '生成具体知识点' });
     cleanup(); const expired = vi.fn(); vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new ApiError(401, '登录已过期'))));
-    render(<SectionKnowledge sectionId="s1" onDirtyChange={vi.fn()} onSessionExpired={expired} />);
+    render(<SectionKnowledge sectionId="s1" onDirtyChange={vi.fn()} onSessionExpired={expired} />, { wrapper: WorkspaceOperations });
     await waitFor(() => expect(expired).toHaveBeenCalled());
   });
 });

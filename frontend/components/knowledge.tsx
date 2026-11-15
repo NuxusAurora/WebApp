@@ -6,6 +6,7 @@ import { Toast, useToast } from './toast';
 import { api, ApiError } from '../lib/api';
 import type { Provider } from '../lib/curriculum';
 import { pointPayload, validKnowledge, type KnowledgeData, type KnowledgePayload, type KnowledgeVersion, type PointInput } from '../lib/knowledge';
+import { useWorkspaceOperation } from '../lib/workspace-operations';
 
 // Presentation only; observers are cleaned up when fields leave the editor.
 function ExpandingTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -54,7 +55,7 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
   const [version, setVersion] = useState<KnowledgeVersion | null>(null);
   const [payload, setPayload] = useState<KnowledgePayload | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState('');
+  const [mutation, setMutation] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -66,8 +67,7 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
   const callbacks = useRef({ onDirtyChange, onSessionExpired, onActionsDisabledChange });
   callbacks.current = { onDirtyChange, onSessionExpired, onActionsDisabledChange };
   const path = 'sections/' + sectionId + '/knowledge-points';
-  useEffect(() => { callbacks.current.onDirtyChange(dirty || Boolean(busy)); }, [dirty, busy]);
-  useEffect(() => { callbacks.current.onActionsDisabledChange?.(Boolean(busy) || confirming); }, [busy, confirming]);
+  useEffect(() => { callbacks.current.onDirtyChange(dirty || Boolean(mutation)); }, [dirty, mutation]);
   useEffect(() => () => {
     controller.current?.abort();
     callbacks.current.onDirtyChange(false);
@@ -88,19 +88,31 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
     if (signal.aborted) return;
     setData(current); setProviders(connections); if (restore) adopt(current.draft);
   }
-  async function refresh() {
+  async function refresh(successNotice = '') {
     const task = new AbortController(); controller.current?.abort(); controller.current = task;
     setLoading(true); setError('');
-    try { await load(task.signal, true); } catch (reason) { if (!task.signal.aborted) fail(reason); }
+    try {
+      await load(task.signal, true);
+      if (!task.signal.aborted) setNotice(successNotice);
+    } catch (reason) {
+      if (!task.signal.aborted) {
+        if (successNotice) { setData(null); setDirty(false); }
+        fail(reason);
+      }
+    }
     finally { if (!task.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void refresh(); return () => controller.current?.abort(); }, [sectionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const generation = useWorkspaceOperation(path, () => void refresh('知识草稿已生成'), fail);
+  const busy = Boolean(mutation) || generation.busy;
+  const busyLabel = mutation || generation.label;
+  useEffect(() => { callbacks.current.onActionsDisabledChange?.(busy || confirming); }, [busy, confirming]);
   async function run(label: string, action: (signal: AbortSignal) => Promise<void>) {
     if (busy) return;
     const task = new AbortController(); controller.current = task;
-    setBusy(label); setError(''); setNotice(''); setConfirming(false);
+    setMutation(label); setError(''); setNotice(''); setConfirming(false);
     try { await action(task.signal); } catch (reason) { if (!task.signal.aborted) fail(reason); }
-    finally { if (!task.signal.aborted) setBusy(''); }
+    finally { if (!task.signal.aborted) setMutation(''); }
   }
   function change(next: KnowledgePayload) { setPayload(next); setDirty(true); setConfirming(false); }
   function editPoint(index: number, patch: Partial<PointInput>) {
@@ -109,16 +121,17 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
   const model = providers.filter(p => p.enabled).flatMap(provider => provider.models.filter(m => m.enabled).map(m => ({ ...m, provider }))).at(0);
   const stale = Boolean(version && data && version.base_course_revision !== data.confirmed_revision);
   const disabled = Boolean(busy) || stale;
-  async function generate() {
+  function generate() {
+    if (busy) return;
     if (!data || !model) { setError('请先在模型设置中启用模型。'); return; }
     if ((payload || version) && !window.confirm('重新生成将替换当前知识草稿，正式知识点保持到确认时更新。继续？')) return;
-    await run('正在生成知识点…', async signal => {
-      const next = await api<KnowledgeVersion>(path + '/generate', { method: 'POST', signal, body: JSON.stringify({
-        provider_id: model.provider.id, model_id: model.id, base_course_revision: data.confirmed_revision,
-        ...(data.draft ? { replace_version_id: data.draft.id, replace_revision: data.draft.revision } : {}),
-      }) });
-      if (signal.aborted) return;
-      adopt(next); await load(signal); if (!signal.aborted) setNotice('知识草稿已生成');
+    const body = JSON.stringify({
+      provider_id: model.provider.id, model_id: model.id, base_course_revision: data.confirmed_revision,
+      ...(data.draft ? { replace_version_id: data.draft.id, replace_revision: data.draft.revision } : {}),
+    });
+    setError(''); setNotice(''); setConfirming(false);
+    generation.start('正在生成知识点…', async signal => {
+      await api(path + '/generate', { method: 'POST', signal, body });
     });
   }
   const handleAction = useEffectEvent((next: KnowledgeAction) => {
@@ -209,7 +222,7 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
           })}>确认应用知识点</button><button className="button" disabled={Boolean(busy)} onClick={() => setConfirming(false)}>取消</button></div>
         </div> : null}
       </>}
-      {busy ? <p role="status">{busy}</p> : null}
     </>}
+    {busyLabel ? <p role="status">{busyLabel}</p> : null}
   </section>;
 }

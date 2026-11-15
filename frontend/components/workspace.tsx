@@ -15,6 +15,7 @@ import { isModelSettings, modelSettingsItems, useWorkspaceNavigation, workspaceH
 import { api, ApiError } from '../lib/api';
 import type { LearningSelection, LearningTextbookChanges } from '../lib/learning';
 import { usePageMotion } from '../lib/page-motion';
+import { WorkspaceOperations } from '../lib/workspace-operations';
 
 export function Workspace({ accountNotice = '', systemView = false }: {
   accountNotice?: string; systemView?: boolean;
@@ -145,13 +146,15 @@ export function Workspace({ accountNotice = '', systemView = false }: {
       </header> : null}
       <main ref={main} id="main-content" className={`workspace-main${isModelSettings(view) ? ' workspace-main-settings' : view === 'courses' ? ' workspace-main-courses' : view === 'system' ? ' workspace-main-status' : ''}`}>
         {notice ? <p className="notice error" role="alert"><Icon name="alert" size={18} />{notice}</p> : null}
-        {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onCoursesChanged={refreshLearning} onPasswordChanged={() => {
-          expired(); setNotice('密码已修改，请重新登录。');
-        }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + href} target={target}
-          onOpened={learningOpened} onOutlineChanged={refreshLearning} onQuestionsChange={questionsChanged}
-          onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
-          onBreadcrumbChange={setCourseCrumbs} onTextbookAdded={textbookAdded}
-          textbookChanges={textbookChanges} onCoursesChanged={refreshLearning} />)}
+        <WorkspaceOperations key={user?.id} onExpired={expired}>
+          {view === 'system' ? <div className="status-page"><ConnectionStatus /></div> : user && (isModelSettings(view) ? <AISettings key={user.id} tab={view === 'ai-models' ? 'models' : view === 'ai-logs' ? 'logs' : 'connection'} onTabChange={() => navigate('ai')} onBusyChange={setAIBusy} onDirtyChange={setDirty} onSessionExpired={expired} /> : view === 'profile' ? <Profile user={user} onUpdate={setUser} onSessionExpired={expired} onCoursesChanged={refreshLearning} onPasswordChanged={() => {
+            expired(); setNotice('密码已修改，请重新登录。');
+          }} /> : view === 'learning' ? <LearningConversation key={user.id + ':' + href} target={target}
+            onOpened={learningOpened} onOutlineChanged={refreshLearning} onQuestionsChange={questionsChanged}
+            onDirtyChange={setDirty} onSessionExpired={expired} /> : <CourseSpace onDirtyChange={setDirty} onSessionExpired={expired}
+            onBreadcrumbChange={setCourseCrumbs} onTextbookAdded={textbookAdded}
+            textbookChanges={textbookChanges} onCoursesChanged={refreshLearning} />)}
+        </WorkspaceOperations>
       </main>
     </div>
   </div>;

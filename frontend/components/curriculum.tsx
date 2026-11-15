@@ -7,6 +7,7 @@ import { CurriculumOutline } from './curriculum-outline';
 import { SectionKnowledge, type KnowledgeAction } from './knowledge';
 import { cleanTitles } from '../lib/curriculum-title';
 import { temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
+import { useWorkspaceOperation } from '../lib/workspace-operations';
 
 function pageLabel(node: { page_start?: number | null; page_end?: number | null }) {
   return node.page_start != null || node.page_end != null ? `（${node.page_start ?? '?'}–${node.page_end ?? '?'} 页）` : '';
@@ -25,7 +26,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   const [version, setVersion] = useState<Version | null>(null);
   const [payload, setPayload] = useState<Payload | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState('');
+  const [mutation, setMutation] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
@@ -40,8 +41,8 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   const path = 'courses/' + courseId + '/curriculum';
 
   useEffect(() => {
-    callbacks.current.onDirtyChange(dirty || Boolean(busy) || knowledgeDirty);
-  }, [dirty, busy, knowledgeDirty]);
+    callbacks.current.onDirtyChange(dirty || Boolean(mutation) || knowledgeDirty);
+  }, [dirty, mutation, knowledgeDirty]);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; controller.current?.abort(); callbacks.current.onDirtyChange(false); };
@@ -66,20 +67,31 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
       else { setVersion(null); setPayload(null); setDirty(false); setConfirming(false); }
     }
   }
-  async function refresh() {
-    const task = new AbortController(); controller.current = task;
+  async function refresh(successNotice = '') {
+    const task = new AbortController(); controller.current?.abort(); controller.current = task;
     setLoading(true); setError('');
-    try { await load(task.signal, true); } catch (reason) { if (!task.signal.aborted) failure(reason); }
+    try {
+      await load(task.signal, true);
+      if (!task.signal.aborted) setNotice(successNotice);
+    } catch (reason) {
+      if (!task.signal.aborted) {
+        if (successNotice) { setData(null); setDirty(false); }
+        failure(reason);
+      }
+    }
     finally { if (alive.current && !task.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void refresh(); return () => controller.current?.abort(); }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const recognition = useWorkspaceOperation(path, () => void refresh('草稿已生成，请核对后确认'), failure);
+  const busy = Boolean(mutation) || recognition.busy;
+  const busyLabel = mutation || recognition.label;
   async function run(label: string, action: (signal: AbortSignal) => Promise<void>) {
     const task = new AbortController(); controller.current = task;
-    setBusy(label); setError(''); setNotice(''); setConfirming(false);
+    setMutation(label); setError(''); setNotice(''); setConfirming(false);
     try { await action(task.signal); }
     catch (reason) { if (!task.signal.aborted) failure(reason); }
-    finally { if (alive.current && !task.signal.aborted) setBusy(''); }
+    finally { if (alive.current && !task.signal.aborted) setMutation(''); }
   }
   function adopt(next: Version) {
     setVersion(next); setPayload(cleanTitles(structuredClone(next.payload))); setDirty(false);
@@ -87,7 +99,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   }
   function canLeave() { return !dirty || window.confirm('目录修改尚未保存。放弃修改？'); }
   function openSection(sectionId: string | null) {
-    if (knowledgeDirty && !window.confirm('当前知识点修改尚未保存或生成尚未完成。离开此小节？')) return false;
+    if (knowledgeDirty && !window.confirm('当前知识点修改尚未保存。离开此小节？')) return false;
     setOpenSectionId(sectionId);
     setKnowledgeDirty(false);
     setKnowledgeActionsDisabled(false);
@@ -104,24 +116,22 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   }
   const selectedModel = providers.filter(provider => provider.enabled).flatMap(provider =>
     provider.models.filter(model => model.enabled && model.capabilities?.vision).map(model => ({ ...model, provider }))).at(0);
-  async function upload(file: File) {
+  function upload(file: File) {
     if (busy) return;
     if (!file.size || file.size > MAX_IMAGE_BYTES) { setError('图片须为 1 字节至 50 MiB'); return; }
     if (!selectedModel) { setError('请先在模型设置中启用支持图片的模型。'); return; }
     if (dirty && !window.confirm('上传新图片将替换未保存的目录修改，继续？')) return;
     if (!openSection(null)) return;
-    await run('上传中…', async signal => {
+    const { id: modelId, provider: { id: providerId } } = selectedModel;
+    setError(''); setNotice(''); setConfirming(false);
+    recognition.start('上传中…', async (signal, report) => {
       const photo = await api<Photo>(path + '/images', { method: 'POST', body: file, signal,
         headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) } });
       if (signal.aborted) return;
-      setBusy('模型识别中…');
-      const next = await api<Version>(path + '/parse', { method: 'POST', signal,
+      report('模型识别中…');
+      await api(path + '/parse', { method: 'POST', signal,
         body: JSON.stringify({ input_mode: 'images', ocr_text: '',
-          image_ids: [photo.id], provider_id: selectedModel.provider.id, model_id: selectedModel.id }) });
-      if (!signal.aborted) {
-        adopt(next);
-        await load(signal); setNotice('草稿已生成，请核对后确认');
-      }
+          image_ids: [photo.id], provider_id: providerId, model_id: modelId }) });
     });
   }
   const editable = Boolean(payload && (!version || version.status === 'DRAFT'));
@@ -136,7 +146,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
         accept="image/png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif,.png,.jpg,.jpeg,.jfif,.webp,.bmp,.gif,.tif,.tiff,.avif" disabled={Boolean(busy)}
         onChange={event => {
           const file = event.target.files?.[0]; event.target.value = '';
-          if (file) void upload(file);
+          if (file) upload(file);
         }} />
       {payload || data.curriculum.chapters.length ? <CurriculumOutline payload={payload ?? data.curriculum}
         disabled={Boolean(busy) || knowledgeDirty || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}
@@ -201,7 +211,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
             })}>确认应用目录</button><button className="button" onClick={() => setConfirming(false)}>取消</button></div>
         </div> : null}
       </> : null}
-      {busy ? <p role="status">{busy}</p> : null}
     </>}
+    {busyLabel ? <p role="status">{busyLabel}</p> : null}
   </section>;
 }
