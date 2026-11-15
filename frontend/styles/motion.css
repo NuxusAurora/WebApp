@@ -66,31 +66,34 @@
   transition-delay: 0s;
 }
 
-@media (max-width: 740px) {
+.workspace-sidebar[data-mobile="true"]::backdrop { background: rgb(0 0 0 / .5); }
+
+@media (prefers-reduced-motion: no-preference) {
   /* Display/overlay transitions keep the closed drawer in the top layer for exit. */
-  .workspace-sidebar {
+  .workspace-sidebar[data-mobile="true"] {
     transform: translateX(-100%);
     transition: transform var(--motion-exit) var(--motion-ease),
       display var(--motion-exit) allow-discrete, overlay var(--motion-exit) allow-discrete;
   }
-  .workspace-sidebar[open] {
-    transform: translateX(0); animation: none;
+  .workspace-sidebar[data-mobile="true"][open] {
+    transform: translateX(0);
     transition-duration: var(--motion-panel);
   }
-  .workspace-sidebar::backdrop {
+  .workspace-sidebar[data-mobile="true"]::backdrop {
     background: rgb(0 0 0 / 0);
     transition: background-color var(--motion-exit) ease-out,
       display var(--motion-exit) allow-discrete, overlay var(--motion-exit) allow-discrete;
   }
-  .workspace-sidebar[open]::backdrop { background: rgb(0 0 0 / .5); }
+  .workspace-sidebar[data-mobile="true"][open]::backdrop { background: rgb(0 0 0 / .5); }
   @starting-style {
-    .workspace-sidebar[open] { transform: translateX(-100%); }
-    .workspace-sidebar[open]::backdrop { background: rgb(0 0 0 / 0); }
+    .workspace-sidebar[data-mobile="true"][open] { transform: translateX(-100%); }
+    .workspace-sidebar[data-mobile="true"][open]::backdrop { background: rgb(0 0 0 / 0); }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .motion-tab-panel { animation: none; }
+  .application-shell.workspace-shell { transition: none; }
   .motion-disclosure, .workspace-main details::details-content,
   .sidebar-user-menu, .workspace-sidebar, .workspace-sidebar::backdrop,
   .sidebar-submenu-chevron > svg, .subject-toggle > svg:last-child,

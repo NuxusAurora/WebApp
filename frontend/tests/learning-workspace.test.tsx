@@ -60,7 +60,12 @@ it('keeps the lesson header to its title and searches the loaded outline without
   const selected = await screen.findByRole('link', { name: /行列式定义/ });
   expect(selected).toHaveAttribute('aria-current', 'page');
   expect(selected).toHaveAttribute('href', firstHref);
+  const searchToggle = screen.getByRole('button', { name: '搜索目录' });
+  expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+  fireEvent.click(searchToggle);
   const search = screen.getByRole('searchbox', { name: '搜索已加载的学习目录' });
+  expect(search).toHaveFocus();
+  expect(searchToggle).toHaveAttribute('aria-expanded', 'true');
   fireEvent.change(search, { target: { value: '逆序' } });
   const results = screen.getByRole('list', { name: '目录搜索结果' });
   expect(within(results).queryByRole('link', { name: /行列式定义/ })).not.toBeInTheDocument();
@@ -75,7 +80,9 @@ it('keeps the lesson header to its title and searches the loaded outline without
   });
   expect(await screen.findByRole('heading', { name: '行列式定义' })).toBeVisible();
   expect(await screen.findByText('已有题目')).toBeVisible();
-  fireEvent.change(search, { target: { value: '' } });
+  fireEvent.keyDown(search, { key: 'Escape' });
+  expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+  expect(searchToggle).toHaveFocus();
   expect(screen.getByRole('link', { name: /行列式定义/ })).toHaveAttribute('aria-current', 'page');
 });
 

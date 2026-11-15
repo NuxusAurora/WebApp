@@ -6,7 +6,6 @@ import { getLearningOutline, listLearningTextbooks, type LearningOutline, type L
 import { workspaceHref } from '../lib/workspace-navigation';
 import { Icon } from './icon';
 import { RemoveLearningTextbook } from './remove-learning-textbook';
-import { Input } from './ui';
 
 type Follow = (event: MouseEvent<HTMLAnchorElement>, target: { sectionId: string; pointId?: string }) => void;
 type NavigationProps = { selection: LearningSelection | null; revision: number; onSelect: Follow; onSessionExpired: () => void };
@@ -86,15 +85,13 @@ function TextbookContents({ courseId, open, outline, onOutline, selection, revis
   return <OutlineFolders chapters={outline.chapters} selection={selection} onSelect={onSelect} />;
 }
 
-export function LearningProjectNavigation({ selection, revision, onSelect, onSessionExpired }: NavigationProps) {
+export function LearningProjectNavigation({ selection, revision, query, onSelect, onSessionExpired }: NavigationProps & { query: string }) {
   const [items, setItems] = useState<LearningTextbook[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [outlines, setOutlines] = useState<Record<string, LearningOutline>>({});
-  const [query, setQuery] = useState('');
-  const search = useId();
   const saveOutline = useCallback((id: string, outline: LearningOutline) => {
     setOutlines(previous => ({ ...previous, [id]: outline }));
   }, []);
@@ -182,12 +179,6 @@ export function LearningProjectNavigation({ selection, revision, onSelect, onSes
   }) : [];
 
   return <>
-    <div className="learning-tree-search">
-      <label htmlFor={search} className="visually-hidden">搜索已加载的学习目录</label>
-      <Icon name="search" size={15} />
-      <Input id={search} type="search" value={query} onChange={event => setQuery(event.target.value)}
-        placeholder="搜索已加载目录" autoComplete="off" />
-    </div>
     {term ? <>
       <p className="learning-search-status" role="status">
         {results.length ? `${results.length} 本教材匹配` : busy && !loaded ? '正在读取教材…' : '已加载目录中没有匹配项'}

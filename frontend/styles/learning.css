@@ -1,4 +1,3 @@
-.application-shell.workspace-shell.learning-shell { transition: none; }
 .learning-shell .workspace-main { max-width: none; }
 .learning-conversation { min-height: 0; overflow-y: auto; }
 .learning-conversation-header { margin-bottom: 24px; }

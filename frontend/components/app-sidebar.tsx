@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import type { User } from './account';
 import { Icon } from './icon';
 import { LearningProjectNavigation } from './learning-project-navigation';
+import { Input } from './ui';
 import type { LearningSelection } from '../lib/learning';
 import { isModelSettings, modelSettingsItems, workspaceHref, workspaceLabels, type LearningTarget, type WorkspaceView } from '../lib/workspace-navigation';
 
@@ -28,6 +29,10 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   const [modelsOpen, setModelsOpen] = useState(isModelSettings(view));
   const [learningOpen, setLearningOpen] = useState(view === 'learning');
   const [learningMounted, setLearningMounted] = useState(false);
+  const [query, setQuery] = useState<string | null>(null);
+  const searchId = useId();
+  const searchInput = useRef<HTMLInputElement>(null);
+  const searchButton = useRef<HTMLButtonElement>(null);
   const textbookAddedCount = learning?.textbookAddedCount ?? 0;
   const [storageNotice, setStorageNotice] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
@@ -58,10 +63,14 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   const constrainedByQuestions = questionsOpen && compactLearning;
   const rail = !mobile && (constrainedByQuestions ? !keepLearningExpanded : collapsed);
   const learningVisible = learningOpen && !rail;
+  const searchOpen = query !== null;
 
   useEffect(() => {
     if (learningVisible && (!mobile || drawer)) setLearningMounted(true);
   }, [learningVisible, mobile, drawer]);
+  useLayoutEffect(() => {
+    if (searchOpen) searchInput.current?.focus({ preventScroll: true });
+  }, [searchOpen]);
 
   useLayoutEffect(() => {
     const element = dialog.current; if (!element) return;
@@ -121,7 +130,7 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
   return <>
     <button ref={opener} type="button" className="sidebar-mobile-trigger" aria-label="打开导航" aria-expanded={mobile && drawer}
       aria-controls="workspace-sidebar" onClick={() => setDrawer(true)}><Icon name="menu" size={20} /></button>
-    <dialog ref={dialog} id="workspace-sidebar" className="workspace-sidebar" data-collapsed={rail}
+    <dialog ref={dialog} id="workspace-sidebar" className="workspace-sidebar" data-collapsed={rail} data-mobile={mobile}
       role={mobile ? 'dialog' : 'complementary'} aria-label={mobile ? '导航菜单' : '侧边栏'} aria-modal={mobile && drawer ? true : undefined}
       onCancel={event => { event.preventDefault(); if (menu) { setMenu(false); accountButton.current?.focus(); } else setDrawer(false); }}
       onClick={event => {
@@ -156,16 +165,40 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
                 aria-current={view === child.view ? 'page' : undefined} onClick={event => follow(event, child.view)}>{child.label}</a></li>)}
             </ul>
           </> : item.view === 'learning' ? user && learning ? <>
-            <button id="learning-navigation-toggle" type="button" className={'sidebar-item sidebar-model-heading' + (view === 'learning' ? ' is-active' : '')}
-              aria-label="学习对话" aria-expanded={learningVisible} aria-controls="learning-project-navigation"
-              onClick={() => { if (rail) { toggle(); setLearningOpen(true); } else setLearningOpen(value => !value); }}>
-              <Icon name="chat" size={18} /><span className="sidebar-label">学习对话</span>
-              <span className="sidebar-submenu-chevron"><Icon name="chevron" size={14} /></span>
-              <span className="sidebar-tooltip" role="tooltip">学习对话</span>
-            </button>
-            <div id="learning-project-navigation" hidden={!learningVisible}>
+            <div className="sidebar-learning-heading">
+              <button id="learning-navigation-toggle" type="button" className={'sidebar-item sidebar-model-heading' + (view === 'learning' ? ' is-active' : '')}
+                aria-label="学习对话" aria-expanded={learningVisible} aria-controls="learning-project-navigation"
+                onClick={() => {
+                  if (rail) toggle();
+                  setLearningOpen(!learningVisible);
+                  if (learningVisible) setQuery(null);
+                }}>
+                <Icon name="chat" size={18} /><span className="sidebar-label">学习对话</span>
+                <span className="sidebar-submenu-chevron"><Icon name="chevron" size={14} /></span>
+                <span className="sidebar-tooltip" role="tooltip">学习对话</span>
+              </button>
+              {!rail ? <button ref={searchButton} type="button" className="sidebar-item sidebar-search-toggle"
+                aria-label="搜索目录" title="搜索目录" aria-expanded={learningVisible && searchOpen} aria-controls={searchId}
+                onClick={() => { setLearningOpen(true); setQuery(searchOpen ? null : ''); }}>
+                <Icon name="search" size={18} />
+              </button> : null}
+            </div>
+            <div id="learning-project-navigation" className="motion-disclosure"
+              hidden={!learningVisible} inert={!learningVisible} aria-hidden={!learningVisible}>
+              <div id={searchId} className="motion-disclosure" hidden={!searchOpen} inert={!searchOpen} aria-hidden={!searchOpen}>
+                <div className="learning-tree-search">
+                  <label htmlFor={searchId + '-input'} className="visually-hidden">搜索已加载的学习目录</label>
+                  <Input ref={searchInput} id={searchId + '-input'} type="search" value={query ?? ''}
+                    onChange={event => setQuery(event.target.value)} placeholder="搜索已加载目录" autoComplete="off"
+                    onKeyDown={event => {
+                      if (event.key !== 'Escape' || event.nativeEvent.isComposing) return;
+                      event.preventDefault(); event.stopPropagation();
+                      setQuery(null); searchButton.current?.focus({ preventScroll: true });
+                    }} />
+                </div>
+              </div>
               {learningMounted || learningVisible && (!mobile || drawer) ? <LearningProjectNavigation key={user.id} selection={learning.selection}
-                revision={learning.revision} onSelect={followProject} onSessionExpired={learning.onSessionExpired} /> : null}
+                revision={learning.revision} query={query ?? ''} onSelect={followProject} onSessionExpired={learning.onSessionExpired} /> : null}
             </div>
           </> : null : navItem(item.view, item.icon)}</div>)}
         </div>)}

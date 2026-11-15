@@ -18,6 +18,8 @@
 
 ## Learning Protocol 1.1 UI-2
 
+「学习对话」展开箭头旁的放大镜打开并聚焦目录搜索框。再次点击或按 Esc 可关闭并恢复目录。
+
 在「学习对话」或 `/?view=learning&section=…&point=…` 打开已保存教学，旧 `project=…` 链接仍可用。布局入口为 `workspace.tsx`、`app-sidebar.tsx`、`learning-conversation.tsx`、`lesson-workspace.tsx` 与 `styles/learning.css`；搜索仅查已加载的真实教材及正式目录，展开教材可读取其知识点。路径的章名从既有正式目录接口按 ID 读取；读取失败时省略缺失章名，教学仍可继续。前端回归在 `tests/learning-workspace.test.tsx` 和 `tests/sidebar.test.tsx`；运行原 `npm run check`、`npm test`、`npm run build`。实际验证与限制见 HANDOFF。
 
 ## Learning Protocol 1.0 · Phase 1
