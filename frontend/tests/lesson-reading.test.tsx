@@ -2,10 +2,18 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
 import { useState } from 'react';
 import { LessonContent, ProblemCard } from '../components/lesson-reading';
 
 afterEach(cleanup);
+
+it('uses the same KaTeX package for the renderer and its CSS', () => {
+  const require = createRequire(import.meta.url);
+  const rendererRequire = createRequire(require.resolve('rehype-katex'));
+
+  expect(rendererRequire.resolve('katex/package.json')).toBe(require.resolve('katex/package.json'));
+});
 
 it('typesets TeX-delimited inline formulas and a matrix within a Markdown list', () => {
   const text = String.raw`- **\(A\) 是一个三阶方阵**

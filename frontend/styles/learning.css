@@ -117,6 +117,7 @@
 .lesson-rich pre, .lesson-rich .lesson-wide, .lesson-rich .katex-display {
   max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain;
 }
+.lesson-rich .katex-display { overflow-y: hidden; }
 .lesson-rich :is(pre, .lesson-wide):focus-visible { outline-offset: -2px; }
 .lesson-rich pre { padding: var(--space-3); background: var(--surface-secondary); }
 .lesson-rich table { border-collapse: collapse; }
