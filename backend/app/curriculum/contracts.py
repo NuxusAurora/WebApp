@@ -66,7 +66,7 @@ def output_schema(strict=False):
     return {
         "type": "object",
         "properties": {
-            "chapters": {"type": "array", "items": chapter, "minItems": 1, "maxItems": 50},
+            "chapters": {"type": "array", "items": chapter, "maxItems": 50},
             "uncertain_items": {
                 "type": "array",
                 "items": {"type": "string", "minLength": 1, "maxLength": 300},

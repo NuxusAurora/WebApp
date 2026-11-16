@@ -528,7 +528,7 @@ def test_parse_uses_gateway_with_private_provenance_and_schema_failures(account_
     assert result.status_code == 201, result.text
     assert any(message["content"] == body["ocr_text"] for message in requests[-1]["messages"])
     assert "textbook" in requests[-1]["messages"][-1]["content"]
-    assert result.json()["data"]["source"]["prompt_version"] == "curriculum-parse-v1"
+    assert result.json()["data"]["source"]["prompt_version"] == "curriculum-parse-v2"
     first = result.json()["data"]
     assert client.get(path).json()["data"]["curriculum"]["chapters"] == []
     assert client.post(path + "/parse", json=body).status_code == 201
@@ -639,7 +639,7 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
     data = response.json()["data"]
     assert data["payload"] == expected
     assert data["source"]["input_mode"] == "images"
-    assert data["source"]["prompt_version"] == "curriculum-vision-v1"
+    assert data["source"]["prompt_version"] == "curriculum-vision-v2"
     assert data["source"]["image_ids"] == image_ids
     parts = next(
         message["content"]
@@ -669,6 +669,89 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
     assert "data:image" not in response.text and "data:image" not in caplog.text
     assert client.get(path).json()["data"]["curriculum"]["chapters"] == []
     client.portal.call(wire.aclose)
+
+
+@pytest.mark.parametrize("input_mode", ["images", "text"])
+def test_parse_excludes_exercise_solutions(account_app, monkeypatch, input_mode):
+    app, client, path, _ = setup(account_app)
+    monkeypatch.setattr(
+        app.state.store, "read", lambda key, size: app.state.store.objects[key], raising=False
+    )
+    provider = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "local", "base_url": "http://localhost:1234/v1"},
+    ).json()["data"]
+    model = client.post(
+        f"/api/v1/ai/providers/{provider['id']}/models",
+        json={
+            "model_name": "local-test",
+            "capabilities": {"vision": True, "structured_output": True},
+            "capabilities_confirmed": True,
+        },
+    ).json()["data"]
+
+    def node(key, title, page):
+        return {"id": f"tmp-{key}", "title": title, "page_start": page, "page_end": None}
+
+    exercises = [
+        node("exercises", "习题一", 4),
+        node("review", "复习题", 5),
+        node("next-section", "1.3 习题全解的编写方法", 8),
+    ]
+    solutions = {
+        **node("appendix", "附录一　各章习题参考答案", 10),
+        "sections": [node("nested", "函数与极限", 11)],
+    }
+    chapter = {
+        **node("chapter", "第一章 函数与极限", 1),
+        "sections": [
+            *exercises[:2],
+            node("solutions", "１．２　习 题 全 解［待核对］", 6),
+            node("volume-solutions", "【习题全解（上册）】", 7),
+            exercises[2],
+        ],
+    }
+    result = {"chapters": [chapter, solutions], "uncertain_items": []}
+    requests = []
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": json.dumps(result)}, "finish_reason": "stop"}]
+            },
+        )
+
+    wire = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.state.ai_gateway = Gateway({"openai": OpenAIProvider(wire)})
+    body = {"input_mode": input_mode, "provider_id": provider["id"], "model_id": model["id"]}
+    if input_mode == "images":
+        image = client.post(
+            path + "/images", content=png(), headers={"X-Filename": "photo.png"}
+        ).json()["data"]
+        body["image_ids"] = [image["id"]]
+    else:
+        body["ocr_text"] = "第一章 函数与极限\n习题一\n习题全解\n附录一 各章习题参考答案"
+
+    try:
+        response = client.post(path + "/parse", json=body)
+        assert response.status_code == 201, response.text
+        saved = response.json()["data"]
+        assert saved["payload"]["chapters"] == [{**chapter, "sections": exercises}]
+        assert any(
+            message["role"] == "system" and "跳过「习题全解」" in message["content"]
+            for message in requests[0]["messages"]
+        )
+
+        for excluded in ([solutions], []):
+            result["chapters"] = excluded
+            response = client.post(path + "/parse", json=body)
+            assert response.status_code == 422, response.text
+            assert response.json()["error"]["code"] == "NO_CURRICULUM_CHAPTERS"
+            assert client.get(path).json()["data"]["versions"] == [saved]
+    finally:
+        client.portal.call(wire.aclose)
 
 
 def test_image_parse_requires_owned_images_and_confirmed_vision_model(account_app):

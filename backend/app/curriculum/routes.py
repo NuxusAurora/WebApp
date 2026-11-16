@@ -18,6 +18,7 @@ from app.ai.service import owned_model, prepare
 from app.auth import DB, Actor, Input, limit
 from app.courses import owned, owned_by_id, upload_data
 from app.curriculum.contracts import CurriculumInput, output_schema
+from app.curriculum.extraction import without_exercise_solutions
 from app.curriculum.models import StructureEvent, StructureVersion, WorkflowRun
 from app.curriculum.ocr import MAX_IMAGE, normalize_image, normalized_image_type
 from app.curriculum.service import (
@@ -34,12 +35,10 @@ from app.models import Upload
 
 router = APIRouter(prefix="/api/v1/courses/{course_id}/curriculum")
 logger = logging.getLogger("structured_learning.requests")
-PROMPT = (Path(__file__).resolve().parents[2] / "prompts/curriculum/parse-v1.md").read_text(
-    encoding="utf-8"
-)
-VISION_PROMPT = (Path(__file__).resolve().parents[2] / "prompts/curriculum/vision-v1.md").read_text(
-    encoding="utf-8"
-)
+PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts" / "curriculum"
+SOLUTION_RULES = (PROMPT_DIR / "exclude-solutions.md").read_text(encoding="utf-8")
+PROMPT = (PROMPT_DIR / "parse-v1.md").read_text(encoding="utf-8") + "\n" + SOLUTION_RULES
+VISION_PROMPT = (PROMPT_DIR / "vision-v1.md").read_text(encoding="utf-8") + "\n" + SOLUTION_RULES
 
 
 class ImagesInput(Input):
@@ -287,7 +286,7 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
             raise AppError("IMAGE_READ_TIMEOUT", "图片读取超时，请重试", 504) from None
     call = Call(
         task_type="curriculum_parse",
-        prompt_version="curriculum-vision-v1" if vision else "curriculum-parse-v1",
+        prompt_version="curriculum-vision-v2" if vision else "curriculum-parse-v2",
         task_context=context,
         messages=[
             Message(role="system", content=VISION_PROMPT if vision else PROMPT),
@@ -326,7 +325,12 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
             sink,
             diagnostics={"request_id": request.state.request_id, "ai_call_id": str(log_id)},
         )
-        payload = CurriculumInput.model_validate(result.structured).model_dump()
+        extracted = without_exercise_solutions(result.structured)
+        if not extracted["chapters"]:
+            raise AppError(
+                "NO_CURRICULUM_CHAPTERS", "未识别到教材章节，请上传教材目录或检查识别文字", 422
+            )
+        payload = CurriculumInput.model_validate(extracted).model_dump()
         course = await owned_by_id(db, course_id, actor_id)
         await image_records(db, course_id, body.image_ids)
         run.status = "SUCCEEDED"
