@@ -86,22 +86,71 @@ describe('reviewed curriculum', () => {
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
   });
   it('uploads and automatically uses the first enabled vision model without local OCR or automatic confirmation', async () => {
+    const files = ['目录第2页.jpg', '目录第1页.png', '目录第3页.png', '目录第4页.png', '目录第5页.png']
+      .map(name => new File(['image'], name, { type: name.endsWith('.jpg') ? 'image/jpeg' : 'image/png' }));
+    const photoIds = ['z', 'a', 'e', 'b', 'c'];
     let saved = false;
-    const fetcher = vi.fn((url: string) => url.endsWith('ai/providers') ? success([
+    const fetcher = vi.fn((url: string, init?: RequestInit) => url.endsWith('ai/providers') ? success([
       { ...visionProvider, id: 'disabled', enabled: false },
       { ...visionProvider, id: 'text', models: [{ id: 'text-model', enabled: true, capabilities: {} }] }, visionProvider,
-    ]) : url.endsWith('/images') ? success({ id: 'photo', filename: '目录.jpg' }) :
+    ]) : url.endsWith('/images') ? success({ id: photoIds[files.indexOf(init?.body as File)] }) :
       url.endsWith('/parse') ? (saved = true, success(version)) : success({ ...empty, versions: saved ? [version] : [] }));
     vi.stubGlobal('fetch', fetcher);
     renderCurriculum();
     await screen.findByRole('button', { name: '上传' });
-    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [new File(['image'], '目录.jpg', { type: 'image/jpeg' })] } });
+    const picker = screen.getByLabelText('上传目录图片');
+    expect(picker).toHaveAttribute('multiple');
+    fireEvent.change(picker, { target: { files } });
     await screen.findByText('草稿已生成，请核对后确认');
-    const parse = fetcher.mock.calls.find(([url]) => url.endsWith('/parse')) as unknown as [string, RequestInit];
-    expect(JSON.parse(String(parse[1].body))).toEqual({ input_mode: 'images', image_ids: ['photo'], ocr_text: '', provider_id: 'provider', model_id: 'model' });
+    const posts = fetcher.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts.map(([url]) => url.split('/').at(-1))).toEqual(['images', 'images', 'images', 'images', 'images', 'parse']);
+    expect(posts.slice(0, -1).map(([, init]) => init?.body)).toEqual(files);
+    expect(JSON.parse(String(posts.at(-1)?.[1]?.body))).toEqual({
+      input_mode: 'images', image_ids: photoIds, ocr_text: '', provider_id: 'provider', model_id: 'model',
+    });
     expect(fetcher.mock.calls.some(([url]) => url.endsWith('/ocr') || url.endsWith('/confirm'))).toBe(false);
     expect(screen.getByRole('button', { name: '核对并确认' })).toBeEnabled();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('validates the entire batch before uploading any image', async () => {
+    const fetcher = vi.fn((url: string, _init?: RequestInit) =>
+      url.endsWith('ai/providers') ? success([visionProvider]) : success(empty));
+    vi.stubGlobal('fetch', fetcher);
+    renderCurriculum();
+    await screen.findByRole('button', { name: '上传' });
+    const picker = screen.getByLabelText('上传目录图片');
+    const pages = Array.from({ length: 6 }, (_, index) => new File(['image'], `目录${index}.png`));
+    fireEvent.change(picker, { target: { files: pages } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('一次最多选择 5 张图片');
+    fireEvent.change(picker, { target: { files: [pages[0], new File([], '空文件.png')] } });
+    expect(screen.getByRole('alert')).toHaveTextContent('第 2 张图片须为 1 字节至 50 MiB');
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
+  it('stops a batch when one page fails and keeps the previous draft available', async () => {
+    let uploads = 0;
+    const fetcher = vi.fn((url: string) => {
+      if (url.endsWith('/images')) {
+        uploads++;
+        if (uploads === 2) return Promise.resolve(Response.json(
+          { success: false, error: { message: '图片格式无效' } }, { status: 400 },
+        ));
+        return success({ id: 'photo' });
+      }
+      return url.endsWith('ai/providers') ? success([visionProvider]) : success({ ...empty, versions: [version] });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    renderCurriculum();
+    await screen.findByRole('button', { name: '章节 1 函数与极限' });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), {
+      target: { files: ['1.png', '2.png', '3.png'].map(name => new File(['image'], name)) },
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('第 2 张图片上传失败。图片格式无效');
+    expect(uploads).toBe(2);
+    expect(fetcher.mock.calls.some(([url]) => url.endsWith('/parse'))).toBe(false);
+    expect(screen.getByRole('button', { name: '章节 1 函数与极限' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '上传' })).toBeEnabled();
   });
 
   it.each([
@@ -173,9 +222,12 @@ describe('reviewed curriculum', () => {
     let finishUpload!: (value: Response) => void;
     let finishRecognition!: () => void;
     let signal: AbortSignal | undefined;
+    let uploads = 0;
     let saved = false;
     const fetcher = vi.fn((url: string, init?: RequestInit) => {
       if (url.endsWith('/images')) {
+        uploads++;
+        if (uploads === 2) return success({ id: 'second' });
         signal = init?.signal as AbortSignal;
         return new Promise<Response>(resolve => { finishUpload = resolve; });
       }
@@ -189,14 +241,19 @@ describe('reviewed curriculum', () => {
     const editor = <CurriculumEditor courseId={courseId} onDirtyChange={onDirtyChange} />;
     const { rerender } = render(editor, { wrapper: WorkspaceOperations });
     await screen.findByRole('button', { name: '上传' });
-    fireEvent.change(screen.getByLabelText('上传目录图片'), { target: { files: [new File(['image'], '目录.png', { type: 'image/png' })] } });
+    fireEvent.change(screen.getByLabelText('上传目录图片'), {
+      target: { files: ['目录1.png', '目录2.png'].map(name => new File(['image'], name, { type: 'image/png' })) },
+    });
     expect(screen.getByRole('button', { name: '上传' })).toBeDisabled();
-    expect(screen.getByRole('status')).toHaveTextContent('上传中…');
+    expect(screen.getByRole('status')).toHaveTextContent('正在上传图片 1/2…');
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
     rerender(<div>课程概览</div>);
     expect(signal?.aborted).toBe(false);
     finishUpload(Response.json({ success: true, data: { id: 'photo', filename: '目录.png' } }));
     await waitFor(() => expect(finishRecognition).toBeDefined());
+    expect(uploads).toBe(2);
+    const parse = fetcher.mock.calls.find(([url]) => url.endsWith('/parse'));
+    expect(JSON.parse(String(parse?.[1]?.body)).image_ids).toEqual(['photo', 'second']);
     finishRecognition();
     rerender(editor);
     await screen.findByRole('button', { name: '章节 1 函数与极限' });

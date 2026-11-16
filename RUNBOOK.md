@@ -77,6 +77,8 @@
 
 点生成知识点或上传目录图片后，可以切到工作台内的其他页面。返回对应小节或「目录与小节」查看进度、待确认草稿或失败提示。未保存的手动修改仍会提醒。刷新、关页或退出登录时，进行中的请求没有续跑保证；已保存的草稿可重新打开。前端生命周期由 `frontend/lib/workspace-operations.tsx` 管理，回归在 `frontend` 运行 `npm test -- tests/course-workspace.test.tsx tests/knowledge.test.tsx tests/curriculum.test.tsx`。
 
+点击「上传」可一次选 1–5 张图片，每张最多 50 MiB。整批通过大小检查后逐张上传，再按文件选择器提供的顺序识别为一份草稿。一张上传失败时可重新选择，原草稿保留。识别提示词要求合并可确认的重叠条目，把缺页线索或冲突列入「待核对项」。完全漏拍的内容需补拍，补拍后选择完整的一组图片重新生成。定向后端回归为 `pytest -q tests/test_curriculum.py`（在 `backend` 运行）。
+
 知识点生成使用 `backend/prompts/knowledge/extract-v3.md` 和仅含知识点的输出结构。已有知识草稿可按原版本直接确认，旧客户端提交的核对字段可兼容读取。
 
 ## 手机MPO/JPG主照片 · 2026-11-10

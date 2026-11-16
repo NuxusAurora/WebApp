@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { MAX_IMAGE_BYTES } from '../lib/image-limits';
 import { CurriculumOutline } from './curriculum-outline';
 import { SectionKnowledge, type KnowledgeAction } from './knowledge';
 import { cleanTitles } from '../lib/curriculum-title';
-import { temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
+import { MAX_CURRICULUM_IMAGES, temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
 import { useWorkspaceOperation } from '../lib/workspace-operations';
 
 function pageLabel(node: { page_start?: number | null; page_end?: number | null }) {
@@ -36,6 +36,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   const controller = useRef<AbortController | null>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
+  const uploadHintId = useId();
   const callbacks = useRef({ onDirtyChange, onSessionExpired });
   callbacks.current = { onDirtyChange, onSessionExpired };
   const path = 'courses/' + courseId + '/curriculum';
@@ -116,22 +117,44 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   }
   const selectedModel = providers.filter(provider => provider.enabled).flatMap(provider =>
     provider.models.filter(model => model.enabled && model.capabilities?.vision).map(model => ({ ...model, provider }))).at(0);
-  function upload(file: File) {
-    if (busy) return;
-    if (!file.size || file.size > MAX_IMAGE_BYTES) { setError('图片须为 1 字节至 50 MiB'); return; }
+  function upload(files: File[]) {
+    if (busy || files.length === 0) return;
+    if (files.length > MAX_CURRICULUM_IMAGES) {
+      setError(`一次最多选择 ${MAX_CURRICULUM_IMAGES} 张图片，请重新选择。`);
+      return;
+    }
+    const invalidIndex = files.findIndex(file => !file.size || file.size > MAX_IMAGE_BYTES);
+    if (invalidIndex !== -1) {
+      const image = files.length === 1 ? '图片' : `第 ${invalidIndex + 1} 张图片`;
+      setError(`${image}须为 1 字节至 50 MiB`);
+      return;
+    }
     if (!selectedModel) { setError('请先在模型设置中启用支持图片的模型。'); return; }
     if (dirty && !window.confirm('上传新图片将替换未保存的目录修改，继续？')) return;
     if (!openSection(null)) return;
     const { id: modelId, provider: { id: providerId } } = selectedModel;
     setError(''); setNotice(''); setConfirming(false);
-    recognition.start('上传中…', async (signal, report) => {
-      const photo = await api<Photo>(path + '/images', { method: 'POST', body: file, signal,
-        headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) } });
+    const uploading = (index: number) => files.length === 1 ? '上传中…' : `正在上传图片 ${index + 1}/${files.length}…`;
+    recognition.start(uploading(0), async (signal, report) => {
+      const imageIds: string[] = [];
+      for (const [index, file] of files.entries()) {
+        if (signal.aborted) return;
+        if (index > 0) report(uploading(index));
+        try {
+          const photo = await api<Photo>(path + '/images', { method: 'POST', body: file, signal,
+            headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name) } });
+          imageIds.push(photo.id);
+        } catch (cause) {
+          if (files.length === 1 || (cause instanceof ApiError && cause.status === 401)) throw cause;
+          const detail = cause instanceof Error ? cause.message : '请重试';
+          throw new Error(`第 ${index + 1} 张图片上传失败。${detail}`);
+        }
+      }
       if (signal.aborted) return;
       report('模型识别中…');
       await api(path + '/parse', { method: 'POST', signal,
         body: JSON.stringify({ input_mode: 'images', ocr_text: '',
-          image_ids: [photo.id], provider_id: providerId, model_id: modelId }) });
+          image_ids: imageIds, provider_id: providerId, model_id: modelId }) });
     });
   }
   const editable = Boolean(payload && (!version || version.status === 'DRAFT'));
@@ -141,12 +164,17 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
     {notice ? <p role="status" className="curriculum-notice">{notice}</p> : null}
     {loading ? <p role="status">正在加载目录…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载目录</button> : <>
       {!payload && !data.curriculum.chapters.length ? <p className="curriculum-empty">拍摄你的教材目录，然后上传</p> : null}
-      <button className="button curriculum-upload" disabled={Boolean(busy)} onClick={() => uploadInput.current?.click()}>上传</button>
-      <input ref={uploadInput} type="file" hidden aria-label="上传目录图片"
+      <div className="button-row">
+        <button className="button curriculum-upload" aria-describedby={uploadHintId} disabled={busy}
+          onClick={() => uploadInput.current?.click()}>上传</button>
+        <small className="muted" id={uploadHintId}>可选 1–{MAX_CURRICULUM_IMAGES} 张图片，每张不超过 50 MiB</small>
+      </div>
+      <input ref={uploadInput} type="file" multiple hidden aria-label="上传目录图片"
         accept="image/png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif,.png,.jpg,.jpeg,.jfif,.webp,.bmp,.gif,.tif,.tiff,.avif" disabled={Boolean(busy)}
         onChange={event => {
-          const file = event.target.files?.[0]; event.target.value = '';
-          if (file) upload(file);
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = '';
+          upload(files);
         }} />
       {payload || data.curriculum.chapters.length ? <CurriculumOutline payload={payload ?? data.curriculum}
         disabled={Boolean(busy) || knowledgeDirty || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}

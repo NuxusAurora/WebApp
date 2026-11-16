@@ -1,3 +1,6 @@
+// Same batch limit as the curriculum parse endpoint.
+export const MAX_CURRICULUM_IMAGES = 5;
+
 export type Section = { id: string; title: string; page_start?: number | null; page_end?: number | null };
 export type Chapter = Section & { sections: Section[] };
 export type Payload = { chapters: Chapter[]; uncertain_items?: string[] };

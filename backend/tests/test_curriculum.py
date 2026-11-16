@@ -586,6 +586,14 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
     image = client.post(
         path + "/images", content=output.getvalue(), headers={"X-Filename": "photo.png"}
     ).json()["data"]
+    image_ids = [image["id"]]
+    if image_format == "PNG":
+        next_photo = io.BytesIO()
+        Image.new("RGB", (40, 20), "black").save(next_photo, format="PNG")
+        second = client.post(
+            path + "/images", content=next_photo.getvalue(), headers={"X-Filename": "next.png"}
+        ).json()["data"]
+        image_ids.insert(0, second["id"])
     expected = {
         "chapters": [
             {
@@ -622,7 +630,7 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
         path + "/parse",
         json={
             "input_mode": "images",
-            "image_ids": [image["id"]],
+            "image_ids": image_ids,
             "provider_id": provider["id"],
             "model_id": model["id"],
         },
@@ -632,6 +640,7 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
     assert data["payload"] == expected
     assert data["source"]["input_mode"] == "images"
     assert data["source"]["prompt_version"] == "curriculum-vision-v1"
+    assert data["source"]["image_ids"] == image_ids
     parts = next(
         message["content"]
         for message in requests[0]["messages"]
@@ -639,6 +648,15 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
     )
     media_type = "image/png" if image_format == "PNG" else "image/jpeg"
     assert parts[1]["image_url"]["url"].startswith(f"data:{media_type};base64,")
+    if image_format == "PNG":
+        decoded_photos = [
+            base64.b64decode(part["image_url"]["url"].split(",", 1)[1]) for part in parts[1:]
+        ]
+        colors = []
+        for photo in decoded_photos:
+            with Image.open(io.BytesIO(photo)) as decoded:
+                colors.append(decoded.convert("RGB").getpixel((0, 0)))
+        assert colors == [(0, 0, 0), (255, 255, 255)]
     if image_format == "JPEG":
         assert base64.b64decode(parts[1]["image_url"]["url"].split(",", 1)[1]) == output.getvalue()
     if image_format == "MPO":

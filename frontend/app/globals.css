@@ -606,7 +606,7 @@ html, body { height: 100%; overflow: hidden; }
 .curriculum {
   min-width: 0; display: flex; flex-direction: column; gap: 16px; padding-bottom: 12px;
 }
-.curriculum > .curriculum-upload { align-self: flex-start; min-height: var(--touch-target); }
+.curriculum .curriculum-upload { min-height: var(--touch-target); }
 .curriculum > p, .curriculum-confirm h3, .curriculum-confirm p, .curriculum-diff p { margin: 0; }
 .curriculum > p, .curriculum > small { font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .curriculum > .curriculum-empty { color: var(--muted); font-size: var(--font-body); }
