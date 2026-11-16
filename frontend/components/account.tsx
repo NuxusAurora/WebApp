@@ -73,7 +73,7 @@ export function Account({ onLogin, notice = '' }: {
     {notice ? <p className="notice info" role="status">{notice}</p> : null}
     {message ? <p className="notice success" role="status"><Icon name="check" size={18} />{message}</p> : null}
     {error ? <p ref={errorElement} tabIndex={-1} role="alert" className="notice error"><Icon name="alert" size={18} />{error}</p> : null}
-    <form onSubmit={submit} key={mode} className="form-stack">
+    <form onSubmit={submit} key={mode} className="form-stack motion-enter">
       {['login', 'register', 'forgot-password', 'resend-verification'].includes(mode) ? <label>邮箱
         <input name="email" type="email" autoComplete="email" spellCheck={false} required maxLength={254}
           placeholder="你的邮箱地址" /></label> : null}

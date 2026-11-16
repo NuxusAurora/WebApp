@@ -127,6 +127,8 @@
 
 验证仍用frontend的npm run check、npm test、npm run build；生命周期回归为tests/page-motion.test.tsx，覆盖草稿/焦点保持、普通更新不重播、快速导航取消、卸载清理及减少动态。视觉验收和兼容限制见HANDOFF对应节。
 
+工作台动效复查时，从学习对话依次检查题面、题型列表、自定义出题、讲解步骤、提问窗及内部会话切换，再检查课程目录、行内确认、登录表单和账户编辑。关闭提问窗或账户编辑后核对触发按钮焦点、辅窗草稿和密码清空。开启系统减少动态效果后重复开关。共享进出样式在 `frontend/styles/motion.css`，提问窗桌面列宽和手机覆盖位置在 `frontend/styles/learning.css`。
+
 ## 课程学科菜单 · 2026-11-10
 
 入口 `/` → 我的课程：一级为学科（默认收起），点击整行展开二级课程；支持多个学科同时展开及键盘Enter/Space。二级直接点击课程名称进入，名称可键盘操作；无独立进入按钮和学科/课程装饰图标，保留展开箭头。搜索自动展开匹配组，清空恢复收起；空学科归入“未设置学科”。分组/数量/搜索沿用当前100条分页，翻页重置折叠。实现位于frontend/components/course-space.tsx及frontend/app/globals.css，相关回归为frontend/tests/course-workspace.test.tsx；检查继续用npm run check、npm test、npm run build，实际结果与限制见HANDOFF最新节。

@@ -25,14 +25,15 @@ export function ProblemCard({ text, format, parts, active, label = '题目', isC
   active?: number; label?: string; isCurrent?: boolean; onSelect?: (number?: number) => void;
   onReturn?: () => void; onExplain?: () => void;
 }) {
-  const [open, setOpen] = useState(true);
+  const [visibility, setVisibility] = useState<'initial' | 'expanded' | 'collapsed'>('initial');
+  const open = visibility !== 'collapsed';
   const headingId = useId();
   const bodyId = useId();
   const body = useRef<HTMLDivElement>(null);
   const returnPart = useRef<number | undefined>(undefined);
   const visibleParts = active === undefined ? parts?.parts : parts?.parts.filter(part => part.number === active);
   useLayoutEffect(() => {
-    if (isCurrent) setOpen(true);
+    if (isCurrent) setVisibility('initial');
   }, [isCurrent]);
   useLayoutEffect(() => {
     if (!open || active === undefined || !body.current) return;
@@ -49,7 +50,7 @@ export function ProblemCard({ text, format, parts, active, label = '题目', isC
   }, [active]);
   function clearPart() {
     returnPart.current = active;
-    setOpen(true);
+    setVisibility('initial');
     onSelect?.();
   }
   return <section className="lesson-block lesson-problem-card" aria-labelledby={headingId}>
@@ -62,10 +63,12 @@ export function ProblemCard({ text, format, parts, active, label = '题目', isC
         {active !== undefined ? <button type="button" className="text-button"
           onClick={clearPart}>返回全部题目</button> : null}
         <button type="button" className="text-button" aria-expanded={open} aria-controls={bodyId}
-          onClick={() => setOpen(!open)}>{open ? '收起题目' : '展开题目'}</button>
+          onClick={() => setVisibility(open ? 'collapsed' : 'expanded')}>{open ? '收起题目' : '展开题目'}</button>
       </div>
     </div>
-    <div id={bodyId} ref={body} className="lesson-problem-text" hidden={!open} tabIndex={0} role="region" aria-label="题面">
+    <div id={bodyId} ref={body} className="lesson-problem-text motion-disclosure" hidden={!open}
+      data-motion-initial={visibility === 'initial' ? '' : undefined}
+      inert={!open} aria-hidden={!open} tabIndex={0} role="region" aria-label="题面">
       {parts && visibleParts?.length && onSelect ? <>
         {parts.statement ? <LessonContent text={parts.statement} format={format} /> : null}
         <div className="lesson-problem-parts">
@@ -89,7 +92,7 @@ export function ProblemCard({ text, format, parts, active, label = '题目', isC
 export function LessonStep({ title, step, subquestion, current = true }: {
   title: string; step: PublishedStep; subquestion?: number; current?: boolean;
 }) {
-  return <section className="lesson-block lesson-reading-step"
+  return <section className={'lesson-block lesson-reading-step' + (current ? ' motion-enter' : '')}
     aria-label={subquestion === undefined ? `第 ${step.index} 步` : `第（${subquestion}）问讲解`}>
     {current ? <h2 id="lesson-step" tabIndex={-1}>
       {subquestion !== undefined ? title : `第 ${step.index} 步${title ? '：' + title : ''}`}

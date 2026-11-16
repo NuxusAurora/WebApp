@@ -446,7 +446,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
                 title={`${questionNumberLabel(index)} · ${focusedExplanation.title}`} subquestion={focusedExplanation.number}
                 step={{ ...focusedExplanation, index: focusedExplanation.number, format: 'markdown' }} /> : null}
               {showSingleDetail && step ? <>
-                <LessonStep title={withoutStepLabels(step.title)}
+                <LessonStep key={step.index} title={withoutStepLabels(step.title)}
                   step={{ ...step, content: withoutStepLabels(step.content) }} />
                 {Boolean(task.completed_steps?.some(entry => entry.index < step.index)) ? <details className="lesson-history">
                   <summary>已完成步骤（{step.index - 1}）</summary>
@@ -467,7 +467,7 @@ export function LessonWorkspace({ conversationId, title, onQuestionsChange, onSe
                   busy={currentDetail ? busy : null} disabled={!currentDetail || blocked || task.status === 'completed'}
                   error={currentDetail && checkError ? error : ''} submit={(action, fields) => void act(action, fields)} /> : null}
               </> : null}
-              {showSingleDetail && complete ? <section className="lesson-completion" role="status">
+              {showSingleDetail && complete ? <section className="lesson-completion motion-enter" role="status">
                 <strong>本题已完成</strong>
               </section> : null}
             </div>;

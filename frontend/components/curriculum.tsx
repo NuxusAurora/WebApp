@@ -227,7 +227,7 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
             <ul>{version.change_summary.knowledge_archived.map(item => <li key={item.id}>{item.title}</li>)}</ul>
           </details> : null}
         </div> : null}
-        {confirming && version ? <div className="curriculum-confirm" role="region" aria-label="确认目录">
+        {confirming && version ? <div className="curriculum-confirm motion-enter" role="region" aria-label="确认目录">
           <h3>应用这份目录？</h3><p>确认后成为正式目录。现有章节只通过明确 ID 匹配，移除项归档。</p>
           {version.change_summary.archived.length ? <label><input type="checkbox" checked={acceptArchives}
             onChange={event => setAcceptArchives(event.target.checked)} />我已核对上方全部归档项及受影响知识点</label> : null}

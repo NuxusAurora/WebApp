@@ -82,7 +82,8 @@ export function TeachingChat({ conversationId, open, activeStep, subquestion, on
     }
   }
 
-  return <aside className="teaching-chat" id="teaching-questions" hidden={!open} ref={surface}
+  return <aside className="teaching-chat" id="teaching-questions" hidden={!open} inert={!open}
+    aria-hidden={!open} ref={surface}
     role={mobile ? 'dialog' : undefined} aria-modal={mobile && open ? true : undefined}
     aria-labelledby="teaching-questions-title" onKeyDown={handleKey}>
     <header className="teaching-chat-header">
@@ -235,7 +236,7 @@ function TeachingThreadPane({ conversationId, threadId, active, open, fresh, sub
     }
   }
 
-  return <div className="teaching-thread-pane" hidden={!active}>
+  return <div className="teaching-thread-pane motion-enter" hidden={!active}>
     <div className="teaching-transcript" ref={transcript} role="region" aria-label="问答记录" tabIndex={0}
       onScroll={() => { if (unread && nearEnd()) setUnread(false); }}>
       {before ? <button type="button" className="text-button" disabled={Boolean(busy)}

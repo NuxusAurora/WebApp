@@ -10,11 +10,11 @@
   transition: grid-template-columns var(--motion-panel) var(--motion-ease);
 }
 .sidebar-submenu-chevron > svg, .learning-tree-row[aria-expanded] > svg:first-child, .subject-toggle > svg:last-child,
-.archive-toggle > svg {
+.archive-toggle > svg, .outline-chevron, .knowledge summary svg {
   transition: transform var(--motion-panel) var(--motion-ease);
 }
-.motion-tab-panel { animation: workspace-tab-in 180ms var(--motion-ease); }
-@keyframes workspace-tab-in {
+.motion-tab-panel, .motion-enter:not([hidden]) { animation: workspace-content-in 180ms var(--motion-ease); }
+@keyframes workspace-content-in {
   from { opacity: .55; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
@@ -39,7 +39,8 @@
     transition-duration: var(--motion-exit);
   }
   @starting-style {
-    .motion-disclosure:not([hidden]) { height: 0; opacity: 0; margin-block: 0; }
+    /* The lesson card must mount at its final size for the question focus sequence. */
+    .motion-disclosure:not([hidden], [data-motion-initial]) { height: 0; opacity: 0; margin-block: 0; }
   }
 }
 
@@ -69,6 +70,36 @@
 .workspace-sidebar[data-mobile="true"]::backdrop { background: rgb(0 0 0 / .5); }
 
 @media (prefers-reduced-motion: no-preference) {
+  .profile-dialog, .teaching-chat {
+    opacity: 0;
+    transition: opacity var(--motion-exit) ease-out,
+      translate var(--motion-exit) var(--motion-ease),
+      display var(--motion-exit) allow-discrete;
+  }
+  .profile-dialog {
+    translate: 0 6px;
+    transition: opacity var(--motion-exit) ease-out,
+      translate var(--motion-exit) var(--motion-ease),
+      display var(--motion-exit) allow-discrete, overlay var(--motion-exit) allow-discrete;
+  }
+  .profile-dialog::backdrop {
+    background-color: transparent;
+    transition: background-color var(--motion-exit) ease-out,
+      display var(--motion-exit) allow-discrete, overlay var(--motion-exit) allow-discrete;
+  }
+  .profile-dialog[open]::backdrop { background-color: var(--profile-backdrop); }
+  .teaching-chat { translate: 12px 0; }
+  .profile-dialog[open], .teaching-chat:not([hidden]) {
+    opacity: 1;
+    translate: none;
+    transition-duration: var(--motion-panel);
+  }
+  @starting-style {
+    .profile-dialog[open] { opacity: 0; translate: 0 6px; }
+    .profile-dialog[open]::backdrop { background-color: transparent; }
+    .teaching-chat:not([hidden]) { opacity: 0; translate: 12px 0; }
+  }
+
   /* Display/overlay transitions keep the closed drawer in the top layer for exit. */
   .workspace-sidebar[data-mobile="true"] {
     transform: translateX(-100%);
@@ -92,10 +123,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .motion-tab-panel { animation: none; }
+  .motion-tab-panel, .motion-enter:not([hidden]) { animation: none; }
   .application-shell.workspace-shell { transition: none; }
   .motion-disclosure, .workspace-main details::details-content,
   .sidebar-user-menu, .workspace-sidebar, .workspace-sidebar::backdrop,
   .sidebar-submenu-chevron > svg, .learning-tree-row[aria-expanded] > svg:first-child, .subject-toggle > svg:last-child,
-  .archive-toggle > svg { transition: none; }
+  .archive-toggle > svg, .outline-chevron, .knowledge summary svg { transition: none; }
 }

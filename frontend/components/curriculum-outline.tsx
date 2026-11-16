@@ -187,10 +187,10 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
     <li key={chapter.id}>{row({ kind: 'chapter', id: chapter.id }, String(ci + 1), chapter.title, chapter.sections.length > 0)}
       <ol id={outlineId + '-chapter-' + chapter.id} className="motion-disclosure" hidden={!expanded.has(chapter.id)} inert={!expanded.has(chapter.id)} aria-hidden={!expanded.has(chapter.id)}>{chapter.sections.map((section, si) =>
         <li key={section.id}>{row({ kind: 'section', id: section.id }, `${ci + 1}.${si + 1}`, section.title)}
-          {sectionDisclosure ? <div className="outline-section-panel" id={outlineId + '-section-' + section.id} hidden={sectionDisclosure.openId !== section.id}>
+          {sectionDisclosure ? <div className="outline-section-panel motion-enter" id={outlineId + '-section-' + section.id} hidden={sectionDisclosure.openId !== section.id}>
             {sectionDisclosure.openId === section.id ? sectionDisclosure.content : null}
           </div> : null}</li>)}</ol>
-    </li>)}</ol>{menu && menuItem && menuChapter && (writable || extraActions?.length) ? createPortal(<div ref={menuRef} role="menu" tabIndex={-1} aria-label="标题操作" className="outline-context-menu"
+    </li>)}</ol>{menu && menuItem && menuChapter && (writable || extraActions?.length) ? createPortal(<div ref={menuRef} role="menu" tabIndex={-1} aria-label="标题操作" className="outline-context-menu motion-enter"
       style={{ left: menu.x, top: menu.y }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); closeMenu(true); }
         if (event.key === 'Tab') closeMenu(true);

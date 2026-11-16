@@ -15,11 +15,11 @@ export const actionLabels: Record<LessonCommand, string> = {
 export function LessonSupport({ support }: { support: LessonTask['support'] }) {
   return <>
     {support?.hints?.length ? <section className="lesson-block lesson-support" aria-label="提示">
-      {support.hints.map(({ level, text }) => <details key={level} open={level === support.hints?.length}>
+      {support.hints.map(({ level, text }) => <details key={level} className="motion-enter" open={level === support.hints?.length}>
         <summary>提示 {level} / 3</summary><LessonContent text={text} format="markdown" />
       </details>)}
     </section> : null}
-    {support?.rephrase ? <details open className="lesson-block lesson-support">
+    {support?.rephrase ? <details open className="lesson-block lesson-support motion-enter">
       <summary>另一种解释</summary><LessonContent text={support.rephrase} format="markdown" />
     </details> : null}
   </>;
@@ -30,7 +30,7 @@ export function UnderstandingCheck({ check, busy, disabled, error, submit }: {
   submit: (action: 'check-answer' | 'evaluate-check', fields: { check_id: string; answer?: string }) => void;
 }) {
   const [draft, setDraft] = useState('');
-  return <section className="lesson-block lesson-check" aria-labelledby="check-title">
+  return <section className="lesson-block lesson-check motion-enter" aria-labelledby="check-title">
     <h2 id="check-title">理解检测</h2>
     <LessonContent text={check.question} format="markdown" />
     {check.status === 'awaiting_answer' ? <form className="lesson-check-form" onSubmit={event => {
@@ -43,7 +43,7 @@ export function UnderstandingCheck({ check, busy, disabled, error, submit }: {
     </form> : <>
       <p><strong>你的回答</strong></p><p>{check.answer}</p>
       {check.status === 'feedback_ready' ? <>
-        <h3>理解反馈</h3><LessonContent text={check.feedback ?? ''} format="markdown" />
+        <div className="motion-enter"><h3>理解反馈</h3><LessonContent text={check.feedback ?? ''} format="markdown" /></div>
       </> : busy !== 'evaluate-check' ? <button type="button" className="button secondary" disabled={disabled}
         onClick={() => submit('evaluate-check', { check_id: check.check_id })}>重新评价</button> : null}
     </>}
@@ -117,8 +117,9 @@ function PracticeNavigation({ task, disabled, run }: {
         aria-expanded={panel === 'types'} aria-controls={panel === 'types' ? listId : undefined}
         onClick={() => setPanel(panel === 'types' ? null : 'types')}>{typeLabel}</button>
     </div>
-    {canSelect && practice && panel === 'types' ? <ul id={listId} ref={typeList} aria-label="选择题型"
-      className="lesson-type-options" onKeyDown={dismissOnEscape}>
+    {canSelect && practice ? <ul id={listId} ref={typeList} aria-label="选择题型"
+      className="lesson-type-options motion-disclosure" hidden={panel !== 'types'} inert={panel !== 'types'}
+      aria-hidden={panel !== 'types'} onKeyDown={dismissOnEscape}>
       {practice.types.map(({ title }, index) => {
         const current = index === practice.current;
         const mastered = practice.mastered.includes(index);
@@ -139,9 +140,10 @@ function PracticeNavigation({ task, disabled, run }: {
         </li>;
       })}
     </ul> : null}
-    {canCustomize && panel === 'request' ? <form id={fieldId + '-form'} className="lesson-custom-question" onSubmit={event => {
+    {canCustomize ? <form id={fieldId + '-form'} className="lesson-custom-question motion-disclosure"
+      hidden={panel !== 'request'} inert={panel !== 'request'} aria-hidden={panel !== 'request'} onSubmit={event => {
       event.preventDefault();
-      if (!disabled && draft.trim()) run('custom-question', { question_request: draft.trim() });
+      if (panel === 'request' && !disabled && draft.trim()) run('custom-question', { question_request: draft.trim() });
     }} onKeyDown={dismissOnEscape}>
       <label htmlFor={fieldId}>出题要求</label>
       <textarea ref={field} id={fieldId} className="ui-input" rows={2} maxLength={1000} required readOnly={disabled}

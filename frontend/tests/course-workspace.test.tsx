@@ -878,6 +878,7 @@ describe('personal account overview', () => {
     vi.mocked(api).mockResolvedValue(updated);
     render(<Profile user={user} onUpdate={update} onPasswordChanged={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '修改昵称' }));
+    const dialog = screen.getByRole('dialog');
     expect(screen.getByLabelText('昵称')).toHaveFocus();
     fireEvent.change(screen.getByLabelText('昵称'), { target: { value: '新昵称' } });
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
@@ -886,6 +887,8 @@ describe('personal account overview', () => {
     fireEvent.submit(screen.getByLabelText('昵称').closest('form')!);
     await waitFor(() => expect(update).toHaveBeenCalledWith(updated));
     expect(api).toHaveBeenCalledWith('users/me', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ display_name: '新昵称' }) }));
+    await waitFor(() => expect(dialog).not.toHaveAttribute('open'));
+    expect(dialog).toHaveAttribute('inert');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('昵称已修改');
   });
@@ -900,6 +903,11 @@ describe('personal account overview', () => {
     await screen.findByText('当前密码错误');
     expect(screen.getByLabelText('新密码')).toHaveValue('new-password-123');
     expect(screen.getByRole('button', { name: '修改密码并退出' })).toBeEnabled();
+    vi.mocked(window.confirm).mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: '取消' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('当前密码')).toHaveValue('');
+    expect(screen.getByLabelText('新密码')).toHaveValue('');
   });
 
   it('logs into the dedicated test account by default without credentials', async () => {

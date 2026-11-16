@@ -209,7 +209,7 @@ export function SectionKnowledge({ sectionId, onDirtyChange, onSessionExpired, a
             setPayload(pointPayload(data.knowledge_points)); setVersion(null); setDirty(true); setConfirming(false);
           }}>从正式知识点重新编辑</button> : null}
         </div>
-        {confirming && version ? <div className="knowledge-confirm" role="region" aria-label="确认知识点"><h3>应用这份知识草稿？</h3><p>确认内容不会改变已有学习状态，移除的知识点将归档。</p>
+        {confirming && version ? <div className="knowledge-confirm motion-enter" role="region" aria-label="确认知识点"><h3>应用这份知识草稿？</h3><p>确认内容不会改变已有学习状态，移除的知识点将归档。</p>
           {version.change_summary.archived.length ? <ul>{version.change_summary.archived.map(item => <li key={item.id}>{item.title}</li>)}</ul> : null}
           {version.change_summary.modified.some(item => item.review_mastery) ? <ul>{version.change_summary.modified.filter(item => item.review_mastery).map(item => <li key={item.id}>{item.title} · 内容已变化，请复核原掌握状态</li>)}</ul> : null}
           {version.change_summary.archived.length ? <label className="knowledge-archive"><input type="checkbox" checked={acceptArchives} onChange={e => setAcceptArchives(e.target.checked)} />我已核对全部归档知识点</label> : null}

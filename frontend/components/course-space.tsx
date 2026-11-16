@@ -311,7 +311,7 @@ export function CourseSpace({ onDirtyChange, onSessionExpired, onBreadcrumbChang
                   </button>
                 </div>
               </div>
-                {deleteTarget?.id === course.id ? <div className="delete-confirmation course-delete-confirmation" role="alertdialog"
+                {deleteTarget?.id === course.id ? <div className="delete-confirmation course-delete-confirmation motion-enter" role="alertdialog"
                   aria-labelledby="delete-course-title" aria-describedby="delete-course-description"
                   onKeyDown={event => { if (event.key === 'Escape' && !busy) { event.preventDefault(); cancelDelete(); } }}>
                   <h3 id="delete-course-title">删除“{course.title}”？</h3>
