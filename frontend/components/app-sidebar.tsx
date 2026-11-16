@@ -6,6 +6,8 @@ import { Icon } from './icon';
 import { LearningProjectNavigation } from './learning-project-navigation';
 import { Input } from './ui';
 import type { LearningSelection } from '../lib/learning';
+import { brandName } from '../lib/brand';
+import { BrandMark } from './brand-mark';
 import { isModelSettings, modelSettingsItems, workspaceHref, workspaceLabels, type LearningTarget, type WorkspaceView } from '../lib/workspace-navigation';
 
 const preferenceKey = 'learning-workspace.sidebar-collapsed';
@@ -140,9 +142,9 @@ export function AppSidebar({ user, loading = false, view, busy, error = '', navi
         if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setDrawer(false);
       }}>
       <div className="sidebar-header">
-        <a className="sidebar-brand" href="/" aria-label="学习工作台" onClick={event => follow(event, 'courses')}>
-          <span className="sidebar-brand-icon"><Icon name="book" size={23} /></span>
-          <span className="sidebar-brand-copy"><strong>学习工作台</strong><small>LEARNING STUDIO</small></span>
+        <a className="sidebar-brand" href="/" aria-label={brandName} onClick={event => follow(event, 'courses')}>
+          <BrandMark />
+          <span className="sidebar-brand-copy"><strong>{brandName}</strong></span>
         </a>
         <button type="button" className="sidebar-toggle" aria-label={mobile ? '关闭导航' : rail ? '展开侧边栏' : '收起侧边栏'}
           aria-expanded={mobile ? drawer : !rail} onClick={() => mobile ? setDrawer(false) : toggle()}>

@@ -43,7 +43,7 @@ class LessonAction(Input):
 
 def require_action(body, lesson):
     if lesson is not None and lesson.plan_id is not None:
-        raise AppError("LESSON_CONFLICT", "此题需要新版本学习工作台", 409)
+        raise AppError("LESSON_CONFLICT", "此题需要新版石开学", 409)
     if body.revision != (lesson.revision if lesson else 0):
         raise AppError("LESSON_CONFLICT", "教学进度已更新，请重新加载", 409)
     state = lesson.state if lesson else {}

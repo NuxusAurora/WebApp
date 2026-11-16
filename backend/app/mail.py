@@ -20,7 +20,7 @@ class Mailer:
             message["From"] = settings.mail_from
             message["To"] = email
             message["Subject"] = "验证邮箱" if kind == "verify" else "重置密码"
-            message.set_content(f"请在学习工作台输入此一次性验证码（30 分钟内有效）：\n{token}")
+            message.set_content(f"请在石开学输入此一次性验证码。验证码 30 分钟内有效。\n{token}")
             with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
                 smtp.starttls()
                 if settings.smtp_user:

@@ -18,10 +18,8 @@
 .sidebar-header { position: relative; flex-shrink: 0; height: 80px; padding: 20px 12px; display: flex; align-items: center; gap: 4px; }
 .sidebar-brand { display: flex; align-items: center; gap: 10px; min-width: 0; text-decoration: none; color: inherit; }
 .sidebar-brand:hover { color: inherit; }
-.sidebar-brand-icon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: 8px; background: #2d4d6e; color: #f0f6ff; }
 .sidebar-brand-copy { display: flex; flex-direction: column; white-space: nowrap; overflow: hidden; }
 .sidebar-brand-copy strong { font-size: 20px; line-height: 1.35; letter-spacing: -.02em; font-weight: 400; }
-.sidebar-brand-copy small { margin-top: 3px; color: var(--sidebar-secondary); font-size: 10px; line-height: 1.2; letter-spacing: .06em; }
 .sidebar-toggle { position: relative; display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 36px; padding: 0; margin-left: auto; border: 0; border-radius: 6px; background: transparent; color: var(--sidebar-icon); }
 .sidebar-toggle:hover { background: var(--sidebar-hover); color: var(--sidebar-text); }
 .sidebar-navigation { flex: 1; min-height: 0; overflow-y: auto; overflow-x: clip; padding: 12px 12px 20px; scrollbar-width: thin; }
@@ -121,9 +119,7 @@
 /* Learning shell: the rail is separate from the reading column. */
 .learning-shell .sidebar-header { height: 56px; padding-block: var(--space-2); }
 .learning-shell .workspace-sidebar[data-collapsed="true"] .sidebar-header { height: 96px; }
-.learning-shell .sidebar-brand-copy small { display: none; }
 .learning-shell .sidebar-brand-copy strong { font-size: 16px; font-weight: 600; }
-.learning-shell .sidebar-brand-icon { background: none; color: var(--sidebar-icon-active); }
 .learning-shell .sidebar-navigation { overscroll-behavior: contain; }
 .sidebar-learning-heading { display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: column; gap: var(--space-1); }
 .sidebar-learning-heading > .sidebar-item > svg { flex-shrink: 0; }

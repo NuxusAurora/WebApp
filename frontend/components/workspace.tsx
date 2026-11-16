@@ -16,6 +16,8 @@ import { api, ApiError } from '../lib/api';
 import type { LearningSelection, LearningTextbookChanges } from '../lib/learning';
 import { usePageMotion } from '../lib/page-motion';
 import { WorkspaceOperations } from '../lib/workspace-operations';
+import { brandName } from '../lib/brand';
+import { BrandMark } from './brand-mark';
 
 export function Workspace({ accountNotice = '', systemView = false }: {
   accountNotice?: string; systemView?: boolean;
@@ -113,7 +115,7 @@ export function Workspace({ accountNotice = '', systemView = false }: {
   if (!user && view !== 'system') return <div className="entry-shell">
     <a href="#main-content" className="skip-link">跳到主要内容</a>
     <header className="entry-header">
-      <a className="wordmark" href="/"><span className="brand-symbol"><Icon name="book" size={23} /></span>学习工作台</a>
+      <a className="wordmark" href="/"><BrandMark />{brandName}</a>
       <Link className="quiet-link" href="/system"><Icon name="pulse" size={17} />连接状态</Link>
     </header>
     <main id="main-content" className="entry-main">

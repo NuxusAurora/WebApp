@@ -65,7 +65,7 @@ svg { flex-shrink: 0; vertical-align: middle; }
 .status-tag.neutral { color: #566c84; background: #edf1f6; }
 
 .wordmark { display: inline-flex; align-items: center; gap: 10px; font-size: 18px; font-weight: var(--weight-emphasis); text-decoration: none; white-space: nowrap; letter-spacing: -.02em; }
-.brand-symbol { display: grid; place-items: center; width: 34px; height: 36px; border-radius: 7px; flex-shrink: 0; }
+.brand-mark { display: block; width: 36px; height: 36px; flex-shrink: 0; object-fit: contain; background: #edf4ff; border-radius: 8px; }
 .application-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100dvh; }
 
 .avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: #e2efff; background: #355374; font-size: 13px; font-weight: var(--weight-emphasis); flex-shrink: 0; }
@@ -195,7 +195,6 @@ input[type="file"]::file-selector-button:hover { background: #dae8f8; }
 .entry-shell { min-height: 100dvh; background: #f5f8fc; padding: 0 36px 48px; }
 .entry-header { width: min(1180px, 100%); margin: auto; min-height: 100px; display: flex; gap: 24px; justify-content: space-between; align-items: center; }
 .entry-header .wordmark { color: var(--ink-strong); }
-.entry-header .brand-symbol { background: var(--rail); color: white; }
 .quiet-link { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); text-decoration: none; }
 .quiet-link:hover { color: var(--accent); }
 .entry-main { width: min(1180px, 100%); margin: 32px auto; min-height: 660px; display: grid; grid-template-columns: .95fr 1.05fr; background: white; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
