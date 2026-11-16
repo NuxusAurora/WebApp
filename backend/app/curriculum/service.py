@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.curriculum.models import Chapter, Section, StructureEvent, StructureVersion
 from app.errors import AppError
@@ -138,6 +138,46 @@ async def owned_version(db, course_id, version_id):
     return version
 
 
+async def locked_draft(db, course, version_id, revision, base):
+    version = await owned_version(db, course.id, version_id)
+    if (
+        version.status != "DRAFT"
+        or version.revision != revision
+        or version.base_course_revision != base
+        or course.confirmed_revision != base
+    ):
+        raise conflict()
+    return version
+
+
+async def save_draft_edit(db, course, version, actor_id, payload, *, details=None):
+    summary = await changes(db, course.id, payload)
+    revision = version.revision + 1
+    # Compare-and-swap also protects lightweight SQLite test/development databases.
+    value = await db.execute(
+        update(StructureVersion)
+        .where(
+            StructureVersion.id == version.id,
+            StructureVersion.revision == version.revision,
+            StructureVersion.status == "DRAFT",
+        )
+        .values(payload=payload, revision=revision, change_summary=summary)
+    )
+    if value.rowcount != 1:
+        raise conflict()
+    db.add(
+        StructureEvent(
+            version_id=version.id,
+            actor_id=actor_id,
+            action="EDITED",
+            details={"revision": revision, **(details or {})},
+        )
+    )
+    await db.commit()
+    await db.refresh(version)
+    return version_data(version)
+
+
 async def new_draft(
     db, course, user_id, payload, source=None, raw_output="", base=None, run_id=None
 ):
@@ -190,6 +230,8 @@ async def confirm(db, course, version, actor_id, revision, base, accept_archives
     ):
         raise conflict()
     summary = await changes(db, course.id, version.payload)
+    if version.payload.get("gaps"):
+        raise AppError("UNRESOLVED_GAPS", "请先补拍或处理目录里的缺页空位", 409)
     if version.payload.get("uncertain_items"):
         raise AppError("UNRESOLVED_ITEMS", "请先核对所有不确定项并保存草稿", 409)
     if summary["archived"] and not accept_archives:

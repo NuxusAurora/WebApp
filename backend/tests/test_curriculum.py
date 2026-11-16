@@ -620,7 +620,12 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
         return httpx.Response(
             200,
             json={
-                "choices": [{"message": {"content": json.dumps(expected)}, "finish_reason": "stop"}]
+                "choices": [
+                    {
+                        "message": {"content": json.dumps({**expected, "gaps": []})},
+                        "finish_reason": "stop",
+                    }
+                ]
             },
         )
 
@@ -639,7 +644,7 @@ def test_image_parse_bypasses_ocr_sends_private_image_and_requires_schema(
     data = response.json()["data"]
     assert data["payload"] == expected
     assert data["source"]["input_mode"] == "images"
-    assert data["source"]["prompt_version"] == "curriculum-vision-v2"
+    assert data["source"]["prompt_version"] == "curriculum-vision-v3"
     assert data["source"]["image_ids"] == image_ids
     parts = next(
         message["content"]
@@ -727,6 +732,7 @@ def test_parse_excludes_exercise_solutions(account_app, monkeypatch, input_mode)
     app.state.ai_gateway = Gateway({"openai": OpenAIProvider(wire)})
     body = {"input_mode": input_mode, "provider_id": provider["id"], "model_id": model["id"]}
     if input_mode == "images":
+        result["gaps"] = []
         image = client.post(
             path + "/images", content=png(), headers={"X-Filename": "photo.png"}
         ).json()["data"]
@@ -750,6 +756,154 @@ def test_parse_excludes_exercise_solutions(account_app, monkeypatch, input_mode)
             assert response.status_code == 422, response.text
             assert response.json()["error"]["code"] == "NO_CURRICULUM_CHAPTERS"
             assert client.get(path).json()["data"]["versions"] == [saved]
+    finally:
+        client.portal.call(wire.aclose)
+
+
+def test_fills_only_the_requested_gap_from_new_images_with_revision_check(account_app, monkeypatch):
+    app, client, path, _ = setup(account_app)
+    monkeypatch.setattr(
+        app.state.store, "read", lambda key, size: app.state.store.objects[key], raising=False
+    )
+    provider = client.post(
+        "/api/v1/ai/providers",
+        json={"provider_name": "vision", "base_url": "http://localhost:1234/v1"},
+    ).json()["data"]
+    model = client.post(
+        f"/api/v1/ai/providers/{provider['id']}/models",
+        json={
+            "model_name": "vision-test",
+            "capabilities": {"vision": True, "structured_output": True},
+            "capabilities_confirmed": True,
+        },
+    ).json()["data"]
+
+    def node(key, name, page):
+        return {"id": f"tmp-{key}", "title": name, "page_start": page, "page_end": None}
+
+    left = node("first", "1.1 映射与函数", 1)
+    right = node("third", "1.3 连续性", 10)
+    chapter = {**node("chapter", "函数与极限", 1), "sections": [left, right]}
+    following_chapter = {**node("last", "积分", 30), "sections": []}
+    vision_result = {
+        "chapters": [chapter, following_chapter],
+        "uncertain_items": ["请核对第三章标题"],
+        "gaps": [
+            {"chapter_id": chapter["id"], "after_id": left["id"], "reason": "1.2 未拍到"},
+            {"chapter_id": None, "after_id": chapter["id"], "reason": "缺第二章"},
+        ],
+    }
+    calls = []
+    responses = [
+        vision_result,
+        {"complete": False, "items": [], "uncertain_items": []},
+        {
+            "complete": True,
+            "items": [node("different", "映射与函数", 1), node("first", "1.2 极限", 5)],
+            "uncertain_items": [],
+        },
+        {
+            "complete": True,
+            "items": [{**node("chapter", "微分", 20), "sections": [node("first", "导数", 21)]}],
+            "uncertain_items": [],
+        },
+    ]
+    responses.append(responses[-1])
+    edit_during_request = None
+
+    async def handler(request):
+        calls.append(json.loads(request.content))
+        if edit_during_request:
+            async with app.state.resources.session() as db:
+                changed = await db.get(StructureVersion, UUID(edit_during_request))
+                updated = dict(changed.payload)
+                updated["uncertain_items"] = [
+                    *updated["uncertain_items"],
+                    "来自另一个窗口的草稿修改",
+                ]
+                changed.payload = updated
+                changed.revision += 1
+                await db.commit()
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"content": json.dumps(responses.pop(0))}, "finish_reason": "stop"}
+                ]
+            },
+        )
+
+    wire = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app.state.ai_gateway = Gateway({"openai": OpenAIProvider(wire)})
+    image_ids = [
+        client.post(path + "/images", content=png(), headers={"X-Filename": filename}).json()[
+            "data"
+        ]["id"]
+        for filename in ("initial.png", "supplement.png")
+    ]
+    selection = {"provider_id": provider["id"], "model_id": model["id"]}
+    try:
+        created = client.post(
+            path + "/parse",
+            json={**selection, "input_mode": "images", "image_ids": image_ids[:1]},
+        )
+        assert created.status_code == 201, created.text
+        version = created.json()["data"]
+        section_gap, chapter_gap = version["payload"]["gaps"]
+        assert section_gap["after_id"] == left["id"]
+        assert apply(client, path, version).json()["error"]["code"] == "UNRESOLVED_GAPS"
+        body = {
+            **selection,
+            "image_ids": image_ids[1:],
+            "version_id": version["id"],
+            "revision": 1,
+            "base_course_revision": 0,
+            "gap_id": section_gap["id"],
+        }
+        incomplete = client.post(path + "/supplement", json=body)
+        assert incomplete.status_code == 422
+        assert incomplete.json()["error"]["code"] == "GAP_INCOMPLETE"
+        assert client.get(path).json()["data"]["versions"] == [version]
+
+        response = client.post(path + "/supplement", json=body)
+        assert response.status_code == 200, response.text
+        filled = response.json()["data"]
+        assert filled["id"] == version["id"] and filled["revision"] == 2
+        assert filled["payload"]["chapters"][1] == following_chapter
+        sections = filled["payload"]["chapters"][0]["sections"]
+        assert sections[0] == left and sections[2] == right
+        assert sections[1]["title"] == "1.2 极限" and sections[1]["id"] != left["id"]
+        assert filled["payload"]["gaps"] == [chapter_gap]
+        assert filled["payload"]["uncertain_items"] == vision_result["uncertain_items"]
+        assert len(calls) == 3
+        assert client.post(path + "/supplement", json=body).status_code == 409
+        assert len(calls) == 3
+
+        chapter_body = {**body, "revision": 2, "gap_id": chapter_gap["id"]}
+        edit_during_request = version["id"]
+        assert client.post(path + "/supplement", json=chapter_body).status_code == 409
+        externally_updated = client.get(path).json()["data"]["versions"][0]
+        assert externally_updated["revision"] == 3
+        assert externally_updated["payload"]["gaps"] == [chapter_gap]
+        assert externally_updated["payload"]["uncertain_items"][-1] == "来自另一个窗口的草稿修改"
+        edit_during_request = None
+
+        response = client.post(path + "/supplement", json={**chapter_body, "revision": 3})
+        assert response.status_code == 200, response.text
+        filled = response.json()["data"]
+        assert [row["title"] for row in filled["payload"]["chapters"]] == [
+            "函数与极限",
+            "微分",
+            "积分",
+        ]
+        assert filled["payload"]["chapters"][0]["sections"] == sections
+        assert not filled["payload"].get("gaps")
+        assert client.get(path).json()["data"]["curriculum"]["chapters"] == []
+        for call in calls[1:]:
+            content = next(
+                message["content"] for message in call["messages"] if message["role"] == "user"
+            )
+            assert len([part for part in content if part["type"] == "image_url"]) == 1
     finally:
         client.portal.call(wire.aclose)
 

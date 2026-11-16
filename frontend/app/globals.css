@@ -614,6 +614,25 @@ html, body { height: 100%; overflow: hidden; }
 .curriculum-outline, .curriculum-outline > li > ol { list-style: none; margin: 0; padding: 0; min-width: 0; }
 .curriculum-outline > li + li { margin-top: 8px; }
 .curriculum-outline > li > ol > li { margin-top: 6px; }
+.curriculum-gap { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+.curriculum-gap-target.button {
+  justify-content: flex-start;
+  flex: 1 1 240px;
+  min-width: 0;
+  min-height: var(--touch-target);
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  text-align: left;
+  border-style: dashed;
+}
+.curriculum-gap-target span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.curriculum-gap > .button-row .text-button { min-height: var(--touch-target); }
 .curriculum-outline-row { display: flex; align-items: center; width: 100%; min-width: 0; height: 44px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .curriculum-outline-row.outline-parent { --outline-title-color: var(--chapter-title); }
 .curriculum-outline-row.outline-child { --outline-title-color: var(--section-title); }

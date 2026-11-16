@@ -272,6 +272,49 @@ describe('reviewed curriculum', () => {
     expect(screen.getByRole('button', { name: '保存草稿' })).toBeEnabled();
     expect(screen.getByRole('button', { name: '核对并确认' })).toBeDisabled();
   });
+
+  it('places a missing page between its neighbours and fills it with only the newly selected photo', async () => {
+    const before = { id: 'tmp-left', title: '映射' };
+    const after = { id: 'tmp-right', title: '连续性' };
+    const gap = { id: 'a'.repeat(32), chapter_id: 'tmp-c1', after_id: before.id, reason: '缺少 1.2 小节' };
+    const saved: Version = { ...version, payload: {
+      chapters: [{ ...payload.chapters[0], sections: [before, after] }], gaps: [gap],
+    } };
+    let current = saved;
+    const supplement = Promise.withResolvers<Response>();
+    const fetcher = vi.fn((url: string, _init?: RequestInit) => {
+      if (url.endsWith('/images')) return success({ id: 'new-photo' });
+      if (url.endsWith('/supplement')) return supplement.promise;
+      return url.endsWith('ai/providers') ? success([visionProvider]) : success({ ...empty, versions: [current] });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    renderCurriculum();
+    const slot = await screen.findByRole('button', { name: '补拍缺页' });
+    const row = slot.closest('li')!;
+    expect(row.previousElementSibling).toHaveTextContent('映射');
+    expect(row.nextElementSibling).toHaveTextContent('连续性');
+    expect(screen.getByRole('button', { name: '小节 1.3 连续性' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '核对并确认' })).toBeDisabled();
+    const photo = new File(['new image'], '补拍.png', { type: 'image/png' });
+    fireEvent.click(slot);
+    const picker = screen.getByLabelText('补拍目录照片');
+    expect(picker).toHaveAttribute('capture', 'environment');
+    fireEvent.change(picker, { target: { files: [photo] } });
+    await screen.findByText('正在识别补拍内容…');
+    const posts = fetcher.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts.map(([url]) => url.split('/').at(-1))).toEqual(['images', 'supplement']);
+    expect(posts[0][1]?.body).toBe(photo);
+    expect(JSON.parse(String(posts[1][1]?.body))).toMatchObject({
+      version_id: saved.id, revision: saved.revision, gap_id: gap.id, image_ids: ['new-photo'],
+    });
+    current = { ...saved, revision: 2, payload: {
+      chapters: [{ ...payload.chapters[0], sections: [before, { id: 'tmp-insert', title: '极限' }, after] }],
+    } };
+    supplement.resolve(Response.json({ success: true, data: current }));
+    expect(await screen.findByRole('button', { name: '小节 1.2 极限' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: '补拍缺页' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '核对并确认' })).toBeEnabled();
+  });
   it('saves a draft without applying formal structure, and requires an explicit confirmation', async () => {
     let stored = false; let applied = false;
     const savedVersion = { ...version, base_course_revision: 1 };

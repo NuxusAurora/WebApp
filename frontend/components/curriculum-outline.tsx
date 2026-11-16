@@ -1,23 +1,39 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icon';
-import type { Payload } from '../lib/curriculum';
+import type { CurriculumGap, Payload } from '../lib/curriculum';
 import { temporaryId } from '../lib/curriculum';
 import { titleText } from '../lib/curriculum-title';
 import { moveOutline, type OutlineNode, type OutlineTarget } from '../lib/curriculum-order';
 
 type MenuAction = { label: string; disabled?: boolean; onSelect: () => void };
 
-export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure, sectionMenu }: {
+function numbered<T extends { id: string }>(nodes: T[], gaps: CurriculumGap[] | undefined, chapterId: string | null) {
+  const slots = new Map<string | null, number>();
+  for (const gap of gaps ?? []) {
+    if (gap.chapter_id === chapterId) slots.set(gap.after_id, (slots.get(gap.after_id) ?? 0) + 1);
+  }
+  let position = slots.get(null) ?? 0;
+  return nodes.map(node => {
+    const number = ++position;
+    position += slots.get(node.id) ?? 0;
+    return { node, number };
+  });
+}
+
+export function CurriculumOutline({ payload, disabled = false, selectedId, onSelect, onChange, sectionDisclosure, sectionMenu, gapActions }: {
   payload: Payload; disabled?: boolean; selectedId?: string;
   onSelect?: (id: string) => void; onChange?: (payload: Payload) => void;
   sectionDisclosure?: { openId: string | null; onOpen: (id: string | null) => boolean; content: ReactNode };
   sectionMenu?: (id: string) => MenuAction[];
+  gapActions?: { choose: (gap: CurriculumGap, camera: boolean) => void; dismiss: (gap: CurriculumGap) => void };
 }) {
   const outlineId = useId();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(() => new Set(
+    (payload.gaps ?? []).flatMap(gap => gap.chapter_id === null ? [] : [gap.chapter_id]),
+  ));
   const [over, setOver] = useState<OutlineTarget | null>(null);
   const drag = useRef<OutlineNode | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
@@ -183,14 +199,44 @@ export function CurriculumOutline({ payload, disabled = false, selectedId, onSel
   const menuChapter = menu && payload.chapters.find(chapter => chapter.id === menu.node.id || chapter.sections.some(section => section.id === menu.node.id));
   const menuItem = menu && (menu.node.kind === 'chapter' ? menuChapter : menuChapter?.sections.find(section => section.id === menu.node.id));
   const extraActions = menu?.node.kind === 'section' ? sectionMenu?.(menu.node.id) : undefined;
-  return <><ol ref={rootRef} className="curriculum-outline" aria-label="目录标题">{payload.chapters.map((chapter, ci) =>
-    <li key={chapter.id}>{row({ kind: 'chapter', id: chapter.id }, String(ci + 1), chapter.title, chapter.sections.length > 0)}
-      <ol id={outlineId + '-chapter-' + chapter.id} className="motion-disclosure" hidden={!expanded.has(chapter.id)} inert={!expanded.has(chapter.id)} aria-hidden={!expanded.has(chapter.id)}>{chapter.sections.map((section, si) =>
-        <li key={section.id}>{row({ kind: 'section', id: section.id }, `${ci + 1}.${si + 1}`, section.title)}
-          {sectionDisclosure ? <div className="outline-section-panel motion-enter" id={outlineId + '-section-' + section.id} hidden={sectionDisclosure.openId !== section.id}>
-            {sectionDisclosure.openId === section.id ? sectionDisclosure.content : null}
-          </div> : null}</li>)}</ol>
-    </li>)}</ol>{menu && menuItem && menuChapter && (writable || extraActions?.length) ? createPortal(<div ref={menuRef} role="menu" tabIndex={-1} aria-label="标题操作" className="outline-context-menu motion-enter"
+  function gapRows(chapterId: string | null, afterId: string | null) {
+    if (!gapActions) return null;
+    return payload.gaps?.filter(gap => gap.chapter_id === chapterId && gap.after_id === afterId).map(gap => {
+      const labelId = outlineId + '-gap-' + gap.id;
+      return <li key={gap.id} className="curriculum-gap">
+        <button type="button" className="button curriculum-gap-target" aria-label="补拍缺页" aria-describedby={labelId}
+          disabled={disabled} onClick={() => gapActions.choose(gap, true)}>
+          补拍缺页<span id={labelId}>{gap.reason}</span>
+        </button>
+        <div className="button-row">
+          <button type="button" className="text-button" aria-describedby={labelId} disabled={disabled}
+            onClick={() => gapActions.choose(gap, false)}>选择照片</button>
+          <button type="button" className="text-button" aria-describedby={labelId} disabled={disabled}
+            onClick={() => gapActions.dismiss(gap)}>标为无缺页</button>
+        </div>
+      </li>;
+    });
+  }
+  return <><ol ref={rootRef} className="curriculum-outline" aria-label="目录标题">
+    {gapRows(null, null)}
+    {numbered(payload.chapters, payload.gaps, null).map(({ node: chapter, number }) => <Fragment key={chapter.id}>
+      <li>{row({ kind: 'chapter', id: chapter.id }, String(number), chapter.title,
+        chapter.sections.length > 0 || Boolean(payload.gaps?.some(gap => gap.chapter_id === chapter.id)))}
+        <ol id={outlineId + '-chapter-' + chapter.id} className="motion-disclosure" hidden={!expanded.has(chapter.id)}
+          inert={!expanded.has(chapter.id)} aria-hidden={!expanded.has(chapter.id)}>
+          {gapRows(chapter.id, null)}
+          {numbered(chapter.sections, payload.gaps, chapter.id).map(({ node: section, number: subsection }) => <Fragment key={section.id}>
+            <li>{row({ kind: 'section', id: section.id }, `${number}.${subsection}`, section.title)}
+              {sectionDisclosure ? <div className="outline-section-panel motion-enter" id={outlineId + '-section-' + section.id} hidden={sectionDisclosure.openId !== section.id}>
+                {sectionDisclosure.openId === section.id ? sectionDisclosure.content : null}
+              </div> : null}</li>
+            {gapRows(chapter.id, section.id)}
+          </Fragment>)}
+        </ol>
+      </li>
+      {gapRows(null, chapter.id)}
+    </Fragment>)}
+  </ol>{menu && menuItem && menuChapter && (writable || extraActions?.length) ? createPortal(<div ref={menuRef} role="menu" tabIndex={-1} aria-label="标题操作" className="outline-context-menu motion-enter"
       style={{ left: menu.x, top: menu.y }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); closeMenu(true); }
         if (event.key === 'Tab') closeMenu(true);

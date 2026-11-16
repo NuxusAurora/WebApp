@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { api, ApiError } from '../lib/api';
 import { MAX_IMAGE_BYTES } from '../lib/image-limits';
 import { CurriculumOutline } from './curriculum-outline';
 import { SectionKnowledge, type KnowledgeAction } from './knowledge';
 import { cleanTitles } from '../lib/curriculum-title';
-import { MAX_CURRICULUM_IMAGES, temporaryId, validPayload, type Curriculum, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
+import { MAX_CURRICULUM_IMAGES, reanchorGaps, temporaryId, validPayload,
+  type Curriculum, type CurriculumGap, type Payload, type Photo, type Provider, type Version } from '../lib/curriculum';
 import { useWorkspaceOperation } from '../lib/workspace-operations';
+
+const imageAccept = 'image/png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif,.png,.jpg,.jpeg,.jfif,.webp,.bmp,.gif,.tif,.tiff,.avif';
 
 function pageLabel(node: { page_start?: number | null; page_end?: number | null }) {
   return node.page_start != null || node.page_end != null ? `（${node.page_start ?? '?'}–${node.page_end ?? '?'} 页）` : '';
@@ -36,6 +39,8 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   const controller = useRef<AbortController | null>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const pickerGap = useRef<string | null>(null);
   const uploadHintId = useId();
   const callbacks = useRef({ onDirtyChange, onSessionExpired });
   callbacks.current = { onDirtyChange, onSessionExpired };
@@ -85,8 +90,12 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   useEffect(() => { void refresh(); return () => controller.current?.abort(); }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recognition = useWorkspaceOperation(path, () => void refresh('草稿已生成，请核对后确认'), failure);
-  const busy = Boolean(mutation) || recognition.busy;
-  const busyLabel = mutation || recognition.label;
+  const supplement = useWorkspaceOperation(path + '/supplement', () => void refresh('缺页内容已补入草稿，请核对'), reason => {
+    if (reason instanceof ApiError && reason.status === 409) void refresh('草稿已更新，请核对空位');
+    else failure(reason);
+  });
+  const busy = loading || Boolean(mutation) || recognition.busy || supplement.busy;
+  const busyLabel = mutation || recognition.label || supplement.label;
   async function run(label: string, action: (signal: AbortSignal) => Promise<void>) {
     const task = new AbortController(); controller.current = task;
     setMutation(label); setError(''); setNotice(''); setConfirming(false);
@@ -113,11 +122,23 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
     setKnowledgeAction(action);
   }
   function change(next: Payload) {
-    setOpenSectionId(null); setPayload(next); setDirty(true); setConfirming(false);
+    setOpenSectionId(null); setPayload(reanchorGaps(payload, next)); setDirty(true); setConfirming(false);
   }
   const selectedModel = providers.filter(provider => provider.enabled).flatMap(provider =>
     provider.models.filter(model => model.enabled && model.capabilities?.vision).map(model => ({ ...model, provider }))).at(0);
-  function upload(files: File[]) {
+  function chooseGap(gap: CurriculumGap, camera: boolean) {
+    if (dirty) { setError('请先保存草稿，再补拍缺页。'); return; }
+    pickerGap.current = gap.id;
+    (camera ? cameraInput : uploadInput).current?.click();
+  }
+  function picked(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files ?? []);
+    const gapId = pickerGap.current;
+    pickerGap.current = null;
+    event.currentTarget.value = '';
+    upload(files, gapId);
+  }
+  function upload(files: File[], gapId: string | null) {
     if (busy || files.length === 0) return;
     if (files.length > MAX_CURRICULUM_IMAGES) {
       setError(`一次最多选择 ${MAX_CURRICULUM_IMAGES} 张图片，请重新选择。`);
@@ -130,12 +151,18 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
       return;
     }
     if (!selectedModel) { setError('请先在模型设置中启用支持图片的模型。'); return; }
-    if (dirty && !window.confirm('上传新图片将替换未保存的目录修改，继续？')) return;
+    const target = gapId !== null && version ? {
+      gap_id: gapId, version_id: version.id, revision: version.revision,
+      base_course_revision: version.base_course_revision,
+    } : null;
+    if (gapId !== null && (!target || dirty || stale || !payload?.gaps?.some(gap => gap.id === gapId))) return;
+    if (!target && dirty && !window.confirm('上传新图片将替换未保存的目录修改，继续？')) return;
     if (!openSection(null)) return;
     const { id: modelId, provider: { id: providerId } } = selectedModel;
     setError(''); setNotice(''); setConfirming(false);
     const uploading = (index: number) => files.length === 1 ? '上传中…' : `正在上传图片 ${index + 1}/${files.length}…`;
-    recognition.start(uploading(0), async (signal, report) => {
+    const operation = target ? supplement : recognition;
+    operation.start(uploading(0), async (signal, report) => {
       const imageIds: string[] = [];
       for (const [index, file] of files.entries()) {
         if (signal.aborted) return;
@@ -151,9 +178,9 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
         }
       }
       if (signal.aborted) return;
-      report('模型识别中…');
-      await api(path + '/parse', { method: 'POST', signal,
-        body: JSON.stringify({ input_mode: 'images', ocr_text: '',
+      report(target ? '正在识别补拍内容…' : '模型识别中…');
+      await api(path + (target ? '/supplement' : '/parse'), { method: 'POST', signal,
+        body: JSON.stringify({ ...(target ?? { input_mode: 'images', ocr_text: '' }),
           image_ids: imageIds, provider_id: providerId, model_id: modelId }) });
     });
   }
@@ -162,22 +189,24 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
   return <section className="curriculum" aria-label="目录与小节" aria-busy={Boolean(busy)}>
     {error ? <p ref={errorRef} tabIndex={-1} className="notice error" role="alert">{error}</p> : null}
     {notice ? <p role="status" className="curriculum-notice">{notice}</p> : null}
-    {loading ? <p role="status">正在加载目录…</p> : !data ? <button className="button" onClick={() => void refresh()}>重新加载目录</button> : <>
+    {!data ? (loading ? <p role="status">正在加载目录…</p> :
+      <button className="button" onClick={() => void refresh()}>重新加载目录</button>) : <>
       {!payload && !data.curriculum.chapters.length ? <p className="curriculum-empty">拍摄你的教材目录，然后上传</p> : null}
       <div className="button-row">
         <button className="button curriculum-upload" aria-describedby={uploadHintId} disabled={busy}
-          onClick={() => uploadInput.current?.click()}>上传</button>
+          onClick={() => { pickerGap.current = null; uploadInput.current?.click(); }}>上传</button>
         <small className="muted" id={uploadHintId}>可选 1–{MAX_CURRICULUM_IMAGES} 张图片，每张不超过 50 MiB</small>
       </div>
-      <input ref={uploadInput} type="file" multiple hidden aria-label="上传目录图片"
-        accept="image/png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif,.png,.jpg,.jpeg,.jfif,.webp,.bmp,.gif,.tif,.tiff,.avif" disabled={Boolean(busy)}
-        onChange={event => {
-          const files = Array.from(event.currentTarget.files ?? []);
-          event.currentTarget.value = '';
-          upload(files);
-        }} />
-      {payload || data.curriculum.chapters.length ? <CurriculumOutline payload={payload ?? data.curriculum}
+      <input ref={uploadInput} type="file" multiple hidden aria-label="上传目录图片" accept={imageAccept}
+        disabled={busy} onChange={picked} />
+      <input ref={cameraInput} type="file" capture="environment" hidden aria-label="补拍目录照片" accept="image/*"
+        disabled={busy} onChange={picked} />
+      {payload || data.curriculum.chapters.length ? <CurriculumOutline key={version?.id ?? 'outline'} payload={payload ?? data.curriculum}
         disabled={Boolean(busy) || knowledgeDirty || Boolean(payload && (!editable || stale))} selectedId={selectedId} onSelect={setSelectedId}
+        gapActions={payload?.gaps?.length ? {
+          choose: chooseGap,
+          dismiss: gap => change({ ...payload, gaps: payload.gaps?.filter(item => item.id !== gap.id) }),
+        } : undefined}
         sectionMenu={payload || busy ? undefined : sectionId => {
           const disabled = sectionId === openSectionId && (knowledgeActionsDisabled || Boolean(knowledgeAction));
           return [
@@ -214,7 +243,9 @@ export function CurriculumEditor({ courseId, onDirtyChange, onSessionExpired }: 
                 ...(version ? { version_id: version.id, revision: version.revision } : {}) }) });
             if (!signal.aborted) { adopt(next); await load(signal); setNotice('草稿已保存，尚未应用到正式目录'); }
           })}>保存草稿</button> : null}
-          {version?.status === 'DRAFT' ? <button className="button primary" disabled={Boolean(busy) || dirty || stale || Boolean(payload.uncertain_items?.length)} onClick={() => { setConfirming(true); setAcceptArchives(false); }}>核对并确认</button> : null}
+          {version?.status === 'DRAFT' ? <button className="button primary"
+            disabled={busy || dirty || stale || Boolean(payload.uncertain_items?.length || payload.gaps?.length)}
+            onClick={() => { setConfirming(true); setAcceptArchives(false); }}>核对并确认</button> : null}
           <button className="text-button" disabled={Boolean(busy)} onClick={() => { if (!canLeave()) return; setPayload(null); setVersion(null); setDirty(false); setConfirming(false); }}>关闭编辑</button>
         </div>
         {version && !dirty ? <div className="curriculum-diff">

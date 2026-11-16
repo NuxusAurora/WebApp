@@ -81,7 +81,7 @@ describe('authenticated same-origin proxy', () => {
   });
   it('proxies bounded curriculum images and rejects unrelated course routes', async () => {
     const prefix = 'courses/11111111-1111-1111-1111-111111111111/curriculum';
-    const upstream = vi.fn().mockResolvedValue(Response.json({ success: true, data: {} }));
+    const upstream = vi.fn(async () => Response.json({ success: true, data: {} }));
     const request = (body: Uint8Array) => new Request('http://localhost/api/v1/' + prefix + '/images', {
       method: 'POST', headers: { 'X-Requested-With': 'structured-learning', 'Content-Type': 'image/png' }, body: body as BodyInit,
     });
@@ -89,6 +89,14 @@ describe('authenticated same-origin proxy', () => {
     expect((await proxyBusiness(request(new Uint8Array(50 * 1024 * 1024 + 1)), (prefix + '/images').split('/'), upstream, environment)).status).toBe(413);
     expect(upstream).toHaveBeenCalledTimes(1);
     expect((await proxyBusiness(new Request('http://localhost'), (prefix + '/internal').split('/'), upstream, environment)).status).toBe(404);
+    const supplementPath = prefix + '/supplement';
+    const supplement = new Request('http://localhost/api/v1/' + supplementPath, {
+      method: 'POST', body: '{}', headers: { 'X-Requested-With': 'structured-learning', 'Content-Type': 'application/json' },
+    });
+    expect((await proxyBusiness(supplement, supplementPath.split('/'), upstream, environment)).status).toBe(200);
+    expect(upstream).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pathname: '/api/v1/' + supplementPath }), expect.anything(),
+    );
   });
   it('passes local model streams through without buffering and forwards log pagination', async () => {
     const upstream = vi.fn().mockResolvedValue(new Response('data: {"done":true}\n\n', {

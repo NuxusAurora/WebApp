@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 from urllib.parse import unquote
@@ -17,16 +18,18 @@ from app.ai.contracts import AIError, Call, ImageInput, Message
 from app.ai.service import owned_model, prepare
 from app.auth import DB, Actor, Input, limit
 from app.courses import owned, owned_by_id, upload_data
-from app.curriculum.contracts import CurriculumInput, output_schema
+from app.curriculum.contracts import GAP_ID, CurriculumInput, output_schema, supplement_schema
 from app.curriculum.extraction import without_exercise_solutions
-from app.curriculum.models import StructureEvent, StructureVersion, WorkflowRun
+from app.curriculum.gaps import attach_gap_hints, fill_gap, gap_context, get_gap
+from app.curriculum.models import StructureVersion, WorkflowRun
 from app.curriculum.ocr import MAX_IMAGE, normalize_image, normalized_image_type
 from app.curriculum.service import (
-    changes,
     confirm,
     conflict,
+    locked_draft,
     new_draft,
     owned_version,
+    save_draft_edit,
     snapshot,
     version_data,
 )
@@ -39,6 +42,9 @@ PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts" / "curriculum"
 SOLUTION_RULES = (PROMPT_DIR / "exclude-solutions.md").read_text(encoding="utf-8")
 PROMPT = (PROMPT_DIR / "parse-v1.md").read_text(encoding="utf-8") + "\n" + SOLUTION_RULES
 VISION_PROMPT = (PROMPT_DIR / "vision-v1.md").read_text(encoding="utf-8") + "\n" + SOLUTION_RULES
+SUPPLEMENT_PROMPT = (
+    (PROMPT_DIR / "supplement-v1.md").read_text(encoding="utf-8") + "\n" + SOLUTION_RULES
+)
 
 
 class ImagesInput(Input):
@@ -71,11 +77,21 @@ class PatchInput(DraftInput):
     revision: int = Field(ge=1)
 
 
-class ConfirmInput(Input):
+class DraftRevision(Input):
     version_id: UUID
     revision: int = Field(ge=1)
     base_course_revision: int = Field(ge=0)
+
+
+class ConfirmInput(DraftRevision):
     accept_archives: bool = False
+
+
+class SupplementInput(DraftRevision):
+    gap_id: str = Field(pattern=GAP_ID)
+    image_ids: list[UUID] = Field(min_length=1, max_length=5)
+    provider_id: UUID
+    model_id: UUID
 
 
 async def image_records(db, course_id, ids):
@@ -250,28 +266,16 @@ async def current(course_id: UUID, db: DB, actor: Actor):
     )
 
 
-@router.post("/parse", status_code=201)
-async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, actor: Actor):
-    await limit(request, "ai", str(actor.id))
-    course = await owned(db, course_id, actor)
-    actor_id = actor.id
-    base = course.confirmed_revision
-    context = {
-        "textbook": course.textbook,
-        "course_title": course.title,
-        "image_count": len(body.image_ids),
-        "input_mode": body.input_mode,
-    }
-    records = await image_records(db, course_id, body.image_ids)
+async def recognition_images(request, db, course_id, actor_id, image_ids, model_id=None):
+    records = await image_records(db, course_id, image_ids)
     stored_images = [(row.object_key, row.media_type) for row in records]
-    vision = body.input_mode == "images"
-    if vision:
-        model = await owned_model(db, actor_id, body.model_id)
+    if model_id is not None:
+        model = await owned_model(db, actor_id, model_id)
         if not model.capabilities.get("vision"):
             raise AppError("VISION_MODEL_REQUIRED", "请选择已启用图片识别能力的模型")
     await db.rollback()
     inputs = []
-    if vision:
+    if model_id is not None:
         try:
             async with asyncio.timeout(30):
                 for key, media_type in stored_images:
@@ -284,21 +288,11 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
                     )
         except TimeoutError:
             raise AppError("IMAGE_READ_TIMEOUT", "图片读取超时，请重试", 504) from None
-    call = Call(
-        task_type="curriculum_parse",
-        prompt_version="curriculum-vision-v2" if vision else "curriculum-parse-v2",
-        task_context=context,
-        messages=[
-            Message(role="system", content=VISION_PROMPT if vision else PROMPT),
-            Message(
-                role="user", content=body.ocr_text or "按图片顺序提取教材目录，只输出规定 JSON。"
-            ),
-        ],
-        images=inputs,
-        output_schema=output_schema(strict=vision),
-        max_output_tokens=8192,
-        timeout=90,
-    )
+    return inputs
+
+
+@asynccontextmanager
+async def recognize(request, db, course_id, actor_id, body, call, metadata):
     target, sink, log_id = await prepare(
         request, db, actor_id, body.provider_id, body.model_id, call
     )
@@ -309,9 +303,8 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
         "provider_id": str(body.provider_id),
         "model_id": str(body.model_id),
         "log_id": str(log_id),
-        "ocr_text": body.ocr_text,
-        "input_mode": body.input_mode,
         "image_ids": [str(key) for key in body.image_ids],
+        **metadata,
     }
     run_id = uuid4()
     run = WorkflowRun(id=run_id, user_id=actor_id, course_id=course_id, input_data=source)
@@ -325,18 +318,11 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
             sink,
             diagnostics={"request_id": request.state.request_id, "ai_call_id": str(log_id)},
         )
-        extracted = without_exercise_solutions(result.structured)
-        if not extracted["chapters"]:
-            raise AppError(
-                "NO_CURRICULUM_CHAPTERS", "未识别到教材章节，请上传教材目录或检查识别文字", 422
-            )
-        payload = CurriculumInput.model_validate(extracted).model_dump()
-        course = await owned_by_id(db, course_id, actor_id)
-        await image_records(db, course_id, body.image_ids)
         run.status = "SUCCEEDED"
         run.output_data = {"raw_output": result.text, "structured": result.structured}
         run.validation_result = {"valid": True}
-        return ok(await new_draft(db, course, actor_id, payload, source, result.text, base, run_id))
+        # Publishing the draft change and writing the successful audit share a transaction.
+        yield result, source, run_id
     except BaseException as error:
         await db.rollback()
         code = error.code if isinstance(error, (AppError, AIError)) else "INVALID_STRUCTURE"
@@ -364,50 +350,120 @@ async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, act
         raise
 
 
+@router.post("/parse", status_code=201)
+async def parse(course_id: UUID, body: ParseInput, request: Request, db: DB, actor: Actor):
+    await limit(request, "ai", str(actor.id))
+    course = await owned(db, course_id, actor)
+    actor_id, base = actor.id, course.confirmed_revision
+    context = {
+        "textbook": course.textbook,
+        "course_title": course.title,
+        "image_count": len(body.image_ids),
+        "input_mode": body.input_mode,
+    }
+    vision = body.input_mode == "images"
+    inputs = await recognition_images(
+        request, db, course_id, actor_id, body.image_ids, body.model_id if vision else None
+    )
+    call = Call(
+        task_type="curriculum_parse",
+        prompt_version="curriculum-vision-v3" if vision else "curriculum-parse-v2",
+        task_context=context,
+        messages=[
+            Message(role="system", content=VISION_PROMPT if vision else PROMPT),
+            Message(
+                role="user", content=body.ocr_text or "按图片顺序提取教材目录，只输出规定 JSON。"
+            ),
+        ],
+        images=inputs,
+        output_schema=output_schema(strict=vision, with_gaps=vision),
+        max_output_tokens=8192,
+        timeout=90,
+    )
+    metadata = {"ocr_text": body.ocr_text, "input_mode": body.input_mode}
+    async with recognize(request, db, course_id, actor_id, body, call, metadata) as (
+        result,
+        source,
+        run_id,
+    ):
+        extracted = without_exercise_solutions(result.structured)
+        if not extracted["chapters"]:
+            raise AppError(
+                "NO_CURRICULUM_CHAPTERS", "未识别到教材章节，请上传教材目录或检查识别文字", 422
+            )
+        payload = attach_gap_hints(extracted)
+        course = await owned_by_id(db, course_id, actor_id)
+        await image_records(db, course_id, body.image_ids)
+        return ok(await new_draft(db, course, actor_id, payload, source, result.text, base, run_id))
+
+
+@router.post("/supplement")
+async def supplement(
+    course_id: UUID, body: SupplementInput, request: Request, db: DB, actor: Actor
+):
+    await limit(request, "ai", str(actor.id))
+    course = await owned(db, course_id, actor)
+    actor_id = actor.id
+    version = await locked_draft(
+        db, course, body.version_id, body.revision, body.base_course_revision
+    )
+    gap = get_gap(version.payload, body.gap_id)
+    context = gap_context(version.payload, gap)
+    metadata = {"input_mode": "images", "version_id": str(body.version_id), "gap_id": body.gap_id}
+    inputs = await recognition_images(
+        request, db, course_id, actor_id, body.image_ids, body.model_id
+    )
+    call = Call(
+        task_type="curriculum_supplement",
+        prompt_version="curriculum-supplement-v1",
+        task_context={"image_count": len(inputs), "level": context["level"]},
+        messages=[
+            Message(role="system", content=SUPPLEMENT_PROMPT),
+            Message(role="user", content=json.dumps(context, ensure_ascii=False)),
+        ],
+        images=inputs,
+        output_schema=supplement_schema(context["level"] == "sections"),
+        max_output_tokens=8192,
+        timeout=90,
+    )
+    async with recognize(request, db, course_id, actor_id, body, call, metadata) as (
+        result,
+        _,
+        run_id,
+    ):
+        course = await owned_by_id(db, course_id, actor_id)
+        version = await locked_draft(
+            db, course, body.version_id, body.revision, body.base_course_revision
+        )
+        await image_records(db, course_id, body.image_ids)
+        payload = fill_gap(version.payload, body.gap_id, result.structured)
+        return ok(
+            await save_draft_edit(
+                db,
+                course,
+                version,
+                actor_id,
+                payload,
+                details={"gap_id": body.gap_id, "generation_run_id": str(run_id)},
+            )
+        )
+
+
 @router.post("/drafts", status_code=201)
 async def draft(course_id: UUID, body: DraftInput, db: DB, actor: Actor):
     course = await owned(db, course_id, actor)
     if course.confirmed_revision != body.base_course_revision:
         raise conflict()
-    return ok(await new_draft(db, course, actor.id, body.payload.model_dump()))
+    return ok(await new_draft(db, course, actor.id, body.payload.draft_payload()))
 
 
 @router.patch("")
 async def edit(course_id: UUID, body: PatchInput, db: DB, actor: Actor):
     course = await owned(db, course_id, actor)
-    version = await owned_version(db, course_id, body.version_id)
-    if (
-        version.status != "DRAFT"
-        or version.revision != body.revision
-        or version.base_course_revision != body.base_course_revision
-        or course.confirmed_revision != body.base_course_revision
-    ):
-        raise conflict()
-    payload = body.payload.model_dump()
-    summary = await changes(db, course_id, payload)
-    # Compare-and-swap also protects lightweight SQLite test/development databases.
-    value = await db.execute(
-        update(StructureVersion)
-        .where(
-            StructureVersion.id == version.id,
-            StructureVersion.revision == body.revision,
-            StructureVersion.status == "DRAFT",
-        )
-        .values(payload=payload, revision=body.revision + 1, change_summary=summary)
+    version = await locked_draft(
+        db, course, body.version_id, body.revision, body.base_course_revision
     )
-    if value.rowcount != 1:
-        raise conflict()
-    db.add(
-        StructureEvent(
-            version_id=version.id,
-            actor_id=actor.id,
-            action="EDITED",
-            details={"revision": body.revision + 1},
-        )
-    )
-    await db.commit()
-    await db.refresh(version)
-    return ok(version_data(version))
+    return ok(await save_draft_edit(db, course, version, actor.id, body.payload.draft_payload()))
 
 
 @router.post("/confirm")
