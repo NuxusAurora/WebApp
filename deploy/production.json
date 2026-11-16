@@ -1,22 +1,22 @@
 {
-  "revision": "b91409583839c08c58ad0f3ad09e58151fffcb21",
-  "previous_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
-  "image_source_revision": "b91409583839c08c58ad0f3ad09e58151fffcb21",
+  "revision": "3e0c478b78b10c3f4ed40411bbe6198e09757e6a",
+  "previous_revision": "b91409583839c08c58ad0f3ad09e58151fffcb21",
+  "image_source_revision": "3e0c478b78b10c3f4ed40411bbe6198e09757e6a",
   "configuration_source_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:b914095",
-      "id": "sha256:fa9ecacd04e5b2f54b5ecc528ee168e0719068b5da3845eed509263125343164"
+      "source": "webapp-release-backend:3e0c478",
+      "id": "sha256:9690387a7d99878e31f90d9ad501cad3aef7811947ca67548f5436709664cc53"
     },
     "frontend": {
-      "source": "webapp-release-frontend:b914095",
-      "id": "sha256:ba05f0bc5a026858566f3bb942c97e1ef0a05d5ee827acca0b82718f1b398a94"
+      "source": "webapp-release-frontend:3e0c478",
+      "id": "sha256:7dd6b9a0cfaed49fa9028ddb0ce4b33defc7f275e118e68d18bafdc857e899ff"
     }
   },
   "runtime_images": {
-    "backend": "sha256:fa9ecacd04e5b2f54b5ecc528ee168e0719068b5da3845eed509263125343164",
-    "worker": "sha256:fa9ecacd04e5b2f54b5ecc528ee168e0719068b5da3845eed509263125343164",
-    "frontend": "sha256:ba05f0bc5a026858566f3bb942c97e1ef0a05d5ee827acca0b82718f1b398a94",
+    "backend": "sha256:9690387a7d99878e31f90d9ad501cad3aef7811947ca67548f5436709664cc53",
+    "worker": "sha256:9690387a7d99878e31f90d9ad501cad3aef7811947ca67548f5436709664cc53",
+    "frontend": "sha256:7dd6b9a0cfaed49fa9028ddb0ce4b33defc7f275e118e68d18bafdc857e899ff",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -35,20 +35,25 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": false,
-  "data_preservation": "No migration; PostgreSQL, Redis and object storage kept the same container IDs, images and start times. Authenticated QA only read courses and textbook listings.",
+  "data_preservation": "PostgreSQL, Redis and object storage kept the same container IDs, images and start times. The database required no migration.",
   "backup_before_upgrade": "PostgreSQL and object storage backed up with writers stopped, and existing environment copied. Archive listings verified before the switch.",
-  "released_at_utc": "2026-11-16T08:53:52Z",
-  "prompt_sha256": "7f0990ef792a905a07c766d7ebf586ee497bbfd0f5a98b3c84fb78ef461d463c",
+  "released_at_utc": "2026-11-16T09:38:01Z",
+  "curriculum_prompt_sha256": {
+    "vision-v1.md": "5f7663bb8f8141a554013d62a8e1d54d6157c5f9e0bab6344d4457032e992cd5",
+    "supplement-v1.md": "9e3f1bad5e68d54d2b2eae727a7001e11fec487a96ad3b76c45a45a17b4804c1",
+    "exclude-solutions.md": "8c0e18cfc7c345634c6cb8811d2952f96c0513b89786b3f393d6db46b8442ea0"
+  },
   "validation": {
-    "local_frontend": "165 tests, TypeScript and production build passed in Linux Docker.",
-    "local_backend": "215 tests passed, one dedicated concurrency case skipped; Ruff check and format passed.",
+    "local_frontend": "168 tests, TypeScript and production build passed in Linux Docker.",
+    "local_backend": "218 tests passed in Linux Docker, with one dedicated concurrency case skipped. Ruff check and format passed.",
     "deployment_tools": "10 tests passed.",
     "github_ci": "Not run; release source was not pushed.",
     "schema_unchanged": true,
-    "running_prompt_matches_source": true,
+    "running_curriculum_prompts_match_source": true,
     "https_home_health_ready": 200,
     "public_javascript_assets": 8,
-    "anonymous_courses_access": 401,
+    "anonymous_supplement_access": 401,
+    "authenticated_supplement_validation": 422,
     "authenticated_read_only": "Test login, secure cookie flags, course and learning reads, and session revocation on logout verified.",
     "real_provider_call_verified": false
   },
@@ -59,10 +64,10 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 244672719,
+  "cleanup_logical_bytes": 233156014,
   "obsolete_image_tags_removed": [
-    "webapp-release-frontend:e23b66e",
-    "webapp-release-backend:e23b66e"
+    "webapp-release-frontend:b914095",
+    "webapp-release-backend:b914095"
   ],
   "cleanup": "Staged archives and stopped-writer snapshots deleted after acceptance; only current runtime images, data, production environment and source releases retained.",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
@@ -92,19 +97,19 @@
       "verification": "transactional JSON field update and database readback; all other model fields except updated_at, capability tests, provider and encrypted credentials unchanged; no model call"
     }
   ],
-  "frontend_source_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
+  "frontend_source_revision": "3e0c478b78b10c3f4ed40411bbe6198e09757e6a",
   "service_source_revisions": {
-    "frontend": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
-    "backend": "c5fd49ef5fc518c5dc32e677c7389c9cec2e3777",
-    "worker": "c5fd49ef5fc518c5dc32e677c7389c9cec2e3777"
+    "frontend": "3e0c478b78b10c3f4ed40411bbe6198e09757e6a",
+    "backend": "3e0c478b78b10c3f4ed40411bbe6198e09757e6a",
+    "worker": "3e0c478b78b10c3f4ed40411bbe6198e09757e6a"
   },
-  "latest_release_scope": "Pushed master revision: learning conversations and practice, course add status, and course toolbar.",
+  "latest_release_scope": "Batch curriculum uploads, anchored gap supplementation, exclusion of exercise solutions, and workspace motion.",
   "course_detail_labels": [
     "创建课程中",
     "课程概览",
     "目录与小节"
   ],
-  "image_source_revision_scope": "frontend only; backend and worker remain at c439657",
+  "image_source_revision_scope": "frontend, backend and worker",
   "course_list": {
     "delete_entry": "trash icon only at row right; 44x44px; accessible name and confirmation retained",
     "subject_font_px": 18,
