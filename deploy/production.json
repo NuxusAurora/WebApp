@@ -1,21 +1,22 @@
 {
-  "revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
-  "image_source_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
+  "revision": "b91409583839c08c58ad0f3ad09e58151fffcb21",
+  "previous_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
+  "image_source_revision": "b91409583839c08c58ad0f3ad09e58151fffcb21",
   "configuration_source_revision": "e23b66e2d6b3421d0421a5387fa507ed8efda477",
   "images": {
     "backend": {
-      "source": "webapp-release-backend:e23b66e",
-      "id": "sha256:1f4d9fa4fcfeb07b0fcd743a369a4a0e8d9512a15d40c304e1fe1f32fdc8c8a7"
+      "source": "webapp-release-backend:b914095",
+      "id": "sha256:fa9ecacd04e5b2f54b5ecc528ee168e0719068b5da3845eed509263125343164"
     },
     "frontend": {
-      "source": "webapp-release-frontend:e23b66e",
-      "id": "sha256:d3521af22f4be76d87bf88f7459d6ad8547b8ac8c112d0655d68e2c44e8d72c5"
+      "source": "webapp-release-frontend:b914095",
+      "id": "sha256:ba05f0bc5a026858566f3bb942c97e1ef0a05d5ee827acca0b82718f1b398a94"
     }
   },
   "runtime_images": {
-    "backend": "sha256:1f4d9fa4fcfeb07b0fcd743a369a4a0e8d9512a15d40c304e1fe1f32fdc8c8a7",
-    "worker": "sha256:1f4d9fa4fcfeb07b0fcd743a369a4a0e8d9512a15d40c304e1fe1f32fdc8c8a7",
-    "frontend": "sha256:d3521af22f4be76d87bf88f7459d6ad8547b8ac8c112d0655d68e2c44e8d72c5",
+    "backend": "sha256:fa9ecacd04e5b2f54b5ecc528ee168e0719068b5da3845eed509263125343164",
+    "worker": "sha256:fa9ecacd04e5b2f54b5ecc528ee168e0719068b5da3845eed509263125343164",
+    "frontend": "sha256:ba05f0bc5a026858566f3bb942c97e1ef0a05d5ee827acca0b82718f1b398a94",
     "postgres": "sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5",
     "redis": "sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537",
     "storage": "sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
@@ -34,33 +35,21 @@
   "smtp_configured": false,
   "local_data_migrated": false,
   "real_provider_call_verified": false,
-  "data_preservation": "All 13 pre-existing tables matched by row count and sorted SHA-256 digest before and after migration. After authenticated smoke testing the 12 business tables still matched; only the expired test session was purged and QA sessions were removed.",
-  "business_counts": {
-    "ai_call_logs": 13,
-    "ai_models": 1,
-    "ai_providers": 2,
-    "auth_tokens": 0,
-    "chapters": 6,
-    "courses": 2,
-    "knowledge_points": 8,
-    "sections": 33,
-    "structure_events": 14,
-    "structure_versions": 7,
-    "uploads": 5,
-    "users": 1,
-    "workflow_runs": 9
-  },
-  "backup_before_upgrade": "Live database restored in a shadow database for upgrade/downgrade rehearsal; final PostgreSQL, storage and environment snapshots taken with writers stopped and archive structures verified.",
-  "released_at_utc": "2026-11-15T14:15:31Z",
+  "data_preservation": "No migration; PostgreSQL, Redis and object storage kept the same container IDs, images and start times. Authenticated QA only read courses and textbook listings.",
+  "backup_before_upgrade": "PostgreSQL and object storage backed up with writers stopped, and existing environment copied. Archive listings verified before the switch.",
+  "released_at_utc": "2026-11-16T08:53:52Z",
+  "prompt_sha256": "7f0990ef792a905a07c766d7ebf586ee497bbfd0f5a98b3c84fb78ef461d463c",
   "validation": {
-    "local_frontend": "159 tests, TypeScript and production build passed in the test Docker stage at the pushed revision.",
-    "github_ci": "43722231264 passed backend and tooling, then exited in the frontend Compose stage without command details; equivalent frontend stage passed locally.",
-    "database_rehearsal": "Restore, upgrade to head, downgrade and pre-existing table fingerprints passed.",
-    "business_hashes_preserved_across_cutover": true,
-    "business_hashes_preserved_after_qa": true,
+    "local_frontend": "165 tests, TypeScript and production build passed in Linux Docker.",
+    "local_backend": "215 tests passed, one dedicated concurrency case skipped; Ruff check and format passed.",
+    "deployment_tools": "10 tests passed.",
+    "github_ci": "Not run; release source was not pushed.",
+    "schema_unchanged": true,
+    "running_prompt_matches_source": true,
     "https_home_health_ready": 200,
-    "anonymous_learning_access": 401,
-    "authenticated_browser": "Existing test account logged in. Course and learning APIs returned 200. Orange note, search and new-course button shared a row at 1280 and 390 CSS px. Logout restored 401.",
+    "public_javascript_assets": 8,
+    "anonymous_courses_access": 401,
+    "authenticated_read_only": "Test login, secure cookie flags, course and learning reads, and session revocation on logout verified.",
     "real_provider_call_verified": false
   },
   "configuration_hashes": {
@@ -70,10 +59,10 @@
     "deploy/nginx.conf.template": "10afc69bc881b41abc622e704bc8c782f1602da04bb57a45872c90b442807e25",
     "scripts/production.mjs": "657dcff778e065b7ac8f3b49d3a95c0d109fe9cd73881de39264518ce369e0e7"
   },
-  "cleanup_logical_bytes": 470536874,
+  "cleanup_logical_bytes": 244672719,
   "obsolete_image_tags_removed": [
-    "webapp-release-frontend:c51b1e6",
-    "webapp-release-backend:c439657"
+    "webapp-release-frontend:e23b66e",
+    "webapp-release-backend:e23b66e"
   ],
   "cleanup": "Staged archives and stopped-writer snapshots deleted after acceptance; only current runtime images, data, production environment and source releases retained.",
   "nginx_runtime_sha256": "d60d021aae1dc8334b5d0f08618a904534bf44f1f00cbfc30bc655a4876f639c",
